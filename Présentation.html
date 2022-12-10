@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Présentation</title>
+<meta charset="utf-8">
+<style>
+#content, body {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color: black;
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3;
+    word-wrap: break-word;
+    padding: 1rem; max-width:800px; margin:0 auto;
+    background: white;
+}
+h1,h2,h3,h4,h5,h6 { font-family:"Calibri"; line-height: 1.2; color:#37474F;padding-top:0.2rem;padding-bottom:0.2rem;}
+h1 { font-size:2rem; font-weight:200; margin:2rem -0.5rem 1rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 3px solid #37474F; text-align: center;}
+h2 { font-size:1.75rem; font-weight:200; margin:1.75rem -0.5rem 0.75rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #37474F; }
+h3 { font-size:1.5rem; font-weight:200; margin:1.5rem -0.5rem 0.5rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #78909C; }
+h4 { font-size:1.4rem; font-weight:200; margin:1.4rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h5 { font-size:1.3rem; font-weight:200; margin:1.3rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h6 { font-size:1.2rem; font-weight:200; margin:1.2rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+blockquote, p, table, th, td, ul, ol {
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3; text-justify:inter-word;
+}
+em { font-style: italic; }
+strong { font-weight:bold; }
+blockquote { color:#690c03; margin:1rem 0; padding: 0.2rem 0.5rem; border-left:0.4rem solid #690C03; font-style:italic;}
+code, pre { font-family:'Ubuntu Mono'; color:#06065d !important; padding:0 0.2rem; background: white; }
+table, th, td { border: 1px solid #044c70; border-collapse: collapse; padding:0.5em; }
+p { margin:0.3em 0; }
+ul, ol { padding:0 0 0 2rem; margin-top:0.2rem; margin-bottom:0; }
+ol ol, ul ol { list-style-type: lower-roman; }
+ul ul ol, ul ol ol, ol ul ol, ol ol ol { list-style-type: lower-alpha; }
+hr { height:0.2rem; padding:0; margin:1.2rem 0; background-color:#78909C; border: 0 none; }
+li>p { margin-top:0.5rem; }
+h1,h2,h3,h4,h5,h6 { page-break-after:avoid;page-break-inside:avoid; }
+
+</style>
+<p>@@Index général de la documentation - <a href="./index.md">index</a></p>
+<p>@@Introduction - <a href="./README.md">index</a></p>
+<h1 id="vuedensembledelapplication">Vue d'ensemble de l'application</h1>
+<p>Une organisation / association formelle ou informelle peut décider de créer et d'utiliser son propre réseau a-social <code>monresau</code> et a choisi un hébergement. Les personnes peuvent accéder à ce réseau depuis un navigateur par une URL comme https://srv.monhebergeur.net/#/monreseau</p>
+<blockquote>
+  <p>Par économie un même hébergeur peut héberger plusieurs réseaux mais les données de chacun sont totalement étanches aux autres.</p>
+</blockquote>
+<p>Outre le serveur Web hébergeant l'application, le site de l'hébergeur dispose d'un serveur <em>backend</em> gérant la base de données de chaque réseau : par sécurité il ne traite que les opérations émises par l'application issue de son site Web.</p>
+<blockquote>
+  <p>On ne considère par la suite qu'un seul réseau.</p>
+</blockquote>
+<h2 id="avatarssecretsgroupesetcontacts">Avatars, secrets, groupes et contacts</h2>
+<p>Pour pouvoir accéder à l'application une personne doit <strong>se faire parrainer par une autre y ayant déjà un compte</strong>. Un <em>parrainage</em> est identifié par une <em>phrase de parrainage</em> : parrain et filleul se sont concertés sur le nom souhaité par le filleul, par exemple <code>Charles</code> et la phrase qui reste secrète entre eux, par exemple <code>le hibou n'est pas chouette</code>. </p>
+<p>Le filleul peut créer son compte en fournissant cette phrase de parrainage et en déclarant sa <strong>phrase secrète de connexion</strong>:</p>
+<ul>
+<li>elle est constituée de 2 lignes d'au moins 16 caractères.</li>
+<li>elle reste uniquement dans la tête du titulaire, n'est enregistrée sous aucune forme nulle-part : elle peut être changée à condition de pouvoir fournir celle actuelle.</li>
+<li>elle crypte toutes les données du compte aussi bien dans la base centrale que dans les micro bases locales de chacun des navigateurs utilisés par le compte. Un piratage des appareils des titulaires des comptes ou de la base centrale centrale ne donnerait au <em>pirate</em> que des informations indéchiffrables.</li>
+</ul>
+<blockquote>
+  <p><em>Revers de cette sécurité</em> : si la personne titulaire d'un compte oublie sa <strong>phrase secrète de connexion</strong>, elle est ramenée à l'impuissance du pirate. Son compte s'autodétruira un jour et toutes ses données et secrets disparaîtront.</p>
+</blockquote>
+<h3 id="avatarsprincipaletsecondaires">Avatars principal et secondaires</h3>
+<p>En créant son compte, le titulaire a créé son <strong>avatar principal</strong>. Un avatar dispose:</p>
+<ul>
+<li>d'un <em>numéro</em> identifiant de 15 chiffres aléatoire et immuable ne portant aucune information utile.</li>
+<li>d'un <strong>nom</strong> lui-même aussi immuable, par exemple <code>Charles</code>.</li>
+<li>d'une <strong>carte de visite</strong> constituée d'une photo facultative et d'un court texte, par exemple <code>Charles III, roi des esturgeons et d’Écosse</code>, tous deux modifiables uniquement par son titulaire.</li>
+</ul>
+<p>Ultérieurement le titulaire du compte pourra créer des <strong>avatars secondaires</strong>, chacun ayant un numéro, un nom et une carte de visite. Il pourra ensuite utiliser à son gré l'un ou l'autre de ses avatars, ayant de ce fait plusieurs personnalités.</p>
+<blockquote>
+  <p><strong>Le titulaire du compte est le seul à pouvoir connaître la liste de ses avatars</strong>: un autre compte connaissant deux avatars n'est jamais en mesure de savoir s'ils correspondent au même titulaire ou non et même l'administrateur technique du site ne peut pas s'affranchir de cette contrainte assise sur une cryptographie forte.</p>
+</blockquote>
+<p>Un avatar <em>connaissant</em> un autre avatar accède à son <em>identité complète</em> à savoir son <strong>nom</strong> et <strong>sa carte de visite</strong> en plus de son numéro. Ces identités sont cryptées et ne sont échangés qu'entre des avatars l'ayant assumé consciemment.</p>
+<blockquote>
+  <p>Comme dans la vraie vie <strong>plusieurs avatars peuvent porter le même "nom"</strong>, les homonymes sont possibles : à l'écran la fin du numéro identifiant permet certes de distinguer <code>Charles 9476</code> et <code>Charles 5432</code> mais ce sont surtout les cartes de visite de chacun qui donneront des informations pertinentes pour distinguer Charles "le <em>général</em>" de Charles "<em>le roi des esturgeons</em>".</p>
+</blockquote>
+<h3 id="secrets">Secrets</h3>
+<p><strong>Un secret est un texte</strong> d'au plus 5000 caractères pouvant être interprété avec un minimum de <em>décoration</em>, gras, italique, titres, listes … Ce texte est modifiable.</p>
+<p><strong>Des fichiers peuvent être attachés à un secret</strong> : beaucoup de types de fichiers (<code>.jpg .mp3 .mp4 .pdf ...</code> s'affichent directement dans le navigateur. Il est possible d'ajouter et de supprimer des fichiers attachés à un secret et de disposer de plusieurs fichiers portant un même nom dans le secret afin d'en gérer des révisions successives si souhaité.</p>
+<blockquote>
+  <p>Un avatar peut se créer des secrets <strong>personnels</strong>, les mettre à jour, les supprimer, les indexer par des mots clés personnels. Ces secrets sont cryptés comme toutes les données des compte et seul le titulaire du compte a la clé de cryptage apte à les décrypter, laquelle ne pouvant être obtenue qu'en ayant fourni la phrase secrète en se connectant au compte.</p>
+</blockquote>
+<h3 id="contacts">Contacts</h3>
+<blockquote>
+  <p>Si elle se limitait à ça, l'application ne permettrait que d'avoir ses propres petits secrets, cryptés connus de soi-même et dont les textes, les fichiers attachés et leur existence même, seraient totalement <em>privés</em>. C'est intéressant, mais les gens adorent partager des secrets c'est bien connu …</p>
+</blockquote>
+<p><strong>Un avatar dispose d'une liste de contacts</strong>, d'autres avatars dont il connaît a minima le nom et la carte de visite. L'avatar principal d'un compte a <strong>au moins un</strong> contact : celui de l'avatar qui l'a parrainé, lui-même ayant ce <em>filleul</em> dans ces contacts.</p>
+<p>Pour qu'un contact soit établi entre deux avatars il faut qu'ils l'acceptent tous deux: un contact est obligatoirement <strong>mutuel</strong>.</p>
+<p><strong>Un contact une fois établi dure jusqu'à disparition des deux avatars en contact</strong>. Toutes les données de contact sont cryptées par une clé tirée au sort et détenue cryptée uniquement par les deux avatars en contacts. Hormis les intéressés, personne, pas même l'administrateur de l'hébergement, n'a les moyens cryptographiques pour savoir qui est en contact avec qui.</p>
+<p><strong>Deux avatars en contact partagent une <em>ardoise commune</em></strong> sur laquelle ils peuvent inscrire un texte d'au plus 250 caractères.</p>
+<p><strong>Deux avatars en contact <em>peuvent</em> partagés des secrets</strong>, comme des secrets personnels, si ce n'est qu'ils sont deux à y avoir accès, à pouvoir les mettre à jour et les supprimer. </p>
+<p>Chacun des deux avatars en contact peut indexer les secrets partagés par ses propres mots clés, cette indexation est inconnue de l'autre.</p>
+<h4 id="rendezvous">Rendez-vous</h4>
+<p>Outre le fait d'être contact par parrainage, deux avatars peuvent <em>prendre rendre-vous</em> en s'étant échangé une phrase de reconnaissance, par exemple <code>la framboise est fragile cette année</code>.</p>
+<ul>
+<li>soit les personnes se sont rencontrées par ailleurs dans la vraie vie ou sur un réseau public quelconque et y ont défini en commun cette phrase,</li>
+<li>soit les deux avatars ont un <em>contact commun</em> qui leur a proposé une phrase de reconnaissance.</li>
+</ul>
+<p>Un des deux avatars entre le premier cette phrase, l'autre le fait ensuite un peu plus tard, mais pas trop la phrase a une durée de vie limitée. Ce faisant il accepte, ou refuse, l'établissement du contact mutuel. Les deux avatars ont désormais accès au nom et à la carte de visite de l'autre, partage une ardoise et, si c'est leurs souhaits, partagent des secrets.</p>
+<h3 id="groupes">Groupes</h3>
+<p>Un avatar peut créer un <strong>groupe</strong> dont il sera le premier membre et <em>animateur</em>. Un groupe a un numéro interne, un nom immuable et une carte de visite.</p>
+<p>Un animateur peut <em>inviter</em> des avatars qu'il connaît, soit de ses contacts, soit des membres d'autres groupes dont il est membre, à rejoindre le groupe en tant que <em>simple lecteur</em>, <em>auteur</em> ou <em>animateur</em> : un lecteur n'a que les droits de lecture, un auteur peut créer et mettre à jour des secrets du groupe et un animateur en plus d'être auteur peut inviter des avatars.</p>
+<p><strong>Chaque membre du groupe dispose d'une ardoise</strong> sur laquelle échanger des textes d'au plus 250 caractères avec les autres membres du groupe. Dans un groupe, chacun voit la liste de ses membres et leurs cartes de visite.</p>
+<p><strong>Chaque membre du groupe peut créer, modifier et supprimer des secrets du groupe.</strong></p>
+<ul>
+<li>ces secrets sont cryptés par une clé aléatoire spécifique au groupe qui a été transmise lors de l'invitation d'un membre au groupe.</li>
+<li>hormis les membres du groupe, personne ne peut accéder aux secrets ni même savoir que le groupe existe.</li>
+<li>quand un nouveau membre accepte une invitation au groupe il a immédiatement accès à tous les secrets du groupe et quand il est résilié, ou s'est auto-résilié, il n'a plus accès à aucun de ceux-ci.</li>
+</ul>
+<p>Un membre peut attacher ses propres mots clés à un groupe faciliter sa recherche quand il est membre de beaucoup de groupes.</p>
+<p>Il peut aussi attacher ses propres mots clés aux secrets du groupe pour sélectionner plus rapidement les secrets qu'il recherche, par centre d'intérêt, importance, etc.</p>
+<h1 id="modessynchronisincognitoetavion">Modes <em>synchronisé</em>, <em>incognito</em> et <em>avion</em></h1>
+<p>L'application invoquée depuis un navigateur y est automatiquement mémorisée : au prochain appel, étant déjà présente en local, elle ne chargera éventuellement que le minimum nécessaire pour se mettre à niveau de la version la plus récente.</p>
+<p>Pour se connecter à son compte, le titulaire choisit d'abord sous quel <strong>mode</strong> sa session va s'exécuter: <em>synchronisé</em>, <em>avion</em> ou <em>incognito</em>.</p>
+<h4 id="modesynchronis">Mode synchronisé</h4>
+<p>C'est le mode préférentiel où toutes les données du compte sont récupérées depuis une micro base locale cryptée dans le navigateur puis mise à jour depuis le serveur central pour celles qui sont plus récentes. Durant la session la micro base locale est maintenue à jour, y compris lorsque d'autres sessions s'exécutent en parallèle sur d'autres navigateurs et mettent à jour les données du compte : par exemple quand un secret de groupe est mis à jour par un autre membre du groupe.</p>
+<p>La connexion ultérieure à un compte ainsi synchronisé est rapide, l'essentiel des données étant déjà dans le navigateur, seules quelques <em>nouveautés</em> étant tirées du serveur central.</p>
+<h4 id="modeavion">Mode avion</h4>
+<p>Pour que mode fonctionne il faut qu'une session antérieure en mode <em>synchronisé</em> ait été exécutée dans ce navigateur. L'application présente à l'utilisateur l'état dans lequel étaient ses données à la fin de cette dernière session.</p>
+<p><strong>L'application ne fonctionne qu'en lecture</strong>, aucune mise à jour n'est possible. Aucun accès à Internet n'est effectué, ce qui est précieux <em>en avion</em> ou dans les <em>zones blanches</em> ou quand l'Internet est suspecté d'avoir des grandes oreilles indiscrètes : certes tout est crypté et illisible mais en mode avion personne ne peut même savoir que vous accédez à vos secrets.</p>
+<p>En mode avion les fichiers attachés aux secrets ne sont pas accessibles, <strong>sauf</strong> ceux qui ont été déclarés devoir l'être. Cette déclaration s'effectue fichier par fichier pour chaque appareil et ils sont mis à niveau à l'occasion de chaque session en mode <em>synchronisé</em>.</p>
+<blockquote>
+  <p>Il est même conseillé de couper le réseau (le mode <em>avion</em> sur un mobile), de façon à ce que l'ouverture de l'application ne cherche même pas à vérifier si une version plus récente est disponible.</p>
+</blockquote>
+<h4 id="modeincognito">Mode incognito</h4>
+<p><strong>Aucun stockage local n'est utilisé, toutes les données viennent du serveur central</strong>, l'initialisation de la session est plus longue qu'en mode synchronisé. Aucune trace n'est laissée sur l'appareil (utile au cyber-café ou sur le mobile d'un.e ami.e) : certes les traces en question sont inutilisables car cryptées, mais il n'est pas poli d'encombrer la mémoire d'un appareil qu'on vous a prêté.</p>
+<blockquote>
+  <p>Il est même conseillé d'utiliser le mode <em>page privée</em> de votre navigateur, ainsi même le code de l'application sera effacé en fermant la page.</p>
+  <p><strong>En utilisant des sessions synchronisées sur plusieurs appareils, on a autant de copies synchronisées de ses secrets sur chacun de ceux-ci</strong>, et chacun peut être utilisé en mode avion. Les copies ne sont pas exactement les mêmes, les <em>photographies</em> de l'état des données du compte ne pouvant pas être effectuées exactement à la même micro seconde.</p>
+</blockquote>
+<h1 id="matrisedesvolumesparlesquotaslecomptableetlestribus">Maîtrise des volumes par les quotas: le Comptable et les tribus</h1>
+<h2 id="quotasdevolumesautoriss">Quotas de volumes autorisés</h2>
+<p>Il y a deux types de quotas :</p>
+<ul>
+<li>le quota V1 fixe un maximum d'espace utilisable pour les textes des secrets.</li>
+<li>le quota V2 fixe un maximum d'espace utilisable pour les fichiers attachés aux secrets.</li>
+</ul>
+<blockquote>
+  <p>Les volumes V1 sont 10 fois plus coûteux au méga-octet que les volumes V2 : mais les fichiers peuvent facilement être très volumineux. Le coût d'utilisation dépend de ce que chacun met en secrets et en fichiers attachés.</p>
+  <p><strong>Tout compte dispose de quotas V1 et V2</strong> qu'il peut répartir entre son avatar principal et ses avatars secondaires. Les volumes effectivement utilisés ne peuvent pas dépasser les quotas attribués.</p>
+</blockquote>
+<p>Comme tout est anonyme même pour les fonctions d'administration techniques, la mise en place de <em>quotas préalables</em> est le seul moyen pour contenir l'inflation des volumes qui sinon pourrait permettre à quelques comptes de siphonner toutes les ressources techniques sans qu'il sot possible de savoir à qui s'adresser réellement pour rétablir une nécessaire modération.</p>
+<h2 id="lecompteducomptable">Le compte du "Comptable"</h2>
+<p>A l'installation d'un réseau, son responsable a donné à l'administrateur de l'hébergement une <em>clé</em> que ce dernier a inscrite dans la configuration de l'hébergement. La base centrale du réseau est vide et inutilisable.</p>
+<p>Une seule opération est possible dans cet état :la création du <strong>Comptable</strong> protégée par une phrase secrète inconnue de l'administrateur de l'hébergement. Le <em>brouillage</em> de cette phrase doit correspondre à la <em>clé</em> enregistrée afin de se prémunir contre une création frauduleuse.</p>
+<p>Ce compte ne peut pas être supprimé, il a un numéro fixe reconnaissable et a pour nom d'avatar principal <code>Comptable</code>.</p>
+<p>C'est un compte <em>presque</em> normal en ce sens qu'il peut avoir des secrets, des contacts, participer à des groupes, créer des avatars secondaires, etc. Mais il a quelques privilèges importants.</p>
+<blockquote>
+  <p>Le <strong>Comptable</strong> n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les secrets des avatars des comptes : ce n'est en aucune façon un modérateur et n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars et des comptes, exceptés ceux qu'il a en tant que compte <em>normal</em>.</p>
+</blockquote>
+<h3 id="lestribus">Les tribus</h3>
+<p>Le Comptable peut déclarer des <strong>tribus</strong> avec un code et un commentaire pour lui. Il attribue des quotas V1 et V2 à chaque tribu, de manière à ce que la somme des quotas attribués ne dépasse pas les quotas globaux convenus avec l'administrateur de l'hébergement en fonction de leurs accords sur la participation éventuelle aux coûts d'hébergement.</p>
+<p>Le Comptable peut parrainer des comptes:</p>
+<ul>
+<li>il les affecte à une des tribus et leur donne des quotas prélevés sur les quotas de la tribu.</li>
+<li>le compte parrainé est en général un compte déclaré <strong>parrain</strong> de sa tribu, mais ce n'est pas obligatoire. Le Comptable peut retirer cet attribut <em>parrain</em> ou l'attribuer.</li>
+</ul>
+<p>Un compte <strong>parrain de sa tribu</strong> peut parrainer des comptes filleuls, non parrains de la tribu car c'est un privilège du Comptable. A cette occasion des quotas sont attribués au filleul parrainé, ils sont prélevés sur les quotas de la tribu. Un parrain d'une tribu peut ensuite ajuster les quotas attribués aux filleuls.</p>
+<blockquote>
+  <p>La gestion des quotas s'effectue donc à deux niveaux en décentralisant la maîtrise de ceux-ci au niveau des tribus.</p>
+  <p>Le Comptable ne connaît habituellement pas les comptes filleuls créés par les parrains des tribus. Toutefois un compte filleul peut demander à être contact mutuel avec le Comptable, à condition que celui-ci accepte.</p>
+</blockquote>
+<h3 id="lechataveclecomptable">Le "chat" avec le Comptable</h3>
+<p>Si le ou les parrains d'une tribu disparaissent, ou sont muets … ceci peut perturber gravement la fonctionnement des comptes de la tribu faute de pouvoir gérer des quotas et leurs augmentations justifiées.</p>
+<p>Tout compte peut ouvrir un fil de "chat" avec le Comptable : cette discussion par très courts échanges permet au Comptable d'agir si nécessaire, d'attribuer un privilège de <em>parrain</em> à un compte, de changer un compte de tribu, etc. bref de débloquer une situation exceptionnelle.</p>
+<p>Le fil d'un "chat" avec un compte quelconque est vite détruit dès qu'il n'est plus actif : durant la <em>fenêtre</em> ou ce fil est actif, le Comptable <em>peut</em> établir un contact durable avec le compte du fil, à condition que celui-ci l'accepte. Si aucun contact n'a été établi, le Comptable ne connaît plus rien de ce compte et n'a plus de moyen de l'interpeller.</p>
+<h1 id="processusdeblocagedestribusetdescomptes">Processus de blocage des tribus et des comptes</h1>
+<p>Le <strong>Comptable</strong> peut avoir diverses raisons de vouloir <strong>bloquer</strong> une tribu :</p>
+<ul>
+<li><strong>comptable</strong>. La <em>tribu</em> n'acquitte plus la part convenue du financement de l'hébergement.</li>
+<li><strong>volume</strong>. Les quotas de la tribu doivent être révisés en baisse mais les volumes occupés excède la cible souhaitée.</li>
+<li><strong>organisation</strong>. La <em>tribu</em> est associée à une entité de l'organisation qui a été dissoute, injonction légale.</li>
+<li><strong>autre</strong>: suppression programmée de la tribu.</li>
+</ul>
+<p>Un <strong>parrain d'une tribu</strong> peut avoir diverses raisons de vouloir <strong>bloquer</strong> un compte :</p>
+<ul>
+<li><strong>comptable</strong>. Le <em>compte</em> n'acquitte plus auprès de la tribu la cotisation convenue.</li>
+<li><strong>volume</strong>. Les quotas du compte doivent être révisés en baisse mais les volumes occupés excède la cible souhaitée.</li>
+<li><strong>organisation</strong>. Le <em>compte</em> a quitté l'organisation qui exige que son compte soit bloqué.</li>
+<li><strong>autre</strong>, décès …</li>
+</ul>
+<blockquote>
+  <p>Le Comptable peut aussi gérer le blocage d'un compte, les parrains ne peuvent plus alors y intervenir.</p>
+</blockquote>
+<p>Un blocage, sauf exception, ne va pas directement interdire tout accès à un compte, ou à tous les comptes d'une tribu pour un blocage de niveau tribu: une graduation est définie.</p>
+<ul>
+<li><strong>(1)-Alerte informative</strong>. Le compte continue à vivre normalement mais un panneau de pop-up s'affiche régulièrement au cours des sessions pour rappeler la raison de la procédure en cours et le temps restant avant d'atteindre les niveaux plus graves suivants.</li>
+<li><strong>(2)-Restriction de volume</strong>. Le compte ne peut plus créer de secrets, ni mettre à jour des secrets avec un texte plus long, ni attacher un nouveau fichier à un secret plus volumineux que celui qu'il supprime à cette occasion. Bref le volume utilisé du compte ne peut <em>que</em> baisser, typiquement jusqu'à ce qu'il atteigne la cible proposée.  </li>
+<li><strong>(3)-Passif (3)</strong>. Le compte ne peut plus que consulter ses données (comme en mode <em>avion</em>) mais conserve la possibilité de converser avec le comptable par le <em>chat</em>.</li>
+<li><strong>(4)-Bloqué (4)</strong>. Le compte est bloqué et son titulaire ne peut plus rien consulter. Il ne conserve que la possibilité de converser avec le comptable par le <em>chat</em>.</li>
+</ul>
+<blockquote>
+  <p><strong>Quand une procédure de blocage est en cours sur un compte, le délai de <em>péremption</em> du compte commence à courir</strong>, comme si le titulaire du compte ne se connectait plus à l'application. Au bout d'un an sans activité, un compte disparaît. Ne pas intervenir par passivité pour régler une procédure de blocage en cours se termine toujours par une issue fatale pour le compte.</p>
+</blockquote>
+</body>
+</html>

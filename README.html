@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>README</title>
+<meta charset="utf-8">
+<style>
+#content, body {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color: black;
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3;
+    word-wrap: break-word;
+    padding: 1rem; max-width:800px; margin:0 auto;
+    background: white;
+}
+h1,h2,h3,h4,h5,h6 { font-family:"Calibri"; line-height: 1.2; color:#37474F;padding-top:0.2rem;padding-bottom:0.2rem;}
+h1 { font-size:2rem; font-weight:200; margin:2rem -0.5rem 1rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 3px solid #37474F; text-align: center;}
+h2 { font-size:1.75rem; font-weight:200; margin:1.75rem -0.5rem 0.75rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #37474F; }
+h3 { font-size:1.5rem; font-weight:200; margin:1.5rem -0.5rem 0.5rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #78909C; }
+h4 { font-size:1.4rem; font-weight:200; margin:1.4rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h5 { font-size:1.3rem; font-weight:200; margin:1.3rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h6 { font-size:1.2rem; font-weight:200; margin:1.2rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+blockquote, p, table, th, td, ul, ol {
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3; text-justify:inter-word;
+}
+em { font-style: italic; }
+strong { font-weight:bold; }
+blockquote { color:#690c03; margin:1rem 0; padding: 0.2rem 0.5rem; border-left:0.4rem solid #690C03; font-style:italic;}
+code, pre { font-family:'Ubuntu Mono'; color:#06065d !important; padding:0 0.2rem; background: white; }
+table, th, td { border: 1px solid #044c70; border-collapse: collapse; padding:0.5em; }
+p { margin:0.3em 0; }
+ul, ol { padding:0 0 0 2rem; margin-top:0.2rem; margin-bottom:0; }
+ol ol, ul ol { list-style-type: lower-roman; }
+ul ul ol, ul ol ol, ol ul ol, ol ol ol { list-style-type: lower-alpha; }
+hr { height:0.2rem; padding:0; margin:1.2rem 0; background-color:#78909C; border: 0 none; }
+li>p { margin-top:0.5rem; }
+h1,h2,h3,h4,h5,h6 { page-break-after:avoid;page-break-inside:avoid; }
+
+</style>
+<p>@@Index général de la documentation - <a href="./index.md">index</a></p>
+<p>Une association formelle ou informelle de personnes peut utiliser cette application pour déployer <strong>son propre Réseau A-social</strong> ayant des caractéristiques opposées à celles des réseaux dits <em>sociaux</em>.</p>
+<p><strong>Une personne ne peut y ouvrir un compte qu'en étant <em>parrainée</em></strong> par une autre ayant déjà un compte, l'entrée dans le réseau ne se fait que par cooptation individuelle. Chacun s'y auto-présente sous la forme d'un ou plusieurs avatars ayant une <em>carte de visite</em> où chacun est libre d'y inscrire ou non une de ses identités dans le <em>vrai monde</em> ou le monde virtuel des réseaux sociaux. </p>
+<p><strong>Il est impossible de connaître la liste des participants au réseau</strong>, ni par leur nom, ni par aucun autre critère intelligible: on n'y connaît que ceux de son cercle de connaissances où toutes l'ont explicitement accepté.</p>
+<p>Un compte utilise son réseau pour y inscrire des <strong>secrets</strong> -un texte de moins de 5000 signes et facultativement des fichiers attachés-:</p>
+<ul>
+<li><strong>secrets personnels</strong> connus de lui seul.</li>
+<li><strong>secrets partagés avec un <em>contact</em></strong>, un autre compte ayant explicitement accepté d'être contact mutuel avec lui.</li>
+<li><strong>secrets partagés avec un <em>groupe</em></strong> dont les membres ont tous été invités et ont tous acceptés de partager les secrets du groupe et leur identité.</li>
+</ul>
+<p><strong>Le réseau est crypté par un ensemble de règles cryptographiques fortes</strong>: la connection au réseau d'un compte requiert que son titulaire fournisse sa <em>phrase secrète de connexion</em>, stockée nulle part ailleurs que dans sa tête. Toutes les informations qui le concerne sont fortement cryptées et les algorithmes de cryptographie sont insensibles à toute forme de pression humaine. De même par exemple les secrets partagés dans un groupe ne peuvent être décryptés que par les membres du groupe ayant reçu la clé de cryptage à l'occasion de leur invitation au groupe. Aucune clé de cryptage ne circule en clair sur le réseau, n'est disponible sur le serveur central ni n'est mémorisée, même localement en clair.</p>
+<p>En cas de vol de la base centrale de données du réseau, personne n'est techniquement en mesure de savoir, qui sont les comptes, qui est en contact avec qui, qui est membre de quel groupe. Une myriade de clés de cryptages non stockées dans la base garantit cette confidentialité cloisonnée à l'extrême.</p>
+<p>Un tel réseau est un réseau <em>privé</em>, <strong>a-social</strong>, de cercles réduits de connaissances et où chacun a choisi explicitement ce qu'il partageait avec qui. Un réseau peut avoir quelques milliers de comptes, mais pas quelques millions ce qui n'aurait aucun sens : ce qui en a c'est de multiplier les réseaux.</p>
+<p>@@Présentation générale de l'application - <a href="./Présentation.md">Présentation</a></p>
+</body>
+</html>
