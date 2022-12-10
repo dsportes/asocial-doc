@@ -47,9 +47,22 @@ Présentation en Collections / Documents :
         /Collection `transferts`  (pas synchronisées en session)
           Document `transfert`    id ids **dlv
 
-Tous les documents, sauf `transferts`, ont un attribut _data_ qui porte les informations sérialisées du document. Par facilité il lui en est ajouté un qui est désérialisé en `{}`
+    Collection  Attrs non indexés     Attrs indexés     Attrs collectionGroup
+    singletons  _data_
+    gcvols      id _data_
+    tribus      id v _data_           iv dh dhb
+    comptas     id v _data_           iv idt idtb hps1
+    avatars     id v vcv _data_       iv ivc dds
+    secrets     id ids v _data_       iv
+    transferts  id ids                                  dlv
+    rdvs        id v ttl _data_       iv                ids
+    chats       id ids v ttl _data_   iv
+    groupes     id v ttl _data_       iv dds dfh
+    membres     id ids v _data_       iv
+
+Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`), qui porte les informations sérialisées du document.
 - les attributs externalisés hors de _data_ le sont parce qu'ils sont utilisés comme identifiants et / ou champs indexés.
-- les attributs `iv ivc ivb` ne sont toutefois pas explicitement présents dans _data_ étant calculables très simplement depuis `id, v, vcv, bloc`.
+- les attributs `iv ivc idtb dhb` ne sont toutefois pas explicitement présents dans _data_ étant calculables très simplement depuis `id, v, vcv, dh, bloc`.
 
 #### Documents d'une collection majeure
 Les documents _majeurs_ sont ceux des collections `tribus comptas avatars groupes`.

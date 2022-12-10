@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "singletons" (
 );
 
 CREATE TABLE IF NOT EXISTS "gcvols" (
-  "id"	INYEGER,
+  "id"	INTEGER,
   "_data_"	BLOB,
   PRIMARY KEY("id")
 ) WITHOUT ROWID;
@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS "avatars" (
   "id"	INTEGER,
   "v" INTEGER,
   "iv" INTEGER,
+  "vcv" INTEGER,
   "ivc" INTEGER,
   "dds" INTEGER,
   "_data_"	BLOB,
