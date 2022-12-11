@@ -194,45 +194,27 @@ A la connexion d'un compte, si sa `dds` précédente a plus de 30 jours, il sign
 Elle signale un changement de statut majeur du groupe et au bout d'un certain temps le groupe sera purgé par le batch de nettoyage.
 
 ### Authentification
-Toute opération porte un `sessionId`, un numéro de session tiré au sort par la session et qui change à chaque déconnexion.
-- si le serveur retrouve dans la mémoire cache de l'instance `sessionId` :
+Sauf les créations de compte qui ne sont pas authentifiées (elles vont justement enregistrer leur authentification), toutes les autres opérations doivent l'être.
+
+>**En mode SQL**, un WebSocket a été ouvert avec une sessionId : dans tous les cas, même les opérations qui n'ont pas à être authentifiées, doivent porter un token pourtant sessionId afin de vérifier l'existence du socket ouvert.
+
+Toute opération porte un `token` portant lui-même un `sessionId`, un numéro de session tiré au sort par la session et qui change à chaque déconnexion.
+- si le serveur retrouve dans la mémoire cache l'enregistrement de la session `sessionId` :
   - il en obtient l'id du compte,
   - il prolonge la `ttl` de cette session dans cette cache.
 - si le serveur ne trouve pas la `sessionId`, 
   - soit il y en bien une mais dans une autre instance, 
-  - soit c'est une déconnexion pour dépassement de `ttl` de cette session,
-  - soit c'est une création de compte,
-  - soit c'est une connexion de compte.
+  - soit c'est une déconnexion pour dépassement de `ttl` de cette session.
+  Dans les deux cas l'authentification va être refaite le `token` fourni.  
 
-**Opération de connexion** (l'id du compte est inconnue)
-- elle transmet un `jeton` constitué de:
-  - `sessionId`
-  - `shax` : SHA de X, le PBKFD de la phrase complète.
-  - `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète.
-- le serveur recherche l'id du compte par `hps1` (index de `compta`)
-  - vérifie que le SHA de `shax` est bien celui enregistré dans `compta` en `shay`.
-  - inscrit en mémoire `sessionId` avec l'id du compte et un `ttl`.
+**`token`**
+- `sessionId`
+- `shax` : SHA de X, le PBKFD de la phrase complète.
+- `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète.
 
-**Opération courante** (l'id du compte est connue)
-- elle transmet un `jeton` constitué de:
-  - `sessionId`
-  - `shax` : SHA de X, le PBKFD de la phrase complète
-  - `id` : id du compte
-- le serveur recherche l'id du compte par id (clé de `compta`)
-  - vérifie que le SHA de `shax` est bien celui enregistré dans `compta` dans `shay`.
-  - inscrit en mémoire `sessionId` avec l'id compte et un `ttl`.
-
-**Opération de création d'un compte** par acceptation de parrainage ou création du comptable (l'id du compte est connue)
-- elle transmet un `jeton` constitué de:
-  - `sessionId`
-  - `shax` : SHA de X, le PBKFD de la phrase complète.
-  - `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète.
-  - `id` : id du compte.
-- le serveur: 
-  - vérifie par `compta` qu'il n'y pas déjà un compte avec `hps1` (index de `compta`).
-  - vérifie par `compta` qu'il n'y en pas par `id` (ce qui serait un bug).
-  - créé `compta etc` en enregistrant dans `compta` : `shay` (le SHA de shax), `hps1`
-  - inscrit en mémoire `sessionId` avec l'id du compte et un `ttl`.
+Le serveur recherche l'id du compte par `hps1` (index de `comptas`)
+- vérifie que le SHA de `shax` est bien celui enregistré dans `compta` en `shay`.
+- inscrit en mémoire `sessionId` avec l'id du compte et un `ttl`.
 
 ### Purge des _disparus_
 La purge d'une **tribus** est déclenchée explicitement par le comptable sur une tribu n'ayant plus de comptas.
