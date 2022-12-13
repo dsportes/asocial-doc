@@ -475,7 +475,7 @@ Le document est mis à jour très fréquemment:
 - `nctk` : nom complet `[nom, rnd]` de la tribu crypté,
   - soit par la clé K du compte,
   - soit par la clé publique de son avatar primaire après changement de tribu par le comptable.
-- `lavk` [] : array des avatars du compte cryptée par la clé K, position d'un avatar dans la liste donnée par le dernier chiffre de son id. `[nom, cle, cpriv]`
+- `lavk` `[nom, cle, cpriv]` : array des avatars du compte cryptée par la clé K, position d'un avatar dans la liste donnée par le dernier chiffre de son id. `[nom, cle, cpriv]`
   - `nom cle` : nom complet de l'avatar.
   - `cpriv` : clé privée asymétrique.
 - `mck` {} : map des mots-clés du compte cryptée par la clé K
