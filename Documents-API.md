@@ -516,7 +516,7 @@ Le document est mis à jour très fréquemment:
   - _valeur_ : cryptée par la clé publique de l'avatar `[nom, cle, im]`.
   - une entrée est effacée par l'annulation de l'invitation du membre au groupe ou sur acceptation ou refus de l'invitation.
 - `pck` : phrase de contact cryptée par la clé K.
-- `hpc` : hash du PBKFD de la phrase de contact.
+- `hpc` : hash du PBKFD de la phrase de contact.  
 - `dlpc` : date limite de validité de la phrase de contact.
 - `napc` : [nom, cle] de l'avatar cryptée par le PBKFD de la phrase de contact.
 
