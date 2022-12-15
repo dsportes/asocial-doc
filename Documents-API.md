@@ -442,22 +442,20 @@ _data_:
 - `id` : numéro de la tribu
 - `v` : sa version
 - `dh` : date-heure dernière modification.
-- `bloc` : niveau de blocage pour la tribu. N'est pas défini / indexé en l'absence de blocage.
+- `dhb` : =dh quand la tribu est bloquée
 
 - `nbc` : nombre de comptes actifs dans la tribu.
 - `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
 - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
-- `datak` : cryptée par la clé K du comptable :
-  - `[nom, rnd]`: nom immuable et clé de la tribu.
-  - `info` : commentaire privé du comptable.
+- `infok` : commentaire privé du comptable crypté par la clé K du comptable :
 - `mncpt` : map des noms complets des parrains:
   - _clé_ : `id` du parrain.
   - _valeur_ :
-    - `nc` : `[nom, rnd]` crypté par la clé de la tribu
+    - `na` : `[nom, rnd]` crypté par la clé de la tribu. ("na" est un NomTribu une fois compilé))
     - `cv` : `[photo, info]` carte de visite cryptée par la clé de la tribu
   - l'ajout d'un parrain ne se fait que par le comptable mais un retrait peut s'effectuer aussi par un traitement de GC.
-- `datat` : cryptée par la clé de la tribu :
-  - `bloc` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
+- `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
+  - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
   - `c`: 1 si positionné par le comptable (dans une tribu toujours 1)
   - `txt` : libellé explicatif du blocage.
   - `jib` : jour initial de la procédure de blocage
@@ -471,11 +469,10 @@ _data_:
 - `v` : version
 - `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète du compte.
 - `shay` : SHA du SHA de X (PBKFD de la phrase secrète).
-- `bloc` : niveau d'alerte. N'est pas défini / indexé en l'absence d'alerte.
-- `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
+- `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu. (compilé en "na")
 - `trcp` : `[nom, clé]` de la tribu crypté par la clé publique du comptable.
-- `datat` : blocage du compte (cf `datat` de tribu).
 - `compteurs`: compteurs sérialisés (non cryptés).
+- `blocaget` : blocage du compte (cf `blocaget` de tribu).
 - `lavv` : array des dernières versions de chaque avatar du compte, indexée par l'index de l'avatar dans son compte (le dernier chiffre de son id).
 
 **Remarque :**  
@@ -541,8 +538,8 @@ _data_:
 - `dlv` : pour effacement automatique des chats trop vieux. Chaque exemplaire a sa dlv que l'avatar peut modifier.
 
 - `mc` : mots clés attribués par l'avatar au chat
-- `cont` : contenu crypté par la clé de l'avatar (celle de sa carte de visite).
-  - `na` : `[nom, cle]` de _l'autre_ crypté par la clé de l'avatar (celle de sa carte de visite).
+- `contc` : contenu crypté par la clé de l'avatar (celle de sa carte de visite).
+  - `na` : `[nom, cle]` de _l'autre_.
   - `dh`  : date-heure de l'item.
   - `txt` : texte du chat.
 
@@ -709,6 +706,7 @@ _data_:
 - `v1 v2` : volumes courants des secrets du groupe.
 - `q1 q2` : quotas attribués par le compte hébergeur.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe cryptée par la clé du groupe.
+- `cvg` : carte de visite du groupe crypté par la clé du groupe `[photo, info]`. 
 
 ## Document `membre`
 _data_:
@@ -724,7 +722,7 @@ _data_:
 - `mc` : mots clés du membre à propos du groupe.
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `datag` : données, immuables, cryptées par la clé du groupe :
-  - `nom, cle` : nom complet de l'avatar.
+  - `nom` `cle` : nom complet de l'avatar.
   - `ni` : numéro d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk`).
 	- `idi` : id du membre qui l'a _pressenti_.
 - `cvg` : carte de visite du membre `[photo, info]` crypté par la clé du groupe.
