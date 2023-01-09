@@ -316,7 +316,7 @@ Deux variantes, l'avatar principal ayant des données supplémentaires.
 - `iv`
 - `vcv` : version de la carte de visite.
 - `ivc` : calculée comme iv (9 + 6 chiffres) mais la version est celle de la mise à jour de la carte de visite.
-- `dds` : date de dernière signature.
+- `dlv` : date de dernière signature + 365.
 - _data_ : sérialisation des autres attributs. **Un avatar principal / compte est reconnaissable par son `id`** et comporte des données supplémentaires dans _data_.
 
 ### Sous-collection `secrets`
@@ -399,7 +399,8 @@ Cette collections comporte un document par groupe existant.
 ### Sous-collection `membres`
 Elle comporte un document membre par membre.
 
-**Documents:** - `ids`, indice du membre dans le groupe
+**Documents:** 
+- `ids`, indice du membre dans le groupe
 - `id` : id du groupe.
 - `ids`: indice de membre relatif à son groupe.
 - `v`
@@ -426,7 +427,8 @@ L'upload d'un fichier est long. Ce document permet de gérer un commit à 2 phas
 - phase 1 : début de l'upload : insertion d'un document identifiant le fichier commençant à être uploadé,
 - phase 2 : validation du fichier par le commit du document `secret` : suppression du document.
 
-**Documents:** - `ids` identifiant du fichier relatif au groupe de son secret.
+**Documents:** 
+- `ids` identifiant du fichier relatif au groupe de son secret.
 - `id` : id de son groupe.
 - `ids` : id du fichier relatif au groupe de son secret
 - `dlv` : date de validité permettant de purger les fichiers uploadés (ou pas d'ailleurs) sur échec du commit entre les phases 1 et 2. Ceci permet de faire la différence entre un upload en cours et un vieil upload manqué.
@@ -500,7 +502,7 @@ Le document est mis à jour très fréquemment:
 - `id`, 
 - `v`,
 - `vcv` : version de la carte de visite afin qu'une session puisse détecter (sans lire le document) si la carte de visite qu'elle détient est la plus récente ou non.
-- `dlv` : date limite de validité. Reculée à chaque connexion.
+- `dlv` : date limite de validité + 365 . Reculée à chaque connexion.
 
 - `rsapub` : clé publique RSA de l'avatar.
 - `cvk` : carte de visite cryptée par la clé K, couple `[photo, info]`.
@@ -678,14 +680,13 @@ L'hébergement d'un groupe est noté par :
 - `dfh`: la date de fin d'hébergement qui vaut 0 tant que groupe est hébergé.
 
 Le compte peut mettre fin à son hébergement:
-- `dfh` indique le jour de la fin d'hébergement. Les secrets ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe.
-- à `dfh`, le GC plonge le groupe en état _zombi_
-  - _data_ et `dfh` sont absents / 0.
-  - `dlv` est mis à la date du jour.
-  - les secrets et membres sont purgés.
-  - le groupe est _ignoré_ en session, comme s'il n'existait plus et est retiré au fil des login des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
-  - le document `groupe` sera effectivement détruit par le GC à `dlv` + 365 jours.
-  - ceci permet aux sessions de ne pas risquer de trouver un groupe dans des `lgrk` d'avatar sans `groupe` (sur dépassement de `dlv`, les login sont impossibles).
+- `dfh` indique le jour de la fin d'hébergement. Les secrets ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe. 
+- à `dfh`, le GC plonge le groupe en état _zombi_, _data_ et `dfh` sont absents / 0.
+- `dlv` est mis à la date du jour + 365.
+- les secrets et membres sont purgés.
+- le groupe est _ignoré_ en session, comme s'il n'existait plus et est retiré au fil des login des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
+- le document `groupe` sera effectivement détruit par le GC à `dlv`.
+- ceci permet aux sessions de ne pas risquer de trouver un groupe dans des `lgrk` d'avatar sans `groupe` (sur dépassement de `dlv`, les login sont impossibles).
 
 **Les membres d'un groupe** reçoivent lors de leur création (quand ils sont pressentis) un indice membre `ids` :
 - cet indice est attribué en séquence : le premier membre est celui du créateur du groupe a pour indice 1.
