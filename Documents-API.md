@@ -451,10 +451,10 @@ _data_:
 - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
 - `infok` : commentaire privé du comptable crypté par la clé K du comptable :
 - `mncpt` : map des noms complets des parrains:
-  - _clé_ : `id` du parrain.
+  - _clé_ : `id` du sponsor.
   - _valeur_ :
     - `na` : `[nom, rnd]` crypté par la clé de la tribu. ("na" est un NomTribu une fois compilé))
-    - `cv` : `[photo, info]` carte de visite cryptée par la clé de la tribu
+    - `cv` : `{v, photo, info}` carte de visite cryptée par la clé du sponsor
   - l'ajout d'un parrain ne se fait que par le comptable mais un retrait peut s'effectuer aussi par un traitement de GC.
 - `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
   - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
@@ -501,11 +501,11 @@ Le document est mis à jour très fréquemment:
 **_data_ : données disponibles pour les avatars primaires et secondaires**
 - `id`, 
 - `v`,
-- `vcv` : version de la carte de visite afin qu'une session puisse détecter (sans lire le document) si la carte de visite qu'elle détient est la plus récente ou non.
+- `vcv` : version de la carte de visite afin qu'une opération puisse détecter (sans lire le document) si la carte de visite est plus récente que celle qu'il connaît.
 - `dlv` : date limite de validité + 365 . Reculée à chaque connexion.
 
 - `rsapub` : clé publique RSA de l'avatar.
-- `cvk` : carte de visite cryptée par la clé K, couple `[photo, info]`.
+- `cva` : carte de visite cryptée par la clé de l'avatar `{v, photo, info}`.
 - `lgrk` : map :
   - _clé_ : `ni`, numéro d'invitation obtenue sur une invitation.
   - _valeur_ : cryptée par la clé K du compte de `[nom, rnd, im]` reçu sur une invitation.
@@ -707,7 +707,7 @@ _data_:
 - `v1 v2` : volumes courants des secrets du groupe.
 - `q1 q2` : quotas attribués par le compte hébergeur.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe cryptée par la clé du groupe.
-- `cvg` : carte de visite du groupe crypté par la clé du groupe `[photo, info]`. 
+- `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`. 
 
 ## Document `membre`
 _data_:
@@ -726,7 +726,7 @@ _data_:
   - `nom` `cle` : nom complet de l'avatar.
   - `ni` : numéro d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk`).
 	- `idi` : id du membre qui l'a _pressenti_.
-- `cvg` : carte de visite du membre `[photo, info]` crypté par la clé du groupe.
+- `cvm` : carte de visite du membre `{v, photo, info}` crypté par la clé du membre.
 
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
