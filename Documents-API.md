@@ -11,39 +11,39 @@ Présentation en Collections / Documents :
 
 ## Structure générale
 
-    Collections                   Attributs: * indexé sur la collection, ** indexé sur collection group
+    Collections                   Attributs: ** indexé sur collection group
 
     /Collection `singletons`
       Document `config`
       Document `checkpoint`
 
-    /Collection `gcvols`          (pas synchronisés en session)
+    /Collection `gcvols`        
       Documents                   id
 
     /Collection `tribus`
-      Documents                   id v *iv *dh *dhb (dhb = dh quand la tribu est bloquée, sinon absente)
+      Documents                   id v iv dh dhb (dhb = dh quand la tribu est bloquée, sinon absente)
     
     /Collection `comptas`
-      Documents                   id v *iv *idt *idtb *hps1 (idtb = idt quand le compte est bloqué)
+      Documents                   id v iv idt idtb hps1 (idtb = idt quand le compte est bloqué)
 
     /Collection `avatars`
-      Documents                   id v vcv *iv (*ivc) *dlv
+      Documents                   id v iv vcv ivc dlv hpc
         /Collection `secrets`
-          Documents               id ids v *iv
-        /Collection `transferts`  (pas synchronisées en session)
+          Documents               id ids v iv
+        /Collection `transferts`
           Document `transfert`    id ids **dlv
         /Collection `sponsorings`
-          Document `sponsoring`   id **ids v *iv dlv
+          Document `sponsoring`   id **ids v iv dlv
         /Collection `chats`
-          Documents               id ids v *iv dlv
+          Documents               id ids v iv dlv
 
     /Collection `groupes`
-      Document `groupe`           id v *iv *dlv (*dfh)
+      Document `groupe`           id v iv dlv dfh
         /Collection `membres`
-          Document membre         id ids v *iv dlv        
+          Document membre         id ids v iv dlv        
         /Collection `secrets`
-          Document `secret`       id ids v *iv         
-        /Collection `transferts`  (pas synchronisées en session)
+          Document `secret`       id ids v iv         
+        /Collection `transferts`  
           Document `transfert`    id ids **dlv
 
     Collection  Attrs non indexés     Attrs indexés     Attrs collectionGroup
@@ -58,11 +58,11 @@ Présentation en Collections / Documents :
     transferts  id ids                                  dlv
     sponsorings id v dlv _data_       iv                ids
     chats       id ids v dlv _data_   iv
-    membres     id ids v dds _data_   iv
+    membres     id ids v dlv _data_   iv
 
 Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`), qui porte les informations sérialisées du document.
 - les attributs externalisés hors de _data_ le sont parce qu'ils sont utilisés comme identifiants et / ou champs indexés.
-- les attributs `iv ivc idtb dhb` ne sont toutefois pas explicitement présents dans _data_ étant calculables très simplement depuis `id, v, vcv, dh, bloc`.
+- les attributs `iv ivc idtb dhb` ne sont pas explicitement présents dans _data_ étant calculables depuis `id, v, vcv, dh, bloc`.
 
 #### Documents d'une collection majeure
 Les documents _majeurs_ sont ceux des collections `tribus comptas avatars groupes`.
@@ -81,16 +81,8 @@ Leur version `v` est numérotée **dans la séquence de leur document majeur**.
 - `chats secrets transferts sponsorings` gérée par les séquences 0-7 de leur **comptas** .
 - `membres secrets transferts` gérée par la séquence de leur **groupes**.
 
-#### Documents _synchronisables_ en session
-avatars comptas chats secrets sponsorings et groupes membres secrets.
-
-Les attributs suivants toujours présents pour les documents synchronisables : `id ids v dlv`.
-- `id` identifiant majeur, 
-- `ids` pour les sous-documents seulement (sinon 0),
-- `dlv` pour les documents en ayant une.
-- `v`. 
-
-Ces attributs sont nécessaires pour gérer la synchronisation en session et mettre à jour l'état de la session et son état persistant sur IDB quand elle est synchronisée. Les autres éventuels sont ignorés.
+#### Documents _synchronisables_ en session : `comptas` `groupes`
+Ces documents sont synchronisés en session: leurs mises à jour va déclencher une opération en session qui rechargera en session les documents en dépendants et n'étant plus à jour.
 
 #### Id-version : `iv`
 Un `iv` est constitué sur 15 chiffres :
@@ -317,6 +309,7 @@ Deux variantes, l'avatar principal ayant des données supplémentaires.
 - `vcv` : version de la carte de visite.
 - `ivc` : calculée comme iv (9 + 6 chiffres) mais la version est celle de la mise à jour de la carte de visite.
 - `dlv` : date de dernière signature + 365.
+- `hpc` : hash de la phrase de contact.
 - _data_ : sérialisation des autres attributs. **Un avatar principal / compte est reconnaissable par son `id`** et comporte des données supplémentaires dans _data_.
 
 ### Sous-collection `secrets`
@@ -477,12 +470,13 @@ _data_:
 - `blocaget` : blocage du compte (cf `blocaget` de tribu).
 - `lavv` : array des dernières versions de chaque avatar du compte, indexée par l'index de l'avatar dans son compte (le dernier chiffre de son id).
 
-**Remarque :**  
-Le document est mis à jour très fréquemment:
-- mise à jour d'un avatar afin d'incrémenter sa version,
-- mise à jour d'un secret, incrément de la version d'un des avatars et mise à jour des compteurs de volume.
-- inscription d'un chat,
-- inscription d'un rendez-vous.
+**Remarques :**  
+- Le document est mis à jour très fréquemment:
+  - mise à jour d'un avatar afin d'incrémenter sa version,
+  - mise à jour d'un secret, incrément de la version d'un des avatars et mise à jour des compteurs de volume.
+  - inscription d'un chat,
+  - inscription d'un sponsoring.
+- La version de `compta` lui est spécifique, ce n'est pas la version de l'avatar principal (qui lui change peu).
 
 ## Document `avatar`
 
@@ -515,8 +509,7 @@ Le document est mis à jour très fréquemment:
   - _valeur_ : cryptée par la clé publique de l'avatar `[nom, cle, im]`.
   - une entrée est effacée par l'annulation de l'invitation du membre au groupe ou sur acceptation ou refus de l'invitation.
 - `pck` : phrase de contact cryptée par la clé K.
-- `hpc` : hash du PBKFD de la phrase de contact.  
-- `dlpc` : date limite de validité de la phrase de contact.
+- `hpc` : hash du PBKFD de la phrase de contact.
 - `napc` : [nom, cle] de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 **Remarques:**
