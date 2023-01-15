@@ -691,7 +691,7 @@ _data_:
 - `dlv` : plus haute `dlv` des membres, 
 - `dfh` : jour de fin d'hébergement quand le groupe n'est plus hébergé,
 
-- `dnv` : dernier numéro de version utilisé sur le groupe.
+- `dnv` : dernier numéro de version utilisé sur le groupe. ????? pourquoi pas v ?
 - `stx` : 1-ouvert (accepte de nouveaux membres), 2-fermé (ré-ouverture en vote)
 - `sty` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
 - `mxim` : dernier `im` de membre attribué.
