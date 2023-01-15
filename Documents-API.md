@@ -115,6 +115,8 @@ Pour n'obtenir en début de process suivants que les tribus ayant changé depuis
 De même pour `comptas`, `ivb` est égal à `iv` si le compte est bloqué afin que les parrains puisse travailler sur le sous-ensemble des comptes bloqués de leur tribu plutôt que sur tous.
 
 #### `dlv` et `dfh` : **date limite de validité** et **date de fin d'hébergement** 
+Les `dlv` sont passées sur la partie row externe à _data_ : en synchronisation aussi (puisque _data_ ne sera présente).
+
 - sur _avatars et groupes_ :
   - **jour auquel l'avatar ou le groupe sera officiellement considéré comme _disparu_.**
   - sur une liste de membres, lors de l'écriture d'un chat, sur une carte de visite, les avatars _proches de leur date de disparition_ peuvent être affichés avec une marque particulière.
@@ -516,9 +518,9 @@ _data_:
 - une mise à jour de la carte de visite est redondée dans tous les groupes dont l'avatar est membre (cryptée par la clé du groupe).
 
 ## Document `chat`
-Un chat est comme une ardoise commune à deux avatars A et B:
+Un chat est une ardoise commune à deux avatars A et B:
 - pour être écrite par A :
-  - A doit connaître le [nom cle] de B : membre du même groupe, sponsor de la tribu, ou _contact direct_.
+  - A doit connaître le `[nom, cle]` de B : membre du même groupe, sponsor de la tribu, ou _contact direct_.
   - le chat est dédoublé, une fois sur A et une fois sur B.
   - dans l'avatar A, le contenu est crypté par la clé de A.
   - dans l'avatar B, le contenu est crypté par la clé de B.
@@ -530,38 +532,44 @@ _data_:
 - `id`
 - `ids` : identifiant du chat relativement à son avatar.
 - `v`
-- `dlv` : pour effacement automatique des chats trop vieux. Chaque exemplaire a sa dlv que l'avatar peut modifier.
+- `dlv` : pour effacement automatique des chats trop vieux. Chaque exemplaire a sa `dlv` que son propriétaire peut modifier.
 
 - `mc` : mots clés attribués par l'avatar au chat
-- `contc` : contenu crypté par la clé de l'avatar (celle de sa carte de visite).
+- `contc` : contenu crypté par la clé de l'avatar lecteur (celle de sa carte de visite).
   - `na` : `[nom, cle]` de _l'autre_.
-  - `dh`  : date-heure de l'item.
+  - `dh`  : date-heure de dernière mise à jour.
   - `txt` : texte du chat.
 
 L'identifiant `ids` est calculé par hash des deux ids de A et B : algorithme pas aléatoire.
 
+**Problème** : raccourcissement de la `dlv`, purge
+- A dépassement de `dlv`, le chat n'a plus `mc conc` (reste en zombi)
+- purge sur `dlv` + 365 ?
+
 ### _Contact direct_ entre A et B
 Supposons que B veuille ouvrir un chat avec A mais n'en connaît, ni le nom et surtout pas la clé. 
 
-Toutefois A peut avoir communiqué à B une _phrase de contact_, généralement avec une validité limitée et qui ne peut être enregistré par A que si elle est, non seulement unique, mais aussi _pas trop proche_ d'une phrase de contact déjà déposée.
+A peut avoir communiqué à B sa _phrase de contact_ qui ne peut être enregistré par A que si elle est, non seulement unique, mais aussi _pas trop proche_ d'une phrase de contact déjà déposée.
 
 B peut écrire un chat à A à condition de fournir cette _phrase de contact_:
-- l'avatar A a mis à disposition son nom complet [nom cle] crypté par la phrase de contact (son PBKFD).
+- l'avatar A a mis à disposition son nom complet `[nom, cle]` crypté par la phrase de contact (son PBKFD).
 - muni de ces informations, B peut écrire un chat à A.
 - le chat comportant le `[nom cle]` de B, A est également en mesure d'écrire sur ce chat, même s'il ignorait avant le nom complet de B.
 
 ## Document `sponsoring`
-P est le parrain, F est le filleul.
+P est le parrain-sponsor, F est le filleul.
 
 _data_
-- `id` : id de l'avatar.
+- `id` : id de l'avatar sponsor.
 - `ids` : hash de la phrase de parrainage, 
 - `v`
 - `dlv` : date limite de validité
 
+- `st` : statut. 0: en attente réponse, 1: refusé
 - `descr` : crypté par le PBKFD de la phrase de sponsoring
-  - `na` : `[nom, cle]` de P / A.
-  - `cv` : `[photo, info]` de P / A.
+  - `na` : `[nom, cle]` de P.
+  - `cv` : `[photo, info]` de P.
+  - `ard` : ardoise de bienvenue du sponsor / réponse du filleul
   - `naf` : `[nom, cle]` attribué au filleul.
   - `nct` : `[nom, cle]` de sa tribu.
   - `sp` : vrai si le filleul est lui-même sponsor (créé par le Comptable, le seul qui peut le faire).
@@ -569,10 +577,10 @@ _data_
 
 **Parrainage**
 - Le parrain peut détruire physiquement son `sponsoring` avant acceptation / refus (remord).
-- Le parrain peut prolonger la date-limite de son contact (encore en attente), sa `slv` est augmentée.
+- Le parrain peut prolonger la date-limite de son contact (encore en attente), sa `dlv` est augmentée.
 
 **Si le filleul refuse le parrainage :** 
-- Il écrit un `chat` au parrain expliquant sa raison et détruit le document `sponsoring`. 
+- Il écrit dans `ard` au parrain expliquant sa raison et met le statut à 1 du `sponsoring`. 
 
 **Si le filleul ne fait rien à temps :** 
 - `sponsoring` finit par être purgé par `dlv`. 
@@ -580,7 +588,7 @@ _data_
 **Si le filleul accepte le parrainage :** 
 - Le filleul crée son compte / avatar principal `naf` donne l'id de son avatar et son nom. Les infos de tribu pour le compte sont obtenu de `nct`.
 - la `compta` du filleul est créée et créditée des quotas attribués par le parrain.
-- la `tribu` est mise à jour (quotas / réserves).
+- la `tribu` est mise à jour (quotas / réserves), éventuellement le filleul est mis dans la liste des sponsors.
 - un `chat` de remerciement est écrit par le filleul au parrain.
 - `sponsoring` est détruit.
 
@@ -687,11 +695,10 @@ Le compte peut mettre fin à son hébergement:
 
 _data_:
 - `id` : id du groupe.
-- `v`, 
+- `v` : version, du groupe, ses secrets, ses membres. 
 - `dlv` : plus haute `dlv` des membres, 
 - `dfh` : jour de fin d'hébergement quand le groupe n'est plus hébergé,
 
-- `dnv` : dernier numéro de version utilisé sur le groupe. ????? pourquoi pas v ?
 - `stx` : 1-ouvert (accepte de nouveaux membres), 2-fermé (ré-ouverture en vote)
 - `sty` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
 - `mxim` : dernier `im` de membre attribué.
