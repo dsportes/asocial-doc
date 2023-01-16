@@ -504,8 +504,8 @@ _data_:
 - `cva` : carte de visite cryptée par la clé de l'avatar `{v, photo, info}`.
 - `lgrk` : map :
   - _clé_ : `ni`, numéro d'invitation obtenue sur une invitation.
-  - _valeur_ : cryptée par la clé K du compte de `[nom, rnd, im]` reçu sur une invitation.
-  - une entrée est effacée par la résiliation du membre au groupe ou sur refus de l'invitation (ce qui l'empêche de continuer à utiliser la clé du groupe).
+  - _valeur_ : cryptée par la clé K du compte de `[nom, cle, im]` reçu sur une invitation.
+  - une entrée est effacée par la résiliation du membre au groupe (ce qui l'empêche de continuer à utiliser la clé du groupe).
 - `invits` : map des invitations en cours
   - _clé_ : `ni`, numéro d'invitation.
   - _valeur_ : cryptée par la clé publique de l'avatar `[nom, cle, im]`.
@@ -515,7 +515,13 @@ _data_:
 - `napc` : [nom, cle] de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 **Remarques:**
-- une mise à jour de la carte de visite est redondée dans tous les groupes dont l'avatar est membre (cryptée par la clé du groupe).
+- une mise à jour de la carte de visite est redondée dans le document `membre` de chaque groupe dont l'avatar est membre (cryptée par la clé de l'avatar).
+
+**Invitation à un groupe**  
+L'invitant connaît le `[nom, cle]` de l'invité qui est déjà dans la liste des membres en tant que pressenti. L'invitation consiste à :
+- inscrire un terme dans `invits` de son avatar (ce qui donne la clé du groupe à l'invité, donc accès à la carte de visite du groupe),
+- inscrire un `chat` de la part de l'invitant (ou ajouter un mot dans son chat).
+- en cas de refus, l'invité donnera les raisons dans ce même `chat`.
 
 ## Document `chat`
 Un chat est une ardoise commune à deux avatars A et B:
