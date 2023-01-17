@@ -33,7 +33,7 @@ Présentation en Collections / Documents :
         /Collection `transferts`
           Document `transfert`    id ids **dlv
         /Collection `sponsorings`
-          Document `sponsoring`   id **ids v iv dlv
+          Document `sponsoring`   id **ids v iv **dlv
         /Collection `chats`
           Documents               id ids v iv dlv
 
@@ -56,7 +56,7 @@ Présentation en Collections / Documents :
 
     secrets     id ids v _data_       iv
     transferts  id ids                                  dlv
-    sponsorings id v dlv _data_       iv                ids
+    sponsorings id v _data_           iv                dlv ids
     chats       id ids v dlv _data_   iv
     membres     id ids v dlv _data_   iv
 
@@ -353,20 +353,20 @@ Il y a un document par rendez-vous fixé par l'avatar.
 - `id` : id de l'avatar ayant fixé le rendez-vous.
 - `ids` : hash de la phrase secrète de reconnaissance
 - `v`
-- `ttl` : purge automatique des rendez-vous oubliés.
+- `dlv` : purge automatique des sponsorings.
 - _data_ : données du rendez-vous.
 
 ### Sous-collection `chats`
-Elle comporte un document par ligne de chat reçu / émis par l'avatar.
+Elle comporte un document par chat ouvert avec un avatar (externe, pas un avatar du compte)
 
 **Documents:** - `ids`, numéro du chat pour l'avatar
 
 **Attributs**
 - `id` : id de son avatar.
-- `ids` :  numéro du chat pour l'avatar - hash des deux ids des avatars le partageant.
+- `ids` : numéro du chat pour l'avatar - hash des deux ids des avatars le partageant.
 - `v`
 - `iv`
-- `dlv` : un chat a par défaut une date limite de validité assez courte. L'avatar peut prolonger la `dlv` ce qui maintient le chat en vie (le _punaiser_)
+- `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une `dlv`, le chat est considéré comme inexistant autant en session que pour le serveur.
 - _data_ : contenu du chat crypté par la clé de l'avatar. Contient le `[nom, clé]` de l'émetteur.
 
 #### Avatars _externes_ E connaissant l'avatar A, chat entre avatars
@@ -526,31 +526,35 @@ L'invitant connaît le `[nom, cle]` de l'invité qui est déjà dans la liste de
 ## Document `chat`
 Un chat est une ardoise commune à deux avatars A et B:
 - pour être écrite par A :
-  - A doit connaître le `[nom, cle]` de B : membre du même groupe, sponsor de la tribu, ou _contact direct_.
+  - A doit connaître le `[nom, cle]` de B : membre du même groupe, sponsor de la tribu, ou par donnée de la phrase de contact de B.
   - le chat est dédoublé, une fois sur A et une fois sur B.
   - dans l'avatar A, le contenu est crypté par la clé de A.
   - dans l'avatar B, le contenu est crypté par la clé de B.
-- pour être lu par B, le contenu étant crypté par sa propre clé, pas de problème.
+- un chat a un comportement d'ardoise : chacun _écrase_ la totalité du contenu.
+- si A essaie d'écrire à B et que B a disparu, la `dlv` est positionnée sur les deux exemplaires si elle ne l'était pas déjà.
 
-Un chat a un comportement d'ardoise : chacun _écrase_ la totalité du contenu.
+**Suppression d'un chat**
+- chacun peut supprimer son chat : par exemple A supprime son chat avec B
+- côté A, la `dlv` du chat avec B est positionnée au jour courant + 365 (afin de permettre la synchronisation sur plusieurs sessions / appareils): c'est le GC quotidien qui le purgera.
+- en session comme en serveur, dès qu'il y a une `dlv`, le chat est considéré comme inexistant.
+- si B réécrit un chat à A, côté A la `dlv` du chat de B est remise à 0. Le chat _renaît_ (s'il avait été supprimé).
+
+**Cartes de visite**
+- à la création, puis à chaque mise à jour du texte, les cartes de visites sont remises à jour.
+- en session, une action permet de les rafraîchir sans modifier le texte et la date-heure du texte.
 
 _data_:
 - `id`
-- `ids` : identifiant du chat relativement à son avatar.
+- `ids` : identifiant du chat relativement à son avatar, hash de la concaténation des deux ids de A et B.
 - `v`
-- `dlv` : pour effacement automatique des chats trop vieux. Chaque exemplaire a sa `dlv` que son propriétaire peut modifier.
+- `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
 - `mc` : mots clés attribués par l'avatar au chat
 - `contc` : contenu crypté par la clé de l'avatar lecteur (celle de sa carte de visite).
   - `na` : `[nom, cle]` de _l'autre_.
+  - `cv` : `{v, photo, info}` carte de visite de l'autre au moment de la création / dernière mise à jour du chat.
   - `dh`  : date-heure de dernière mise à jour.
   - `txt` : texte du chat.
-
-L'identifiant `ids` est calculé par hash des deux ids de A et B : algorithme pas aléatoire.
-
-**Problème** : raccourcissement de la `dlv`, purge
-- A dépassement de `dlv`, le chat n'a plus `mc conc` (reste en zombi)
-- purge sur `dlv` + 365 ?
 
 ### _Contact direct_ entre A et B
 Supposons que B veuille ouvrir un chat avec A mais n'en connaît, ni le nom et surtout pas la clé. 
@@ -571,7 +575,7 @@ _data_
 - `v`
 - `dlv` : date limite de validité
 
-- `st` : statut. 0: en attente réponse, 1: refusé
+- `st` : statut. 0: en attente réponse, 1: refusé, 2: accepté, 3: détruit
 - `descr` : crypté par le PBKFD de la phrase de sponsoring
   - `na` : `[nom, cle]` de P.
   - `cv` : `[photo, info]` de P.
@@ -581,12 +585,12 @@ _data_
   - `sp` : vrai si le filleul est lui-même sponsor (créé par le Comptable, le seul qui peut le faire).
   - `quotas` : `[v1, v2]` quotas attribués par le parrain.
 
-**Parrainage**
-- Le parrain peut détruire physiquement son `sponsoring` avant acceptation / refus (remord).
-- Le parrain peut prolonger la date-limite de son contact (encore en attente), sa `dlv` est augmentée.
+**Remarques**
+- la `dlv` d'un sponsoring est fixe. Le sponsoring est purgé par le GC quotidien après cette date, en session et sur le serveur, les rows ayant dépassé cette limite sont supprimé et ne sont pas traités.
+- Le sponsor peut détruire physiquement son `sponsoring` avant acceptation, en cas de remord son statut passe à 3.
 
 **Si le filleul refuse le parrainage :** 
-- Il écrit dans `ard` au parrain expliquant sa raison et met le statut à 1 du `sponsoring`. 
+- Il écrit dans `ard` au parrain expliquant sa raison et met le statut du `sponsoring` à 1. 
 
 **Si le filleul ne fait rien à temps :** 
 - `sponsoring` finit par être purgé par `dlv`. 
@@ -596,7 +600,7 @@ _data_
 - la `compta` du filleul est créée et créditée des quotas attribués par le parrain.
 - la `tribu` est mise à jour (quotas / réserves), éventuellement le filleul est mis dans la liste des sponsors.
 - un `chat` de remerciement est écrit par le filleul au parrain.
-- `sponsoring` est détruit.
+- le statut du `sponsoring` est 2.
 
 ## Document `secret`
 Un secret est _supprimé_ quand sa _data_ est absente / null. La suppression est donc synchronisable par changement de la version `v` : il sera purgé lors de la purge de son avatar.
@@ -707,7 +711,13 @@ _data_:
 
 - `stx` : 1-ouvert (accepte de nouveaux membres), 2-fermé (ré-ouverture en vote)
 - `sty` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
-- `mxim` : dernier `im` de membre attribué.
+- `ast` : array des statuts des membres (dès qu'ils ont été pressentis) :
+  - 10:pressenti, 
+  - 20,21,22:invité en tant que lecteur / auteur / animateur, 
+  - 30,31,32:actif (invitation acceptée) en tant que lecteur / auteur / animateur, 
+  - 40: invitation refusée,
+  - 50: suspendu, 
+  - 0: disparu / oublié
 - `idhg` : id du compte hébergeur crypté par la clé du groupe.
 - `imh` : indice `im` du membre dont le compte est hébergeur.
 - `v1 v2` : volumes courants des secrets du groupe.
@@ -720,19 +730,79 @@ _data_:
 - `id` : id du groupe.
 - `ids`: identifiant, indice de membre relatif à son groupe.
 - `v`
-- `dlv` : date de dernière signature lors de la connexion du compte de l'avatar membre du groupe.
+- `dlv` : date de dernière signature + 365 lors de la connexion du compte de l'avatar membre du groupe.
 
-- `stx` : 0:pressenti, 1:invité, 2:actif (invitation acceptée), 3: refusé (invitation refusée), 4: résilié, 5: disparu.
-- `laa` : 0:lecteur, 1:auteur, 2:animateur.
+- `ddi` : date de la dernière invitation
+- `dda` : date de début d'activité (jour de la première acceptation)
+- `dfa` : date de fin d'activité (jour de la dernière suspension)
 - `npi` : 0: accepte d'être invité, 1: ne le souhaite pas.
 - `vote` : vote de réouverture.
 - `mc` : mots clés du membre à propos du groupe.
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `datag` : données, immuables, cryptées par la clé du groupe :
   - `nom` `cle` : nom complet de l'avatar.
-  - `ni` : numéro d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk`).
+  - `ni` : numéro aléatoire d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk`).
 	- `idi` : id du membre qui l'a _pressenti_.
 - `cvm` : carte de visite du membre `{v, photo, info}` crypté par la clé du membre.
+
+### Cycle de vie
+- un document `membre` existe dans tous les états SAUF 0 _disparu / oublié_.
+- un auteur d'un secret `disparu / oublié`, apparaîtra avec juste un numéro (sans nom), sans pouvoir voir son membre dans le groupe.
+
+**Pressenti suite à un premier contact par un membre du groupe**
+- le membre du groupe qui l'a pressenti, lui a attribué un index (taille de `ast` du groupe) et a marqué le statut _pressenti_ dans cet `ast`.
+- son id ne figure pas dans le `datag` d'un autre membre.
+- dans `membre` seul `datag` est significatif. 
+
+**Invité suite à une invitation par un animateur**
+- invitation depuis un état _pressenti_ ou _suspendu_
+- son statut dans `ast` passe à 20, 21, ou 22.
+- dans `membre` `datag` et `ddi` sont significatifs.
+- si `dda` ou `dfa`, 
+  - c'est une ré-invitation après suspension : présent dans `lgrk` et dans `membre` `mc infok` peuvent être présents.
+
+**Pressenti suite à un retrait d'invitation par un animateur**
+- retrait invitation depuis un état _invité_
+- son statut dans `ast` passe à 10.
+- dans `membre` seuls `datag` et `ddi` sont significatifs. 
+
+**Actif suite à l'acceptation d'une invitation par le membre**
+- son statut dans `ast` passe à 30, 31, ou 32.
+- dans membre :
+  - `dda` : date de première acceptation est remplie si elle ne l'était pas.
+  - toutes les propriétés sont significatives.
+  - la carte de visite `cvm` est remplie et sera mise à jour à chaque changement.
+- le groupe est inscrit dans l'avatar du membre (`lgrk`).
+
+**Refus d'invitation suite à un refus par le membre**
+- depuis un état _invité_.
+- son statut dans `ast` passe à 40.
+- si `dda` ou `dfa`, 
+  - c'est une ré-invitation après suspension : présent dans `lgrk` et dans `membre` `mc infok` peuvent être présents.
+- sinon il n'a jamais été actif, groupe absent de `lgrk`.
+- dans `membre` rien ne change : `cvm` est toujours vide.
+
+**Oubli**
+- depuis un état _pressenti, invité, actif, suspendu_
+- soit en tant que refus d'invitation, soit comme résiliation ou auto-résiliation forte, soit comme effacement après suspension.
+- son statut dans `ast` passe à 0. Son index ne sera **jamais** réutilisé.
+- son document `membre` est purgé. En session un document `membre` correspondant à un `ast` 0 dans son groupe, met le membre en _zombi.
+- le groupe est effacé dans `lgrk` de son avatar.
+
+**Suspension d'un membre**
+- depuis un état _actif_. Auto-suspension ou par un animateur.
+- son statut passe à _suspendu_ dans `ast` de son groupe.
+- dans son document `membre` :
+  - `dfa` est positionnée à la date du jour.
+  - `cvm` est effacée et ne sera plus mise à jour.
+- différences avec un état _pressenti_: l'avatar membre sait par `lgrk` qu'il a été actif dans le groupe, a encore des mots clés, une information et peut être ré-invité. Dans `membre` `npi, vote, cvm` sont absents.
+
+**Disparitions d'un membre**
+- un membre est _disparu_ quand sa `dlv` est dépassée.
+- le GC quotidien le purge et met son statut à _disparu_ dans `ast` de son groupe.
+- en session ou en serveur, dès que `dlv` est dépassée, le row est supposé inexistant (_zombi).
+- pour le groupe il est donc _oublié_.
+- son avatar principal ayant disparu et les avatars secondaires devant aussi disparaître, la présence dans lgrk n'est plus considéré.
 
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
