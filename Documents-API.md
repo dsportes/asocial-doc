@@ -35,7 +35,7 @@ Présentation en Collections / Documents :
         /Collection `sponsorings`
           Document `sponsoring`   id **ids v iv **dlv
         /Collection `chats`
-          Documents               id ids v iv dlv
+          Documents               id ids v iv **dlv
 
     /Collection `groupes`
       Document `groupe`           id v iv dlv dfh
@@ -57,8 +57,8 @@ Présentation en Collections / Documents :
     secrets     id ids v _data_       iv
     transferts  id ids                                  dlv
     sponsorings id v _data_           iv                dlv ids
-    chats       id ids v dlv _data_   iv
-    membres     id ids v dlv _data_   iv
+    chats       id ids v _data_       iv                dlv
+    membres     id ids v _data_       iv                dlv
 
 Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`), qui porte les informations sérialisées du document.
 - les attributs externalisés hors de _data_ le sont parce qu'ils sont utilisés comme identifiants et / ou champs indexés.
@@ -701,7 +701,7 @@ Le compte peut mettre fin à son hébergement:
 
 **Les membres d'un groupe** reçoivent lors de leur création (quand ils sont pressentis) un indice membre `ids` :
 - cet indice est attribué en séquence : le premier membre est celui du créateur du groupe a pour indice 1.
-- les documents `membres` ne sont pas supprimés, sauf par purge physique au passage en _zombi_ de leur groupe.
+- le statut de chaque membre d'index `ids` est stocké dans `ast[ids]`
 
 _data_:
 - `id` : id du groupe.
@@ -886,7 +886,7 @@ Délais :
 Le GC quotidien a un _point de reprise_ enregistré dans le document singleton `checkpoints`.
 - date du jour de GC
 - array des date-heures de fin des étapes terminées.
-- _purge1_ : liste des ids des avatars et groupes dont les sous-collections sont à purger.
+- _purge1_ : liste des ids des avatars et groupes dont les **sous-collections** sont à purger.
 - _purge2_ : liste des `[id, idf]` des fichiers à purger dans le Storage.
 
 Quand le GC est lancé,
@@ -896,14 +896,21 @@ Quand le GC est lancé,
 Le GC quotidien effectue les activités de nettoyage suivantes :
 
 #### Etape 1
-Une transaction pour chaque groupe ayant dépassé leur `dfh` ou leur `dds`:
-- mise en état _zombi_ du groupe. Ce changement d'état est synchronisé. Des sessions pouvant être ouvertes et accéder à ces groupes, elles émettront ensuite une opération pour retirer le groupe de la liste des groupes de leur avatar.
+Une transaction pour chaque groupe ayant dépassé leur `dfh` ou leur `dlv`:
+- mise en état _zombi_ du groupe. Ce changement d'état est synchronisé. 
+  - les sessions ouvertes et accédant à ces groupes, émettront une opération pour retirer le groupe de la liste des groupes de leur avatar.
+  - les sessions s'ouvrant postérieurement feront la même opération au chargement initial
 - inscription de l'id du groupe dans la liste _purge1_.
 - inscription des couples `id, idf` dans la liste _purge2_ des fichiers externes à purger.
 
+#### Etape 1b
+Une transaction pour chaque membre `id, ids` ayant dépassé leur `dlv`:
+- dans son groupe `id`, `ast[ids]` est mis à 0, `v` est incrémentée et la synchronisation est effectuée.
+- le membre est purgé.
+
 #### Etape 2
-Une transaction par avatar ayant dépassé sa `dds`
-- suppression de l'avatar et de la compta du compte.
+Une transaction par avatar principal ayant dépassé sa `dlv`
+- suppression de l'avatar et de la compta.
 - création d'un `gcvol` pour que le comptable puisse récupérer les quotas lors de sa prochaine connexion.
 - inscription de l'id de l'avatar dans la liste _purge1_.
 - inscription des couples `id, idf` dans la liste _purge2_ des fichiers externes à purger.
