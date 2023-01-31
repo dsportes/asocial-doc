@@ -1055,12 +1055,11 @@ Deux implémentations sont disponibles :
     - soit un file-system local du serveur,
     - soit un Storage S3 (éventuellement minio).
     - soit un Storage Google Cloud Storage.
-- **GAE-Firestore** : un Google App Engine avec un stockage persistant Firestore
-  - le GAE est du type node.js
-  - le GAE héberge aussi l'application Web de front-end.
-  - le stockage est assurée par un Firestore.
+- **Firestore** : un stockage persistant Google Firestore
+  - en mode serveur, un GAE de type node.js sert de serveur
+  - son stockage est assurée par le Firestore.
   - le Storage est Google Cloud Storage
 
-Un utilitaire **node.js** :
-- exporte un Firestore dans une base SQLite locale.
-- importe dans un Firestore vide une base SQLite locale.
+Un utilitaire **node.js** local peut accéder à un Firestore distant:
+- exporte un Firestore distant (ou local de test) dans une base SQLite locale.
+- importe dans un Firestore distant (ou local de test) vide une base SQLite locale.
