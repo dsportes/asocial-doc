@@ -687,7 +687,7 @@ Un groupe est caractérisé par :
 - la liste de ses secrets : des documents `secret` de sa sous-collection `secrets`.
 
 L'hébergement d'un groupe est noté par :
-- `imh`: indice membre de l'avatar hébergeur.
+- `imh`: indice membre de l'avatar hébergeur. `idhg` : id du **compte** hébergeur crypté par la clé du groupe.
 - `dfh`: la date de fin d'hébergement qui vaut 0 tant que groupe est hébergé.
 
 Le compte peut mettre fin à son hébergement:
