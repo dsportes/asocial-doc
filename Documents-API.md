@@ -40,7 +40,7 @@ Présentation en Collections / Documents :
     /Collection `groupes`
       Document `groupe`           id v iv dlv dfh
         /Collection `membres`
-          Document membre         id ids v iv dlv        
+          Document membre         id ids v iv **dlv        
         /Collection `secrets`
           Document `secret`       id ids v iv         
         /Collection `transferts`  
@@ -448,7 +448,7 @@ _data_:
 - `mncpt` : map des noms complets des parrains:
   - _clé_ : `id` du sponsor.
   - _valeur_ :
-    - `na` : `[nom, rnd]` crypté par la clé de la tribu. ("na" est un NomTribu une fois compilé))
+    - `na` : `[nom, rnd]` crypté par la clé de la tribu. ("na" est un NomAvatar une fois compilé))
     - `cv` : `{v, photo, info}` carte de visite cryptée par la clé du sponsor
   - l'ajout d'un parrain ne se fait que par le comptable mais un retrait peut s'effectuer aussi par un traitement de GC.
 - `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
@@ -510,8 +510,8 @@ _data_:
   - _clé_ : `ni`, numéro d'invitation.
   - _valeur_ : cryptée par la clé publique de l'avatar `[nom, cle, im]`.
   - une entrée est effacée par l'annulation de l'invitation du membre au groupe ou sur acceptation ou refus de l'invitation.
-- `pck` : phrase de contact cryptée par la clé K.
-- `hpc` : hash du PBKFD de la phrase de contact.
+- `pck` : PBKFD de la phrase de contact cryptée par la clé K.
+- `hpc` : hash de la phrase de contact.
 - `napc` : [nom, cle] de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 **Remarques:**
@@ -550,9 +550,9 @@ _data_:
 - `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
 - `mc` : mots clés attribués par l'avatar au chat
-- `contc` : contenu crypté par la clé de l'avatar lecteur (celle de sa carte de visite).
+- `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé de _l'autre_
+- `contc` : contenu crypté par la clé de l'avatar _lecteur_.
   - `na` : `[nom, cle]` de _l'autre_.
-  - `cv` : `{v, photo, info}` carte de visite de l'autre au moment de la création / dernière mise à jour du chat.
   - `dh`  : date-heure de dernière mise à jour.
   - `txt` : texte du chat.
 
