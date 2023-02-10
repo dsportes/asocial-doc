@@ -576,14 +576,16 @@ _data_
 - `dlv` : date limite de validité
 
 - `st` : statut. 0: en attente réponse, 1: refusé, 2: accepté, 3: détruit
+- `pspk` : phrase de sponsoring cryptée par la clé K du sponsor.
+- `bpspk` : PBKFD de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `descr` : crypté par le PBKFD de la phrase de sponsoring
   - `na` : `[nom, cle]` de P.
-  - `cv` : `[photo, info]` de P.
-  - `ard` : ardoise de bienvenue du sponsor / réponse du filleul
+  - `cv` : `{ v, photo, info }` de P.
   - `naf` : `[nom, cle]` attribué au filleul.
   - `nct` : `[nom, cle]` de sa tribu.
   - `sp` : vrai si le filleul est lui-même sponsor (créé par le Comptable, le seul qui peut le faire).
   - `quotas` : `[v1, v2]` quotas attribués par le parrain.
+- `ardx` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring
 
 **Remarques**
 - la `dlv` d'un sponsoring est fixe. Le sponsoring est purgé par le GC quotidien après cette date, en session et sur le serveur, les rows ayant dépassé cette limite sont supprimé et ne sont pas traités.
@@ -599,7 +601,7 @@ _data_
 - Le filleul crée son compte / avatar principal `naf` donne l'id de son avatar et son nom. Les infos de tribu pour le compte sont obtenu de `nct`.
 - la `compta` du filleul est créée et créditée des quotas attribués par le parrain.
 - la `tribu` est mise à jour (quotas / réserves), éventuellement le filleul est mis dans la liste des sponsors.
-- un `chat` de remerciement est écrit par le filleul au parrain.
+- un mot de remerciement est écrit par le filleul au parrain sur `ard`.
 - le statut du `sponsoring` est 2.
 
 ## Document `secret`
