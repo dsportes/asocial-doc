@@ -660,8 +660,7 @@ _data_:
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id` du groupe / avatar, `idf`
 - _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé S du secret.
 
-**Identifiant de stockage :** `reseau/id/idf`  
-- `reseau` : code du réseau.
+**Identifiant de stockage :** `id/idf`
 - `id` : id de l'avatar / groupe auquel le secret appartient.
 - `idf` : identifiant aléatoire du fichier.
 
