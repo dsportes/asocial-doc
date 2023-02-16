@@ -343,7 +343,6 @@ Deux variantes, l'avatar principal ayant des données supplémentaires.
 - `iv`
 - `vcv` : version de la carte de visite.
 - `ivc` : calculée comme iv (9 + 6 chiffres) mais la version est celle de la mise à jour de la carte de visite.
-- `dlv` : date de dernière signature + 365.
 - `hpc` : hash de la phrase de contact.
 - _data_ : sérialisation des autres attributs. **Un avatar principal / compte est reconnaissable par son `id`** et comporte des données supplémentaires dans _data_.
 
@@ -386,6 +385,7 @@ Il y a un document par rendez-vous fixé par l'avatar.
 - `id` : id de l'avatar ayant fixé le rendez-vous.
 - `ids` : hash de la phrase secrète de reconnaissance
 - `v`
+- `iv`
 - `dlv` : purge automatique des sponsorings.
 - _data_ : données du rendez-vous.
 
