@@ -24,7 +24,7 @@ Présentation en Collections / Documents :
       Documents                   id v iv dh dhb (dhb = dh quand la tribu est bloquée, sinon absente)
     
     /Collection `comptas`
-      Documents                   id v iv idt idtb hps1 (idtb = idt quand le compte est bloqué)
+      Documents                   id v iv dh dhb hps1 (dhb = dh du blocage quand le compte est bloqué)
 
     /Collection `versions`
       Documents                   id v iv dlv dfh (pour un groupe)
@@ -271,13 +271,14 @@ Attribut opaque _data_ en JSON de manière à pouvoir être mis à jour par l'ad
 Attribut opaque _data_ : contient les informations de point de reprise du GC.
 
 ## Collection `gcvols`
-Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable.
+Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable. C'est une _notification_ de disparition d'un compte que seul le comptable peut traiter pour mette à jour sa tribu.
 
 **Document:** - `id` : entier aléatoire
-- `id` : entier aléatoire
+- `id` : entier pseudo aléatoire, hash de `nctkc`.
 - _data_ : 
   - compteurs récupérés du document `compta` du compte. `f1, f2, v1, v2`
-  - `trcp` : `[nom, cle]` de la tribu qui doit récupérer les quotas crypté par la clé publique du comptable.
+  - `nctkc` : `[nom, cle]` de la tribu qui doit récupérer les quotas **crypté par la clé K du comptable**.
+  - `nat` : `[nom, rnd]` du compte disparu crypté par la clé t de sa tribu (`cle` ci-dessus).
 
 ## Collection `tribus`
 Cette collection liste les tribus déclarées sur le réseau et les fiches comptables des comptes rattachés à la tribu.
@@ -302,11 +303,9 @@ Un document par compte rattaché à sa tribu portant :
 - `id` : numéro du compte
 - `v`
 - `iv`
-- `idtb` : copie de `idt` si le compte est bloqué, sinon absent.
-- `idt` : id de la tribu actuelle.
+- `dhb` : copie de `dh` du blocage si le compte est bloqué, sinon absent.
 - `hps1` : le hash du PBKFD de la ligne 1 de la phrase secrète du compte.
 - _data_ :
-  - `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
   - `shay` : le SHA du SHA de X (PBKFD de la phrase secrète).
   - _compteurs_,
   - _descriptif du blocage_ portée sur le compte,
@@ -460,28 +459,31 @@ L'upload d'un fichier est long. Ce document permet de gérer un commit à 2 phas
 
 # Détail des documents
 ## Document `gcvol`
+- `id` : entier pseudo aléatoire, hash de `nctkc`.
 _data_:
-- `idt` : id de la tribu.
-- `q1, q2, v1, v2`: quotas et volumes à rendre à la tribu.
+- `nctkc` : `[nom, cle]` de la tribu qui doit récupérer les quotas **crypté par la clé K du comptable**.
+- `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
+- `q1, q2, v1, v2`: quotas et volumes à rendre à la tribu, récupérés sur le `compta` du compte détecté disparu.
+
+Le comptable obtient l'id et la clé de la tribu en décryptant `nctkc`, ce qui lui permet d'obtenir le `[nom, clé]` de l'avatar disparu : il peut ainsi mettre à jour la tribu, supprimer le compte de la liste des comptes de la tribus et mettre à jour les compteurs de volume.
 
 ## Document `tribu`
 _data_:
 - `id` : numéro de la tribu
 - `v` : sa version
-- `dh` : date-heure dernière modification.
-- `dhb` : =dh quand la tribu est bloquée
+- `dh` : date-heure dernière modification du blocage (si bloquée).
+- `dhb` : = dh quand la tribu est bloquée
 
-- `ntk` : `[nom, rnd]` de la tribu crypté par la clé K du comptable.
+- `nctkc` : `[nom, rnd]` de la tribu crypté par la clé K du comptable.
 - `infok` : commentaire privé du comptable crypté par la clé K du comptable.
-- `nbc` : nombre de comptes actifs dans la tribu.
 - `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
 - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
-- `msps` : map des sponsors:
-  - _clé_ : `id` du sponsor.
+- `mbtr` : map des membres de la tribu:
+  - _clé_ : id pseudo aléatoire, hash de la clé `rnd` du membre.
   - _valeur_ :
-    - `na` : `[nom, rnd]` du sponsor crypté par la clé de la tribu.
-    - `cv` : `{v, photo, info}` carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
-  - l'ajout d'un parrain ne se fait que par le comptable mais un retrait peut s'effectuer aussi par un traitement de GC.
+    - `na` : `[nom, rnd]` du membre crypté par la clé de la tribu.
+    - `sp` : si `true` / présent, c'est un sponsor.
+    - `cv` : `{v, photo, info}`, uniquement pour un sponsor, sa carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
 - `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
   - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
   - `c`: 1 si positionné par le comptable (dans une tribu toujours 1)
@@ -490,28 +492,38 @@ _data_:
   - `lj` : `[j12 j23 j34]` : nb de jours de passage des niveaux de 1 à 2, 2 à 3, 3 à 4.
   - `dh` : date-heure de dernier changement du statut de blocage.
 
+Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `ntk`.
+
+Tout compte, et en particulier les sponsors, connaissent le `nom, rnd` de leur tribu (donc leur id) : ce couple a été crypté par la clé CV du compte,
+- soit à sa création,
+- soit lors du changement de tribu d'un compte par le Comptable, ce dernier ayant du compte demandeur son le `[nom, rnd]` dans le chat de demande de changement de tribu.
+
+En terme purement cryptographique un membre non sponsor _pourrait_ accéder à la liste des membres de sa tribu, mais il ne lui est communiqué en session _que_ celle des sponsors (dont il a la CV -si elle existe-). 
+
+L'ajout / retrait de la qualité de parrain n'est effectué que par le comptable : dans le cadre d'un traitement de `gcvol` d'une disparition d'un compte, la map des membres est mise à jour par le traitement par le comptable lors de sa connexion.
+.
 ## Document `compta`
 _data_:
 - `id` : numéro du compte
-- `idt` : id de la tribu
 - `v` : version
-- `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète du compte.
-- `shay` : SHA du SHA de X (PBKFD de la phrase secrète).
+- `dhb` : date-heure `dh` du blocage quand elle est non nulle (qu'il y a un blocage).
+- `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète du compte : sert d'accès au row compta à la connexion au compte.
+- `shay` : SHA du SHA de X (PBKFD de la phrase secrète). Permet de vérifier la détention de la phrase secrète complète.
 - `kx` : clé K du compte, cryptée par le PBKFD de la phrase secrète courante.
 - `stp` : statut parrain (0: non, 1:oui).
-- `mavk` : map des avatars du compte cryptée par sa clé K. 
+- `mavk` : map des avatars du compte cryptée par la clé K du compte. 
   - _clé_ : id de l'avatar.
   - _valeur_ : `[nom clé]` : son nom complet.
-- `nct` : `[nom, clé]` de la tribu crypté,
-  - soit par la clé CV de l'avatar principal (figure dans `mavk`),
-  - soit pour le Comptable par sa clé K (sa clé CV étant une constante publique).
-- `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu. (un sponsor de la tribu peut ainsi lister les membres de la tribu)
+- `nctk` : `[nom, clé]` de la tribu crypté par la clé K du compte.
+- `nctkc` : `[nom, clé]` de la tribu crypté par la clé K **du Comptable**: 
+- `napt`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
 - `compteurs`: compteurs sérialisés (non cryptés).
 - `blocaget` : blocage du compte (cf `blocaget` de tribu).
 
 **Remarques :**  
 - Le document est mis à jour à minima à chaque mise à jour d'un secret.
 - La version de `compta` lui est spécifique (ce n'est pas la version de l'avatar principal du compte).
+- `napt nctkc` sont transmis dans un document gcvols pour notifier au Comptable, qui est le compte détecté disparu et quelle est sa tribu.
 
 ## Document `version`
 _data_ :
@@ -525,7 +537,7 @@ _data_ :
 ## Document `avatar`
 
 **_data_  : données n'existant que pour un avatar principal**
-- `mck` {} : map des mots-clés du compte cryptée par la clé K
+- `mck` : map des mots-clés du compte cryptée par la clé K -la clé est leur code 1-99- ("code": nom@catégorie).
 - `memok` : mémo personnel du compte.
 
 **_data_ : données disponibles pour les avatars primaires et secondaires**
@@ -563,6 +575,10 @@ Un chat est une ardoise commune à deux avatars A et B:
 - un chat a un comportement d'ardoise : chacun _écrase_ la totalité du contenu.
 - si A essaie d'écrire à B et que B a disparu, la `dlv` est positionnée sur les deux exemplaires si elle ne l'était pas déjà.
 
+L'id d'un chat est le couple id, ids. Du côté de A:
+- `id`: id de A,
+- `ids`: hash du cryptage de `idA/idB` par le `rnd` de A.
+
 **Suppression d'un chat**
 - chacun peut supprimer son chat : par exemple A supprime son chat avec B
 - côté A, la `dlv` du chat avec B est positionnée au jour courant + 365 (afin de permettre la synchronisation sur plusieurs sessions / appareils): c'est le GC quotidien qui le purgera.
@@ -575,7 +591,7 @@ Un chat est une ardoise commune à deux avatars A et B:
 
 _data_:
 - `id`
-- `ids` : identifiant du chat relativement à son avatar, hash de la concaténation des deux ids de A et B.
+- `ids` : identifiant du chat relativement à son avatar, hash du cryptage de `idA/idB` par le `rnd` de A.
 - `v`
 - `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
