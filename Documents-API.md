@@ -486,10 +486,10 @@ _data_:
     - `cv` : `{v, photo, info}`, uniquement pour un sponsor, sa carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
 - `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
   - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
-  - `c`: 1 si positionné par le comptable (dans une tribu toujours 1)
+  - `id`: id du sponsor ou du comptable gérant le blocage absent pour un blocage _tribu_ -implicite-).
   - `txt` : libellé explicatif du blocage.
   - `jib` : jour initial de la procédure de blocage
-  - `lj` : `[j12 j23 j34]` : nb de jours de passage des niveaux de 1 à 2, 2 à 3, 3 à 4.
+  - `nja njl` : nb de jours passés en niveau _alerte_, et _lecture_.
   - `dh` : date-heure de dernier changement du statut de blocage.
 
 Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `ntk`.
@@ -501,7 +501,30 @@ Tout compte, et en particulier les sponsors, connaissent le `nom, rnd` de leur t
 En terme purement cryptographique un membre non sponsor _pourrait_ accéder à la liste des membres de sa tribu, mais il ne lui est communiqué en session _que_ celle des sponsors (dont il a la CV -si elle existe-). 
 
 L'ajout / retrait de la qualité de parrain n'est effectué que par le comptable : dans le cadre d'un traitement de `gcvol` d'une disparition d'un compte, la map des membres est mise à jour par le traitement par le comptable lors de sa connexion.
-.
+
+### Blocages
+Il y a 3 niveaux de _blocage_:
+- 0 : aucun blocage (le champ `blocaget` est absent).
+- 1 : simple alerte informative,
+- 2 : lecture seulement, le compte est interdit d'écriture : seuls les chats avec le Comptable et les sponsors sont possibles.
+- 3 : compte bloqué: La page d'accueil ne permet que :
+  - chatter avec le Comptable et les sponsors
+  - visualiser l'état de blocage et la comptabilité du compte et l'état de la session.
+
+Le _niveau courant_ dépend du jour J:
+- 1 : J est avant jib + nja : jour initial de la procédure + nombre de jours en état _alerte_.
+- 2 : J est avant jib + nja + njl : jour initial de la procédure + nombre de jours en état _alerte_ et _lecture_.
+- 3 : J est au delà.
+
+Il y a deux sources de blocages :
+- le blocage de la tribu,
+- le blocage du compte.
+
+Le niveau de blocage _effectif_ le jour J est le plus élevé des deux. Le responsable du blocage _effectif_ est,
+- le comptable si le blocage effectif est de source _tribu_,
+- le comptable si le blocage effectif est de source _compte_ mais que l'indicateur `id` du blocage compte indique que le blocage est géré par le Comptable.
+- le sponsor d'id indiquée dans le cas d'un blocage _compte_.
+
 ## Document `compta`
 _data_:
 - `id` : numéro du compte
