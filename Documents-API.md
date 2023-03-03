@@ -16,15 +16,16 @@ Présentation en Collections / Documents :
     /Collection `singletons`
       Document `config`
       Document `checkpoint`
+      Document `info`
 
     /Collection `gcvols`        
       Documents                   id
 
     /Collection `tribus`
-      Documents                   id v iv dh dhb (dhb = dh quand la tribu est bloquée, sinon absente)
+      Documents                   id v iv
     
     /Collection `comptas`
-      Documents                   id v iv dh dhb hps1 (dhb = dh du blocage quand le compte est bloqué)
+      Documents                   id v iv hps1
 
     /Collection `versions`
       Documents                   id v iv dlv dfh (pour un groupe)
@@ -52,8 +53,8 @@ Présentation en Collections / Documents :
     Collection  Attrs non indexés     Attrs indexés     Attrs collectionGroup
     singletons  _data_
     gcvols      id _data_
-    tribus      id v _data_           iv dh dhb
-    comptas     id v _data_           iv idt idtb hps1
+    tribus      id v _data_           iv
+    comptas     id v _data_           iv hps1
     versions    id v _data_           iv dlv dfh
     avatars     id v vcv hpc _data_   iv ivc
     groupes     id v _data_           iv
@@ -66,7 +67,7 @@ Présentation en Collections / Documents :
 
 Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`), qui porte les informations sérialisées du document.
 - les attributs externalisés hors de _data_ le sont parce qu'ils sont utilisés comme identifiants et / ou champs indexés.
-- les attributs `iv ivc idtb dhb` ne sont pas explicitement présents dans _data_ étant calculables depuis `id, v, vcv, dh, bloc`.
+- les attributs `iv ivc` ne sont pas explicitement présents dans _data_ étant calculables depuis `id, v, vcv`.
 
 #### Documents d'une collection majeure
 Les documents _majeurs_ sont ceux des collections `tribus comptas versions avatars groupes`.
@@ -84,7 +85,7 @@ Leur identifiant relatif à leur document majeur est `ids`.
 #### Gestion des versions dans `versions`
 - un document `avatar` d'id `ida` et les documents de ses sous collections `chats secrets transferts sponsorings` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
 - idem pour un document `groupe` et ses sous-collections `membres secrets transferts`.
-- toute mise à jour provoque l'incrémentation de 1 du numéro de version dans `versions` et l'inscription de cette valeur comme version du document mis à jour.
+- toute mise à jour provoque l'incrémentation du numéro de version dans `versions` et l'inscription de cette valeur comme version du document mis à jour.
 
 Un document version gère aussi :
 - `dlv` : la signature de vie de son avatar ou groupe.
@@ -98,8 +99,8 @@ Une session a une liste d'ids abonnées :
 - les ids de ses groupes et avatars : quand un document versions ayant une des ids change, il est transmis à la session à titre de _notification_. C'est ensuite la tâche de synchronisation de la session qui ira chercher, par une transaction pour chaque document majeur, le document majeur et ses sous documents ayant des versions postérieures.
 
 **Remarque :** en session ceci conduit au respect de l'intégrité transactionnelle pour chaque objet majeur mais pas entre objets majeurs dont les mises à jour pourraient être répercutées dans un ordre différent de celui opéré par le serveur.
-- en SQL les notifications pourraient être regroupées par transaction et transmises dans l'ordre.
-- en FireStore ce n'est pas possible : la session pose un écouteur sur des objets compta et version individuellement, l'ordre n'est pas garanti entre objets majeurs.
+- en **SQL** les notifications pourraient être regroupées par transaction et transmises dans l'ordre.
+- en **FireStore** ce n'est pas possible : la session pose un écouteur sur des objets compta et version individuellement, l'ordre n'est pas garanti entre objets majeurs.
 
 #### Id-version : `iv`
 Un `iv` est constitué sur 15 chiffres :
@@ -110,26 +111,7 @@ Un `iv` permet de filtrer un document précis selon sa version. Il sert:
 - **à gérer une mémoire cache dans le serveur des documents majeurs** récemment accédés : si la version actuelle est déjà en cache, le document _n'est pas_ chargé (seul l'index est accédé).
 - **à remettre à jour en session _incrémentalement_ UN document majeur ET ses sous-documents** en ne chargeant à la connexion QUE les documents plus récents que la version de leur document majeur détenue dans la session.
 
-Comme un `iv` ne comporte pas une `id` complète mais seulement ses 9 derniers chiffres, de temps en temps (mais très rarement) le filtrage _peut_ donner retourner des _faux positifs_ qu'il faut retirer du résultat en vérifiant leur `id` dans le document.
-
-### `idt idtb` de comptas : d'une tribu / bloquées d'une tribu / bloquées (toutes tribus)
-`idt` est l'id de la tribu du compte. Son indexation permet à un parrain de la tribu ou au comptable de récupérer,
-- tous les comptes de la tribu, 
-- ceux bloqués en utilisant `idtb`
-  - d'une tribu : `idtb == ...`
-  - toutes tribus : `idtb != 0`
-
-#### `dh` et `dhb` sur `tribus`
-Le comptable a des process de gestion des tribus:
-- au début du process, il récupère toutes les tribus ayant un état plus récent que celui connu à la clôture du process précédent.
-- il s'abonne à la collection tribus pour obtenir les mises à jour.
-- à la fin du process, il arrête son abonnement mais conserve en session les tribus chargées.
-
-Pour n'obtenir en début de process suivants que les tribus ayant changé depuis le dernier chargement (total ou incrémental), il filtre les tribus sur l'attribut `dh`, date-heure de dernière mise à jour.
-
-`dhb` est la copie de `dh` QUAND le niveau de blocage n'est pas 0 : quand le comptable ne s'intéresse qu'aux tribus bloquées, il filtre sur `dhb` plutôt que `dh`.
-
-De même pour `comptas`, `ivb` est égal à `iv` si le compte est bloqué afin que les parrains puisse travailler sur le sous-ensemble des comptes bloqués de leur tribu plutôt que sur tous.
+Comme un `iv` ne comporte pas une `id` complète mais seulement ses 9 derniers chiffres, de temps en temps (mais très rarement) le filtrage _peut_ retourner des _faux positifs_ qu'il faut retirer du résultat en vérifiant leur `id` dans le document.
 
 #### `dlv` et `dfh` : **date limite de validité** et **date de fin d'hébergement** 
 Les `dlv` sont passées sur la partie row externe à _data_ : en synchronisation aussi (puisque _data_ ne sera présente).
@@ -193,7 +175,7 @@ Le **nom complet** d'un avatar / groupe / tribu est un couple `[nom, cle]`
 
 #### Les ids
 **Singletons**
-- il y a 2 singletons d'id respectives `config` et `gc`.
+- il y a 3 singletons d'id respectives `config` `checkpoint` `info`.
 
 **Ids des documents majeurs `avatar` (sauf comptable), `groupe`, `tribu`:**
 - le hash (_integer_) de la cle est un entier SAFE en Javascript : il est divisé par 10.
@@ -267,8 +249,13 @@ La purge d'un **groupe** intervient en deux temps : une fin d'hébergement peut 
 ### Document `config`
 Attribut opaque _data_ en JSON de manière à pouvoir être mis à jour par l'administrateur (ou par une page simpliste d'upload).
 
-### Document `gc`
+### Document `checkpoint`
 Attribut opaque _data_ : contient les informations de point de reprise du GC.
+
+### Document `info`
+Attribut opaque _data_ : crypté par la clé du Comptable (qui est une constante bien connue), c'est un texte d'information du comptable à propos de l'application.
+
+Ce texte est synchronisé et peut être utilisé comme _alerte générale_ aux sessions connectées.
 
 ## Collection `gcvols`
 Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable. C'est une _notification_ de disparition d'un compte que seul le comptable peut traiter pour mette à jour sa tribu.
@@ -282,6 +269,10 @@ Il y a autant de documents que de comptes ayant été détectés disparus et don
 
 ## Collection `tribus`
 Cette collection liste les tribus déclarées sur le réseau et les fiches comptables des comptes rattachés à la tribu.
+
+Le comptable est le seul qui,
+- récupère à la connexion l'ensemble des tribus,
+- est abonné aux modifications des tribus (pas seulement de la sienne)
 
 **Documents:** - `id` : numéro de la tribu  
 Chaque document donne un descriptif de la tribu et la liste de ses parrains.
@@ -471,11 +462,10 @@ Le comptable obtient l'id et la clé de la tribu en décryptant `nctkc`, ce qui 
 _data_:
 - `id` : numéro de la tribu
 - `v` : sa version
-- `dh` : date-heure dernière modification du blocage (si bloquée).
-- `dhb` : = dh quand la tribu est bloquée
 
 - `nctkc` : `[nom, rnd]` de la tribu crypté par la clé K du comptable.
 - `infok` : commentaire privé du comptable crypté par la clé K du comptable.
+- `msgt` : message du comptable aux comptes de la tribu (crypté par la clé de la tribu).
 - `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
 - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
 - `mbtr` : map des membres de la tribu:
@@ -483,16 +473,17 @@ _data_:
   - _valeur_ :
     - `na` : `[nom, rnd]` du membre crypté par la clé de la tribu.
     - `sp` : si `true` / présent, c'est un sponsor.
+    - `bl` : si `true`, le compte fait l'objet d'une procédure de blocage.
     - `cv` : `{v, photo, info}`, uniquement pour un sponsor, sa carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
 - `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
   - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
-  - `id`: id du sponsor ou du comptable gérant le blocage absent pour un blocage _tribu_ -implicite-).
+  - `id`: id du sponsor ou du comptable gérant le blocage, absent pour un blocage _tribu_.
   - `txt` : libellé explicatif du blocage.
   - `jib` : jour initial de la procédure de blocage
   - `nja njl` : nb de jours passés en niveau _alerte_, et _lecture_.
   - `dh` : date-heure de dernier changement du statut de blocage.
 
-Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `ntk`.
+Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `nctkc`.
 
 Tout compte, et en particulier les sponsors, connaissent le `nom, rnd` de leur tribu (donc leur id) : ce couple a été crypté par la clé CV du compte,
 - soit à sa création,
