@@ -16,7 +16,7 @@ Présentation en Collections / Documents :
     /Collection `singletons`
       Document `config`
       Document `checkpoint`
-      Document `info`
+      Document `notif`
 
     /Collection `gcvols`        
       Documents                   id
@@ -70,11 +70,11 @@ Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`),
 - les attributs `iv ivc` ne sont pas explicitement présents dans _data_ étant calculables depuis `id, v, vcv`.
 
 #### Documents d'une collection majeure
-Les documents _majeurs_ sont ceux des collections `tribus comptas versions avatars groupes`.
+Les documents _majeurs_ sont ceux des collections `tribus comptas avatars groupes`.
 - leur identifiant porte le nom `id` et est un entier.
-- chaque document porte une version `v` : c'est un numéro séquentiel du nombre de mises à jours subies par le document lui-même et les documents de ses sous-collections.
-  - le dernier numéro de version attribué de `tribus groupes` figure dans leur document.
-  - le dernier numéro de version attribué pour `avatars comptas` figure dans le documents `comptas` qui détient ces numéros pour les avatars 0 à 7 du compte (avatar 0).
+- chaque document porte une version `v`:
+  - `tribus` et `comptas` ont leur propre version gérée dans le document lui-même.
+  - `avatars` et `groupes` ont leurs versions gérées par le document versions portant leur id (voir ci-dessous)
 
 #### Documents d'une sous-collection d'un document majeur :
 - `chats secrets transferts sponsorings` d'un **avatar**.
@@ -87,7 +87,7 @@ Leur identifiant relatif à leur document majeur est `ids`.
 - idem pour un document `groupe` et ses sous-collections `membres secrets transferts`.
 - toute mise à jour provoque l'incrémentation du numéro de version dans `versions` et l'inscription de cette valeur comme version du document mis à jour.
 
-Un document version gère aussi :
+Un document `version` gère aussi :
 - `dlv` : la signature de vie de son avatar ou groupe.
 - en _data_ pour un groupe :
   - `v1 q1` : volume et quota dee textes des secrets du groupe.
@@ -96,7 +96,10 @@ Un document version gère aussi :
 #### Documents _synchronisables_ en session
 Une session a une liste d'ids abonnées :
 - l'id de son compte : quand un document compta change il est transmis à la session.
-- les ids de ses groupes et avatars : quand un document versions ayant une des ids change, il est transmis à la session à titre de _notification_. C'est ensuite la tâche de synchronisation de la session qui ira chercher, par une transaction pour chaque document majeur, le document majeur et ses sous documents ayant des versions postérieures.
+- les ids de ses groupes et avatars : quand un document `version` ayant une des ids change, il est transmis à la session à titre de _notification_. C'est ensuite la tâche de synchronisation de la session qui ira chercher, par une transaction pour chaque document majeur, le document majeur et ses sous documents ayant des versions postérieures.
+- sa `tribu` actuelle (qui peut donc changer) pour un compte normal.
+- implicitement toutes les tribus pour le Comptable.
+- implicitement le singleton `notif`.
 
 **Remarque :** en session ceci conduit au respect de l'intégrité transactionnelle pour chaque objet majeur mais pas entre objets majeurs dont les mises à jour pourraient être répercutées dans un ordre différent de celui opéré par le serveur.
 - en **SQL** les notifications pourraient être regroupées par transaction et transmises dans l'ordre.
@@ -415,7 +418,6 @@ Cette collections comporte un document par groupe existant.
 Elle comporte un document membre par membre.
 
 **Documents:** 
-- `ids`, indice du membre dans le groupe
 - `id` : id du groupe.
 - `ids`: indice de membre relatif à son groupe.
 - `dlv` : date de dernière signature lors de la connexion du compte de l'avatar membre du groupe.
@@ -426,7 +428,7 @@ Elle comporte un document membre par membre.
 ### Sous-collection `secrets`
 Elle compte un document par secret.
 
-**Documents:** - `ids` numéro du secret pour le groupe.
+**Documents:**
 - `id` : id du groupe.
 - `ids` : identifiant relatif à son groupe.
 - `v` : sa version.
@@ -449,6 +451,58 @@ L'upload d'un fichier est long. Ce document permet de gérer un commit à 2 phas
 - `dlv` : date de validité permettant de purger les fichiers uploadés (ou pas d'ailleurs) sur échec du commit entre les phases 1 et 2. Ceci permet de faire la différence entre un upload en cours et un vieil upload manqué.
 
 # Détail des documents
+## Sous-objets _génériques_
+Ce sont des _structures_ qu'on peut trouver dans les _data_ de plusieurs documents,
+- sérialisées,
+- cryptées par une clé qui dépend du contexte où se trouve la structure.
+
+Ce sont :
+- `blocage` : décrit une procédure de blocage. Se trouve dans :
+  - `tribu` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau de la tribu.
+  - `compta` : cryptée par la clé du compte, décrit la procédure de blocage en cours au niveau du compte.
+- `notif` : décrit une _notification_, un avis plus ou moins important destiné soit à tous les comptes, soir à ceux d'une tribu, soit à un compte particulier.
+  - _data_ du singleton `notif` : cryptée par la clé bien connue constante du Comptable, signale une notification globale pour tous les comptes.
+  - _tribu_ : cryptée par la clé de la tribu:
+    - `notifco` : notification issue du Comptable.
+    - `notifsp` : notification issue d'un des sponsors de la tribu.
+  - _compta_ : cryptée par la clé compte:
+    - `notifco` : notification issue du Comptable.
+    - `notifsp` : notification issue d'un des sponsors de la tribu.
+
+### `blocage`
+- `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
+- `sp`: `true` si créé / gérée par un sponsor (absent pour un blocage _tribu_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
+- `jib` : jour initial de la procédure de blocage sous la forme `aaaammjj`.
+- `nja njl` : nb de jours passés en niveau _alerte_, et _lecture seule_.
+
+Il y a trois niveaux :
+- **alerte** : simple annonce qu'une procédure est engagée, **mais** les comptes ne _signant_ plus leurs connexions, le compte est déjà engagée dans une procédure qui conduira, si rien n'est fait, à sa disparition un an après le début de la procédure.
+- **lecture seule** : le compte ne peut plus que,
+  -_lire_ toutes ses données,
+  - _chatter_ avec le Comptable et les sponsors de sa tribu.
+- **bloquée** : le compte ne peut plus que,
+  - _lire_ sa propre comptabilité, les informations de blocage et les notifications. - _chatter_ avec le Comptable et les sponsors de sa tribu.
+
+Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
+- le nombre de jours restant avant d'atteindre la date de fin du niveau et des niveaux suivants.
+- le nombre de jours avant disparition du compte (dernier jour du niveau _bloqué_).
+
+### `notif`
+- `txt` : texte court de la notification.
+- `dh` : date-heure d'inscription de la notification.
+- `g` : gravité 1-faible, 2-moyenne, 3-importante.
+
+Une notification peut être remplacée par une autre plus récente et peut-être effacée.
+
+Il existe donc 5 notifications pour un compte:
+- générale,
+- tribu par le Comptable,
+- tribu par un sponsor,
+- compte par le Comptable,
+- compte par le sponsor.
+
+Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications. Le Comptable et les sponsors peuvent ainsi savoir lesquelles des notifications ciblées pour un compte ont été lues par le titulaire du compte (et quand).
+
 ## Document `gcvol`
 - `id` : entier pseudo aléatoire, hash de `nctkc`.
 _data_:
@@ -475,13 +529,7 @@ _data_:
     - `sp` : si `true` / présent, c'est un sponsor.
     - `bl` : si `true`, le compte fait l'objet d'une procédure de blocage.
     - `cv` : `{v, photo, info}`, uniquement pour un sponsor, sa carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
-- `blocaget` : cryptée par la clé de la tribu : ("blocage" quand compilé)
-  - `stn` : raison majeure du blocage : 0 à 9 repris dans la configuration de l'organisation.
-  - `id`: id du sponsor ou du comptable gérant le blocage, absent pour un blocage _tribu_.
-  - `txt` : libellé explicatif du blocage.
-  - `jib` : jour initial de la procédure de blocage
-  - `nja njl` : nb de jours passés en niveau _alerte_, et _lecture_.
-  - `dh` : date-heure de dernier changement du statut de blocage.
+- `blocaget` : cryptée par la clé de la tribu.
 
 Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `nctkc`.
 
