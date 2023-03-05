@@ -479,6 +479,7 @@ Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
 ### `notif`
 - `txt` : texte court de la notification.
 - `dh` : date-heure d'inscription de la notification.
+- `id` : id de l'auteur (0 c'est le comptable).
 - `g` : gravité 1-faible, 2-moyenne, 3-importante.
 
 Une notification peut être remplacée par une autre plus récente et peut-être effacée.
