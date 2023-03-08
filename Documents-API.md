@@ -536,8 +536,8 @@ _data_:
   - `nbc` : nombre de comptes.
   - `nbsp` : nombre de sponsors.
   - `cbl` : nombre de comptes ayant un blocage.
-  - `nco1 nco2 nco3` : nombre de comptes ayant une notification du comptable, par gravité.
-  - `nsp1 nsp2 nsp3` : nombre de comptes ayant une notification d'un sponsor, par gravité.
+  - `nco[0..2]` : nombre de comptes ayant une notification du comptable, par gravité.
+  - `nsp[0..2]` : nombre de comptes ayant une notification d'un sponsor, par gravité.
 
 ## Document `tribu2`
 Liste des comptes d'une tribu.
