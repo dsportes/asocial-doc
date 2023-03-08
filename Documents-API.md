@@ -22,7 +22,10 @@ Présentation en Collections / Documents :
 
     /Collection `tribus`
       Documents                   id v iv
-    
+
+    /Collection `tribu2s`
+      Documents                   id v iv
+
     /Collection `comptas`
       Documents                   id v iv hps1
 
@@ -51,13 +54,17 @@ Présentation en Collections / Documents :
 
     Collection  Attrs non indexés     Attrs indexés     Attrs collectionGroup
     singletons  _data_
+
+    La _clé primaire_ est id:
     gcvols      id _data_
     tribus      id v _data_           iv
+    tribu2s     id v _data_           iv
     comptas     id v _data_           iv hps1
     versions    id v _data_           iv dlv dfh
     avatars     id v vcv hpc _data_   iv ivc
     groupes     id v _data_           iv
 
+    La _clé primaire_ est id+ids
     secrets     id ids v _data_       iv
     transferts  id ids                                  dlv
     sponsorings id v _data_           iv                dlv ids
@@ -69,7 +76,7 @@ Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`),
 - les attributs `iv ivc` ne sont pas explicitement présents dans _data_ étant calculables depuis `id, v, vcv`.
 
 #### Documents d'une collection majeure
-Les documents _majeurs_ sont ceux des collections `tribus comptas avatars groupes`.
+Les documents _majeurs_ sont ceux des collections `tribus tribu2s comptas avatars groupes`.
 - leur identifiant porte le nom `id` et est un entier.
 - chaque document porte une version `v`:
   - `tribus` et `comptas` ont leur propre version gérée dans le document lui-même.
@@ -96,9 +103,11 @@ Leur identifiant relatif à leur document majeur est `ids`.
 Une session a une liste d'ids abonnées :
 - l'id de son compte : quand un document `compta` change il est transmis à la session.
 - les ids de ses `groupes` et `avatars` : quand un document `version` ayant une de ces ids change, il est transmis à la session. La tâche de synchronisation de la session va chercher, par une transaction pour chaque document majeur, le document majeur et ses sous documents ayant des versions postérieures à celles détenues en session.
-- sa `tribu` actuelle (qui peut donc changer) pour un compte normal.
-- implicitement toutes les tribus pour le Comptable.
+- sa `tribu tribu2` actuelle (qui peut donc changer) pour un compte normal.
 - implicitement le singleton `notif`.
+- **pour le Comptable** : en plus, 
+  - implicitement toutes les `tribu`,
+  - ponctuellement une `tribu2` _courante_.
 
 **Remarque :** en session ceci conduit au respect de l'intégrité transactionnelle pour chaque objet majeur mais pas entre objets majeurs dont les mises à jour pourraient être répercutées dans un ordre différent de celui opéré par le serveur.
 - en **SQL** les notifications pourraient être regroupées par transaction et transmises dans l'ordre.
@@ -266,19 +275,27 @@ Il y a autant de documents que de comptes ayant été détectés disparus et don
   - `nctkc` : `[nom, cle]` de la tribu qui doit récupérer les quotas **crypté par la clé K du comptable**.
   - `nat` : `[nom, rnd]` du compte disparu crypté par la clé t de sa tribu (`cle` ci-dessus).
 
-## Collection `tribus`
+## Collection `tribus` et `tribu2s`
 Cette collection liste les tribus déclarées sur le réseau et les fiches comptables des comptes rattachés à la tribu.
 
 Le comptable est le seul qui,
 - récupère à la connexion l'ensemble des tribus,
 - est abonné aux modifications des tribus (pas seulement de la sienne).
 
+Les données d'une tribu sont réparties sur 2 documents :
+- `tribus` : une entête de synthèse,
+- `tribu2s`: la liste des comptes de la tribu.
+
+Le Comptable a en effet besoin :
+- de toutes les synthèses des tribus,
+- du détail ponctuellement pour une tribu courante de travail.
+
 **Documents:** - `id` : numéro de la tribu  
 Chaque document donne un descriptif de la tribu et la liste de ses parrains.
 - `id` : numéro de la tribu 
 - `v`
 - `iv`
-- _data_ : données de la tribu, dont la **liste de ses parrains** (nom, clé) et le descriptif de l'alerte.
+- _data_ : données de la tribu, synthèse (`tribus`) ou liste des comptes (`tribu2s`).
 
 ### Collection `comptas`
 
@@ -293,12 +310,6 @@ Un document par compte rattaché à sa tribu portant :
 - `iv`
 - `hps1` : le hash du PBKFD de la ligne 1 de la phrase secrète du compte.
 - _data_ : il contient en particulier `shay`, le SHA du SHA de X (PBKFD de la phrase secrète).
-
-**Remarques:**
-- une session d'un compte :
-  - est abonnée au document de sa `tribus`
-  - est abonnée à son document `comptas`.
-- une session du comptable est abonnée à toute la collection `tribus`.
 
 ### Collection `versions`
 
@@ -449,20 +460,21 @@ Ce sont des _structures_ qu'on peut trouver dans les _data_ de plusieurs documen
 Ce sont :
 - `blocage` : décrit une procédure de blocage. Se trouve dans :
   - `tribu` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau de la tribu.
-  - `compta` : cryptée par la clé du compte, décrit la procédure de blocage en cours au niveau du compte.
+  - `tribu2` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau du compte.
 - `notif` : décrit une _notification_, un avis plus ou moins important destiné soit à tous les comptes, soir à ceux d'une tribu, soit à un compte particulier.
   - _data_ du singleton `notif` : cryptée par la clé bien connue constante du Comptable, signale une notification globale pour tous les comptes.
   - _tribu_ : cryptée par la clé de la tribu:
     - `notifco` : notification issue du Comptable.
     - `notifsp` : notification issue d'un des sponsors de la tribu.
-  - _compta_ : cryptée par la clé compte:
+  - _tribu2_ : cryptée par la clé de la tribu:
     - `notifco` : notification issue du Comptable.
     - `notifsp` : notification issue d'un des sponsors de la tribu.
 
 ### `blocage`
-- `sp`: `true` si créé / gérée par un sponsor (absent pour un blocage _tribu_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
+- `sp`: id si créé / gérée par un sponsor (0 pour un blocage _tribu_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
 - `jib` : jour initial de la procédure de blocage sous la forme `aaaammjj`.
 - `nja njl` : nb de jours passés en niveau _alerte_, et _lecture seule_.
+- `dh` : date-heure de dernière modification (informative).
 
 Il y a trois niveaux :
 - **alerte** : simple annonce qu'une procédure est engagée, **mais** les comptes ne _signant_ plus leurs connexions, le compte est déjà engagée dans une procédure qui conduira, si rien n'est fait, à sa disparition un an après le début de la procédure.
@@ -507,6 +519,8 @@ _data_:
 Le comptable obtient l'id et la clé de la tribu en décryptant `nctkc`, ce qui lui permet d'obtenir le `[nom, clé]` de l'avatar disparu : il peut ainsi mettre à jour la tribu, supprimer le compte de la liste des comptes de la tribus et mettre à jour les compteurs de volume.
 
 ## Document `tribu`
+Données de synthèse d'une tribu.
+
 _data_:
 - `id` : numéro de la tribu
 - `v` : sa version
@@ -515,54 +529,83 @@ _data_:
 - `infok` : commentaire privé du comptable crypté par la clé K du comptable.
 - `notifco` : notification du comptable à la tribu (cryptée par la clé de la tribu).
 - `notifsp` : notification d'un sponsor à la tribu (cryptée par la clé de la tribu).
-- `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
-- `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
+- `blocaget` : blocage du niveau crypté par la clé de la tribu.
+- `cpt` : sérialisation non cryptée des compteurs suivants:
+  - `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
+  - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
+  - `nbc` : nombre de comptes.
+  - `nbsp` : nombre de sponsors.
+  - `cbl` : nombre de comptes ayant un blocage.
+  - `nco1 nco2 nco3` : nombre de comptes ayant une notification du comptable, par gravité.
+  - `nsp1 nsp2 nsp3` : nombre de comptes ayant une notification d'un sponsor, par gravité.
+
+## Document `tribu2`
+Liste des comptes d'une tribu.
+
+_data_:
+- `id` : numéro de la tribu
+- `v` : sa version
+
 - `mbtr` : map des membres de la tribu:
   - _clé_ : id pseudo aléatoire, hash de la clé `rnd` du membre.
   - _valeur_ :
     - `na` : `[nom, rnd]` du membre crypté par la clé de la tribu.
     - `sp` : si `true` / présent, c'est un sponsor.
-    - `bl` : si `true`, le compte fait l'objet d'une procédure de blocage.
-    - `cv` : `{v, photo, info}`, uniquement pour un sponsor, sa carte de visite cryptée par la clé CV du sponsor (le `rnd` ci-dessus).
-- `blocaget` : blocage crypté par la clé de la tribu.
+    - `q1 q2` : quotas de volumes V1 et V2 (redondance dans l'attribut `compteurs` de `compta`)
+    - `blocage` : blocage de niveau compte, crypté par la clé de la tribu.
+    - `notifco` : notification du comptable au compte (cryptée par la clé de la tribu).
+    - `notifsp` : notification d'un sponsor au compte (cryptée par la clé de la tribu).
+    - `cv` : `{v, photo, info}`, carte de visite du compte cryptée par _sa_ clé (le `rnd` ci-dessus).
 
 Le Comptable a la clé des tribus, c'est lui qui les créé et les supprime : elles sont cryptées dans `nctkc`.
 
-Tout compte, et en particulier les sponsors, connaissent le `nom, rnd` de leur tribu (donc leur id) : ce couple a été crypté par la clé CV du compte,
+Tous les comptes connaissent le `nom, rnd` de leur tribu (donc leur id) : ce couple a été crypté par la clé CV du compte,
 - soit à sa création,
-- soit lors du changement de tribu d'un compte par le Comptable, ce dernier ayant du compte demandeur son le `[nom, rnd]` dans le chat de demande de changement de tribu.
+- soit lors du changement de tribu d'un compte par le Comptable, ce dernier ayant du compte demandeur son `[nom, rnd]` dans le chat de demande de changement de tribu.
 
-En terme purement cryptographique un compte non sponsor _pourrait_ accéder à la liste des comptes de sa tribu, mais il ne lui est communiqué en session _que_ celle des sponsors (dont il a la CV -si elle existe-). 
+Un compte peut accéder à la liste des comptes de sa tribu. 
 
 L'ajout / retrait de la qualité de sponsor n'est effectué que par le comptable : dans le cadre d'un traitement de `gcvol` d'une disparition d'un compte, la map des membres est mise à jour par le traitement par le comptable lors de sa connexion.
+
+### Synchronisations et versions
+Les versions de tribu et tribu2 leur sont spécifiques et servent juste en synchronisation à garantir la progression sans retour dans le passé.
+
+A la connexion d'une session, le chargement n'utilise pas la version (_comme si_ celle détenue en en IDB était 0).
+
+**Synchronisation d'un compte standard**
+- abonné à **une** id de tribu, reçoit les mises à jour de tribu et tribu2.
+
+**Synchronisation du comptable**
+- abonné à l'id de la tribu "primitive", en reçoit les mises à jour de tribu et tribu2.
+- abonné par défaut à toutes les mises à jour de tribu (toutes).
+- à la déclaration d'une tribu _courante_, début du processus sur _la_ page de détail de cette tribu,
+  - reçoit le tribu2 (sans considération de version),
+  - devient abonné à cette tribu2 (donc en plus de primitive)
+  - à la fin du processus de travail sur cette tribu courante, sé désabonne.
 
 ## Document `compta`
 _data_:
 - `id` : numéro du compte
 - `v` : version
-- `dhb` : date-heure `dh` du blocage quand elle est non nulle (qu'il y a un blocage).
 - `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète du compte : sert d'accès au row compta à la connexion au compte.
 - `shay` : SHA du SHA de X (PBKFD de la phrase secrète). Permet de vérifier la détention de la phrase secrète complète.
 - `kx` : clé K du compte, cryptée par le PBKFD de la phrase secrète courante.
-- `stp` : statut parrain (0: non, 1:oui).
-- `notifco` : notification du comptable au compte (cryptée par la clé de l'avatar principal du compte).
-- `notifsp` : notification d'un sponsor au compte (cryptée par la clé de l'avatar principal du compte).
-- `dhvu` : date-heure de dernière vue des notifications par le titualire du compte, cryptée par la clé du compte.
+- `stp` : statut parrain (0: non, 1:oui) ???
 - `mavk` : map des avatars du compte cryptée par la clé K du compte. 
   - _clé_ : id de l'avatar.
   - _valeur_ : `[nom clé]` : son nom complet.
-- `nctk` : `[nom, clé]` de la tribu crypté par la clé K du compte.
-- `nctkc` : `[nom, clé]` de la tribu crypté par la clé K **du Comptable**: 
+- `nctk` : `[nom, clé]` de sa tribu crypté par la clé K du compte.
+- `nctkc` : `[nom, clé]` de sa tribu crypté par la clé K **du Comptable**: 
 - `napt`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
 - `compteurs`: compteurs sérialisés (non cryptés).
-- `blocaget` : blocage du compte crypté par la clé de la tribu.
+- `dhvu` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé du compte.
 - `dhdq` : date-heure de détection du _dépassement_ des quotas.
 - `dhrq` : date-heure de détection du retour au _respect_ des quotas. 
 
 **Remarques :**  
 - Le document est mis à jour à minima à chaque mise à jour d'un secret.
 - La version de `compta` lui est spécifique (ce n'est pas la version de l'avatar principal du compte).
-- `napt nctkc` sont transmis dans un document gcvols pour notifier au Comptable, qui est le compte détecté disparu et quelle est sa tribu.
+- `napt nctkc` sont transmis par le GC dans un document `gcvols` pour notifier au Comptable, quel est le compte détecté disparu et sa tribu.
 - `dhdq` est positionnée QUE lors de la **détection du dépassement** d'un des quotas. Si les quotas étaient _déjà_ dépassés, `dhdq` n'évolue pas (idem dans l'autre sens pour `dhrq`)
 
 ## Document `version`
@@ -605,6 +648,16 @@ L'invitant connaît le `[nom, clé]` de l'invité qui est déjà dans la liste d
 - en cas de refus, l'invité donnera les raisons dans ce même `chat`.
 - l'acceptation par l'avatar transfert l'entrée de `invits` dans `lgrk` en ré-encryptant l'entrée par la clé K.
 
+**Cartes de visite**
+- à la création, puis à chaque mise à jour du texte, les cartes de visite sont remises à jour, si nécessaire.
+- la **carte de visite du compte** (avatar principal) est redondée en `tribu2`, mise à jour à chaque changement.
+- les cartes de visite sont aussi redondées dans `membres`:
+  - **quand une session demande la liste des membres d'un groupe**, une opération remet à jour les cartes de visites dont la version détenue dans `membres` est obsolète.
+  - ce rafraîchissement peut aussi être demandé explicitement (en plus) depuis un bouton.
+- les cartes de visite sont aussi redondées dans `chats`:
+  - inscrite, dans les deux exemplaire d'un chat, lors de la mise à jour du chat.
+  - sur demande en session, à l'ouverture de la page présentant les chats (plus sur demande par un bouton) pour tous les chats d'un avatar (et seulement si c'est nécessaire).
+
 ## Document `chat`
 Un chat est une ardoise commune à deux avatars A et B:
 - pour être écrite par A :
@@ -624,10 +677,6 @@ L'id d'un chat est le couple id, ids. Du côté de A:
 - côté A, la `dlv` du chat avec B est positionnée au jour courant + 365 (afin de permettre la synchronisation sur plusieurs sessions / appareils): c'est le GC quotidien qui le purgera.
 - en session comme en serveur, dès qu'il y a une `dlv`, le chat est considéré comme inexistant.
 - si B réécrit un chat à A, côté A la `dlv` du chat de B est remise à 0. Le chat _renaît_ (s'il avait été supprimé).
-
-**Cartes de visite**
-- à la création, puis à chaque mise à jour du texte, les cartes de visites sont remises à jour, si nécessaire.
-- en session, l'ouverture de la page des chats d'un avatar rafraîchit les cartes de visite ayant changé de version (automatique et sur demande).
 
 _data_:
 - `id`
@@ -895,17 +944,16 @@ _data_:
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
 - **pour le mois en cours**, celui de la date ci-dessus :
-  - `v1 v1m` volume v1 des textes des secrets : 1) moyenne depuis le début du mois, 2) actuel, 
-  - `v2 v2m` volume v2 de leurs pièces jointes : 1) moyenne depuis le début du mois, 2) actuel, 
-  - `trm` cumul des volumes des transferts de pièces jointes : 14 compteurs pour les 14 derniers jours.
-- **quotas v1 et v2** `q1 q2` : les plus élevés appliqués le mois en cours.
-- `rtr` : ratio de la moyenne des tr / quota v2
+  - `q1 q2`: quotas actuels.
+  - `v1 v2 v1m v2m`: volume actuel des secrets et moyens sur le mois en cours.
+  - `trj` : transferts cumulés du jour.
+  - `trm` : transferts cumulés du mois.
+- `tr8` : log des volumes des transferts cumulés journaliers de pièces jointes 
+  sur les 7 derniers jours + total (en tête) sur ces 7 jours.
 - **pour les 12 mois antérieurs** `hist` (dans l'exemple ci-dessus Mai de A-1 à Avril de A),
-  - `q1 q2` les quotas v1 et v2 appliqués dans le mois.
-  - `r1 r2` le pourcentage du volume moyen dans le mois par rapport au quota: 1) pour v1, 2) por v2.
-  - `r3` le pourcentage du cumul des transferts des pièces jointes dans le mois par rapport au volume v2.
-
-Les _ratios_ sont exprimés en pourcentage de 1 à 255% : mais 1 est le minimum (< 1 fait 1) et 255 le maximum.
+  - `q1 q2` quotas q1 et q2 au dernier jour du mois.
+  - `v1 v2` log des volumes moyens du mois (log de v1m v2m ci-dessus au dernier jour du mois)
+  - `tr` log du total des transferts des pièces jointes dans le mois (log de trm à la fin du mois).
 
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
