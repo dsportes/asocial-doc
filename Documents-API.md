@@ -290,6 +290,8 @@ Le Comptable a en effet besoin :
 - de toutes les synthèses des tribus,
 - du détail ponctuellement pour une tribu courante de travail.
 
+Toute modification d'un `tribu2s` implique une mise à jour du `tribus` de même id (l'inverse n'est pas vrai). `tribus` est le gestionnaire de version des deux documents et une mise à jour d'un `tribu2s` lui confère la même version que celle du `tribus` associé (et mis à jour).
+
 **Documents:** - `id` : numéro de la tribu  
 Chaque document donne un descriptif de la tribu et la liste de ses parrains.
 - `id` : numéro de la tribu 
@@ -477,11 +479,11 @@ Ce sont :
 - `dh` : date-heure de dernière modification (informative).
 
 Il y a trois niveaux :
-- **alerte** : simple annonce qu'une procédure est engagée, **mais** les comptes ne _signant_ plus leurs connexions, le compte est déjà engagée dans une procédure qui conduira, si rien n'est fait, à sa disparition un an après le début de la procédure.
-- **lecture seule** : le compte ne peut plus que,
+- **1-alerte** : simple annonce qu'une procédure est engagée, **mais** les comptes ne _signant_ plus leurs connexions, le compte est déjà engagée dans une procédure qui conduira, si rien n'est fait, à sa disparition un an après le début de la procédure.
+- **2-lecture seule** : le compte ne peut plus que,
   -_lire_ toutes ses données,
   - _chatter_ avec le Comptable et les sponsors de sa tribu.
-- **bloquée** : le compte ne peut plus que,
+- **3-bloquée** : le compte ne peut plus que,
   - _lire_ sa propre comptabilité, les informations de blocage et les notifications. - _chatter_ avec le Comptable et les sponsors de sa tribu.
 
 Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
@@ -531,8 +533,8 @@ _data_:
 - `notifsp` : notification d'un sponsor à la tribu (cryptée par la clé de la tribu).
 - `blocaget` : blocage du niveau crypté par la clé de la tribu.
 - `cpt` : sérialisation non cryptée des compteurs suivants:
-  - `a1 a2` : sommes des volumes V1 et V2 déjà attribués comme forfaits aux comptes de la tribu.
-  - `r1 r2` : volumes V1 et V2 en réserve pour attribution aux comptes actuels et futurs de la tribu.
+  - `a1 a2` : sommes des quotas attribués aux comptes de la tribu.
+  - `q1 q2` : quotas actuels de la tribu.
   - `nbc` : nombre de comptes.
   - `nbsp` : nombre de sponsors.
   - `cbl` : nombre de comptes ayant un blocage.
@@ -553,6 +555,7 @@ _data_:
     - `sp` : si `true` / présent, c'est un sponsor.
     - `q1 q2` : quotas de volumes V1 et V2 (redondance dans l'attribut `compteurs` de `compta`)
     - `blocage` : blocage de niveau compte, crypté par la clé de la tribu.
+    - `gco gsp` : gravités des notifco et notifsp.
     - `notifco` : notification du comptable au compte (cryptée par la clé de la tribu).
     - `notifsp` : notification d'un sponsor au compte (cryptée par la clé de la tribu).
     - `cv` : `{v, photo, info}`, carte de visite du compte cryptée par _sa_ clé (le `rnd` ci-dessus).
