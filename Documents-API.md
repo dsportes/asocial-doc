@@ -602,8 +602,6 @@ _data_:
 - `napt`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
 - `compteurs`: compteurs sérialisés (non cryptés).
 - `dhvu` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé du compte.
-- `dhdq` : date-heure de détection du _dépassement_ des quotas.
-- `dhrq` : date-heure de détection du retour au _respect_ des quotas. 
 
 **Remarques :**  
 - Le document est mis à jour à minima à chaque mise à jour d'un secret.
