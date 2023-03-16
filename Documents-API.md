@@ -41,12 +41,12 @@ Présentation en Collections / Documents :
         /Collection `sponsorings`
           Document `sponsoring`   id **ids v iv **dlv
         /Collection `chats`
-          Documents               id ids v iv **dlv
+          Documents               id ids v iv vcv ivc **dlv
 
     /Collection `groupes`
       Document `groupe`           id v iv
         /Collection `membres`
-          Document membre         id ids v iv **dlv        
+          Document membre         id ids v iv vcv ivc **dlv        
         /Collection `secrets`
           Document `secret`       id ids v iv         
         /Collection `transferts`  
@@ -494,22 +494,20 @@ Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
 - `txt` : texte court de la notification.
 - `dh` : date-heure d'inscription de la notification.
 - `id` : id de l'auteur (0 c'est le comptable).
-- `g` : gravité 1-faible, 2-moyenne, 3-importante.
+- `g` : false: normale, true: importante.
 
 Une notification peut être remplacée par une autre plus récente et peut-être effacée.
 
 Il existe donc 5 notifications pour un compte:
 - générale,
-- tribu par le Comptable,
-- tribu par un sponsor,
-- compte par le Comptable,
-- compte par le sponsor.
+- pour tous les comptes d'une tribu par le Comptable,
+- pour tous les comptes d'une tribu par un sponsor,
+- pour un seul compte désigné par le Comptable,
+- pour un seul compte désigné par un sponsor de sa tribu.
 
-2 autres notifications sont gérées :
-- dépassement du volume autorisé : en fait c'est la réduction du quota qui provoque cette notification (gravité moyenne).
-- retombée du volume sous le quota autorisé, soit par augmentation du quota, soit par réduction du volume d'un secret (gravité basse).
+Une autre notification gérée : le taux maximum d'utilisation du volume V1 ou V2 par rapport à son quota.
 
-Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications. Le Comptable et les sponsors peuvent ainsi savoir lesquelles des notifications ciblées pour un compte ont été lues par le titulaire du compte (et quand).
+Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
 
 ## Document `gcvol`
 - `id` : entier pseudo aléatoire, hash de `nctkc`.
@@ -538,8 +536,8 @@ _data_:
   - `nbc` : nombre de comptes.
   - `nbsp` : nombre de sponsors.
   - `cbl` : nombre de comptes ayant un blocage.
-  - `nco[0..2]` : nombre de comptes ayant une notification du comptable, par gravité.
-  - `nsp[0..2]` : nombre de comptes ayant une notification d'un sponsor, par gravité.
+  - `nco[0, 1]` : nombre de comptes ayant une notification du comptable, par gravité.
+  - `nsp[0, 1]` : nombre de comptes ayant une notification d'un sponsor, par gravité.
 
 ## Document `tribu2`
 Liste des comptes d'une tribu.
@@ -683,9 +681,11 @@ _data_:
 - `id`
 - `ids` : identifiant du chat relativement à son avatar, hash du cryptage de `idA/idB` par le `rnd` de A.
 - `v`
+- `vcv` : version de la carte de visite
 - `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
 - `mc` : mots clés attribués par l'avatar au chat
+- `sa` : si `true`, le chat a été supprimé par _l'autre_.
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé CV de _l'autre_
 - `contc` : contenu crypté par la clé CV de l'avatar _lecteur_.
   - `na` : `[nom, cle]` de _l'autre_.
@@ -848,11 +848,11 @@ _data_:
 - `stx` : 1-ouvert (accepte de nouveaux membres), 2-fermé (ré-ouverture en vote)
 - `sty` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
 - `ast` : array des statuts des membres (dès qu'ils ont été pressentis) :
-  - 10: pressenti, 
+  - 10: contact, 
   - 20,21,22: invité en tant que lecteur / auteur / animateur, 
   - 30,31,32: actif (invitation acceptée) en tant que lecteur / auteur / animateur, 
   - 40: invitation refusée,
-  - 50: suspendu, 
+  - 50: résilié / suspendu, 
   - 0: disparu / oublié.
 - `idhg` : id du compte hébergeur crypté par la clé du groupe.
 - `imh` : indice `im` du membre dont le compte est hébergeur.
@@ -864,6 +864,7 @@ _data_:
 - `id` : id du groupe.
 - `ids`: identifiant, indice de membre relatif à son groupe.
 - `v`
+- `vcv` : version de la carte de visite du membre
 - `dlv` : date de dernière signature + 365 lors de la connexion du compte de l'avatar membre du groupe.
 
 - `ddi` : date de la dernière invitation
@@ -875,28 +876,56 @@ _data_:
 - `datag` : données, immuables, cryptées par la clé du groupe :
   - `nom` `cle` : nom complet de l'avatar.
   - `ni` : numéro aléatoire d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk`).
-	- `idi` : id du membre qui l'a _pressenti_.
-- `cvm` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
+	- `idi` : indice du membre qui l'a _pressenti_.
+- `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
 
 ### Cycle de vie
 - un document `membre` existe dans tous les états SAUF 0 _disparu / oublié_.
 - un auteur d'un secret `disparu / oublié`, apparaîtra avec juste un numéro (sans nom), sans pouvoir voir son membre dans le groupe.
 
-**Pressenti suite à un premier contact par un membre du groupe**
-- le membre du groupe qui l'a pressenti, lui a attribué un index (taille de `ast` du groupe) et a marqué le statut _pressenti_ dans cet `ast`.
-- son id ne figure pas dans le `datag` d'un autre membre: un même avatar ne peut pas figurer plus d'une fois dans un groupe..
+#### Transitions d'état d'un membre:
+- de contact : 
+  - invitation -> invité
+  - disparition -> disparu
+  - demande d'oubli par un animateur -> disparu
+- de invité :
+  - refus -> invitation refusée
+  - refus fort -> oubli
+  - acceptation -> actif
+  - retrait d'invitation par un animateur -> contact (dfa est 0) OU suspendu (dfa non 0, il a été actif)
+  - disparition -> disparu
+  - demande d'oubli par un animateur -> disparu
+- de actif :
+  - résiliation / auto-résiliation -> suspendu
+  - résiliation / auto-résiliation forte -> disparu
+  - disparition -> disparu
+- de invitation refusée :
+  - invitation -> invité
+  - disparition -> disparu
+  - demande d'oubli par un animateur -> disparu
+- de suspendu :
+  - invitation -> invité
+  - disparition -> disparu
+  - demande d'oubli par un animateur -> disparu
+- de disparu / oubli : aucune transition (`membre` effacé _zombi_)
+
+**Simple contact inscrit par un membre du groupe**
+- le membre du groupe qui l'a inscrit, lui a attribué un index (taille de `ast` du groupe) et a marqué le statut _contact_ dans cet `ast`.
+- son id ne figure pas dans le `datag` d'un autre membre: un même avatar ne peut pas figurer plus d'une fois dans un groupe.
 - dans `membre` seul `datag` est significatif. 
 
 **Invité suite à une invitation par un animateur**
-- invitation depuis un état _pressenti_ ou _suspendu_
+- invitation depuis un état _contact_ ou _suspendu_
 - son statut dans `ast` passe à 20, 21, ou 22.
 - dans `membre` `datag` et `ddi` sont significatifs.
 - si `dda` ou `dfa`, 
   - c'est une ré-invitation après suspension : présent dans `lgrk` et dans `membre` `mc infok` peuvent être présents.
 
-**Pressenti suite à un retrait d'invitation par un animateur**
+**Retrait d'invitation par un animateur**
 - retrait invitation depuis un état _invité_
-- son statut dans `ast` passe à 10.
+- son statut dans `ast` passe à 
+  - _suspendu_ : si `dfa` existe, c'était un ancien membre actif
+  - _contact_ : `dfa` est 0, il n'a jamais été actif.
 - dans `membre` seuls `datag` et `ddi` sont significatifs. 
 
 **Actif suite à l'acceptation d'une invitation par le membre**
@@ -907,11 +936,6 @@ _data_:
   - la carte de visite `cvm` est remplie.
 - le groupe est inscrit dans l'avatar du membre (`lgrk`).
 
-**Mises à jour des cartes de visite des membres**
-- en session, lorsque la page listant les membres d'un groupe est ouverte, elle envoie une requête au serveur donnant la liste des couples `[id, v]` des ids des membres et de leur version de carte de visite détenue dans le document membre.
-- pour chacune ayant une version postérieure, le serveur la met à jour dans membre.
-- ceci permet de voir en session des cartes de visite toujours à jour et d'éviter d'effectuer une opération longue à chaque mise à jour de carte de visite par un avatar membre.
-
 **Refus d'invitation par le membre**
 - depuis un état _invité_.
 - son statut dans `ast` passe à 40.
@@ -920,27 +944,30 @@ _data_:
 - sinon il n'a jamais été actif, groupe absent de `lgrk`.
 - dans `membre` rien ne change : `cvm` est toujours vide.
 
-**Oubli**
-- depuis un état _pressenti, invité, actif, suspendu_
-- soit en tant que refus d'invitation, soit comme résiliation ou auto-résiliation forte, soit comme effacement après suspension.
+**Oubli demandé par ...**
+- depuis un état _contact, invité, actif, suspendu_
+- actions: 
+  - refus d'invitation _forte_,
+  - résiliation ou auto-résiliation _forte_, 
+  - demande par un animateur.
 - son statut dans `ast` passe à 0. Son index ne sera **jamais** réutilisé.
-- son document `membre` est purgé. En session un document `membre` correspondant à un `ast` 0 dans son groupe, met le membre en _zombi.
+- son document `membre` est _zombi_. En session un document `membre` correspondant à un `ast` 0 dans son groupe, met le membre en _zombi.
 - le groupe est effacé dans `lgrk` de son avatar.
 
-**Suspension d'un membre**
-- depuis un état _actif_. Auto-suspension ou par un animateur.
+**Résiliation d'un membre**
+- depuis un état _actif_. Auto-résiliation ou par un animateur.
 - son statut passe à _suspendu_ dans `ast` de son groupe.
 - dans son document `membre` :
   - `dfa` est positionnée à la date du jour.
   - `cvm` est effacée et ne sera plus mise à jour.
-- différences avec un état _pressenti_: l'avatar membre sait par `lgrk` qu'il a été actif dans le groupe, a encore des mots clés, une information et peut être ré-invité. Dans `membre` `npi, vote, cvm` sont absents.
+- différences avec un état _contact_: l'avatar membre sait par `lgrk` qu'il a été actif dans le groupe, a encore des mots clés, une information et peut être ré-invité. Dans `membre` `npi, vote, cvm` sont absents.
 
 **Disparitions d'un membre**
 - un membre est _disparu_ quand sa `dlv` est dépassée.
 - le GC quotidien le purge et met son statut à _disparu_ dans `ast` de son groupe.
-- en session ou en serveur, dès que `dlv` est dépassée, le row est supposé inexistant (_zombi).
-- pour le groupe il est donc _oublié_.
-- son avatar principal ayant disparu et les avatars secondaires devant aussi disparaître, la présence dans lgrk n'est plus considéré.
+- en session ou en serveur, dès que `dlv` est dépassée, le row est supposé inexistant (_zombi_).
+- pour le groupe il est donc _disparu / oublié_.
+- que le membre soit avatar principal ou secondaire, l'avatar est aussi en voie de disparition : la présence du membre dans son `lgrk` n'est plus observable (et n'est donc pas enlevée).
 
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
@@ -958,6 +985,7 @@ _data_:
 
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
+- filtrer / caractériser à l'affichage les **chats** accédés par un compte.
 - filtrer / caractériser à l'affichage les **groupes (membres)** accédés par un compte.
 - filtrer / caractériser à l'affichage les **secrets**, personnels ou partagés avec un groupe.
 
@@ -967,26 +995,25 @@ La définition des mots-clés (avatar et groupe) est une map :
 
 Affectés à un membre ou secret, c'est un array de nombre de 1 à 255 (Uin8Array)
 
-## Signatures des avatars dans `avatar` et `membre` / `groupe`
+## Signatures des avatars dans `version` et `membre`
 Les comptes sont censés avoir au maximum 365 jours entre 2 connexions faute de quoi ils sont considérés comme disparus.
 
 Les `dlv` (date limite de validité) sont exprimées par aaaammjj: elles signalent que ce jour-là, l'avatar sera considéré comme _disparu_.
 
 A chaque connexion d'un compte, son avatar principal _prolonge_ les `dlv` de :
-- son propre avatar.
-- ses avatars secondaires,
-- des groupes et membres auxquels ses avatars sont invités ou actifs. Le fait de gérer une `dlv` par _membre_ permet aux lecteurs d'un groupe de détecter les disparus (ou _proche de leur disparition_) et de mettre à jour leur statut.
+- son propre avatar et ses avatars secondaires dans leur `version`.
+- des groupes (dans leur `version`) et membres (sur `membre`) auxquels ses avatars sont invités ou actifs. Le fait de gérer une `dlv` par _membre_ permet aux lecteurs d'un groupe de détecter les disparus (ou _proche de leur disparition_) et de mettre à jour leur statut.
 
 La `dlv` est également gérée:
 - pour un avatar: à sa création.
 - pour un groupe: à sa création et à l'acceptation de l'invitation d'un membre.
 
->Les `dlv` ne sont pas _prolongées_ si le document `comptas` de l'avatar principal ou de sa `tribus` font l'objet d'une procédure de blocage.
+>Les `dlv` ne sont pas _prolongées_ si le document `tribu2s` de l'avatar principal ou de sa `tribus` font l'objet d'une procédure de blocage.
 
 **Règles:** 
 - les `dlv` sont gérées par _décade_ : une `dlv` est toujours définie ou reculée à un multiple de 10 jours.
 - ceci évite de multiplier des mises à jour en cas de connexions fréquentes et de faire des rapprochements entre avatars / groupes en fonction de leur dernière date-heure de connexion.
-- si l'avatar principal a sa `dlv` repoussée le 15:10 par exemple, ses autres avatars et ses membres / groupes seront reculés au 15:20.
+- si l'avatar principal a sa `dlv` repoussée le 15-10 par exemple, ses autres avatars et ses membres / groupes seront reculés au 15-20.
 - les avatars secondaires seront en conséquence _non disparus_ pendant 10 jours alors que leur compte ne sera plus connectable :
   - les cartes de visite apparaîtront comme _disparues_ 10 jours avant leur `dlv` quand elles concernent un avatar secondaire.
   - les groupes pourront avoir des membres marqués _disparus_ 10 jours avant leur `dlv` quand ils se rapportent à un avatar secondaire.
@@ -998,13 +1025,15 @@ Pour un avatar primaire, tous les avatars secondaires doivent être préalableme
 Pour un avatar secondaire, l'opération exécute :
 - pour chaque groupe dont il est membre :
   - s'il est le dernier membre _actif_, le groupe est mis en _zombi_.
-  - sinon, son statut est mis à _disparu_ et s'il était hébergeur, la date de fin d'hébergement est positionnée.
+  - sinon, son statut dans groupe est mis à _disparu_ et s'il était hébergeur, la date de fin d'hébergement est positionnée.
+  - son membre est purgé : pour les autres membres du groupe _en session_ la suppression de l'objet membre se fait en détectant son passage à l'état disparu dans le groupe.
 - l'avatar est retiré de la liste des avatars de son compte.
 - l'avatar est purgé, ses sous-collections sont inscrites dans le singleton `checkpoint` pour être purgées au prochain GC.
 
-Pour un avatar principal, de plus :
+Pour un avatar principal, **de plus** :
 - la comptabilité de sa tribu est créditée des quotas du compte supprimé.
 - le compte est retiré de la liste des comptes de sa tribu.
+- les quotas sont reversés à la tribu.
 - suppression de `comptas`.
 
 ## Récupération des quotas d'un compte détecté disparu par le GC
@@ -1082,13 +1111,18 @@ Au cours d'une session au fil des synchronisations, la portée va donc évoluer 
 - des documents ou collections sont à supprimer de IDB (et de la mémoire de la session).
 
 ### Cartes de visites
-**Les cartes de visite des membres des groupes** auxquels la session participe sont mémorisées (en autant d'exemplaires que de groupes auxquels un membre appartient), dans le document membre: les sous-collections `membres` étant synchronisées, les cartes de visite sont à jour.
-- MAIS une carte de visite n'est inscrite dans un membre que quand une session demande le refraîchissement de celles-ci, typiquement en ouvrant la page du groupe qui en liste les membres: c'est à ce moment-là que le serveur duplique, si elle a changé de version, la carte de visite d'un avatar dans le membre correspondant.
+**Mise à jour: avatar et tribu**
+- la création / mise à jour s'opère dans son `avatar` et dans `tribu2` (dans son élément).
 
-**Chaque avatar a des chats avec d'autres avatars:**
-- à la connexion, une session liste les chats existants et met à jour IDB et son état mémoire avec les nouvelles versions des cartes de visite stockées en chat. IDB conserve les cartes de visites des interlocuteurs de chat des avatars.
-- il n'y a pas d'abonnements sur ces cartes de visites, elles peuvent être nombreuses et l'information reste _indicative_.
-- au début d'un processus de consultation des chats, la session _peut_ faire rafraîchir incrémentalement les cartes de visite (toujours sans abonnement).
+**Mises à jour des cartes de visite des membres**
+- la première inscription se fait à l'ajout de l'avatar comme _contact_ du groupe.
+- en session, lorsque la page listant les membres d'un groupe est ouverte, elle envoie une requête au serveur donnant la liste des couples `[id, v]` des ids des membres et de leur version de carte de visite détenue dans le document `membre`.
+- pour chacune ayant une version postérieure, le serveur la met à jour dans `membre`.
+- ceci permet de voir en session des cartes de visite toujours à jour et d'éviter d'effectuer une opération longue à chaque mise à jour des cartes de visite par un avatar pour tous les groupes dont il est membre.
+
+**Mise à jour dans les chats**
+- à la mise à jour ou suppression d'un chat, les cartes de visites des deux côtés sont rafraîchies (si nécessaire).
+- en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant vcv en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
 
 # Annexe I : requêtes génériques (5)
 Requêtes s'appliquant,
