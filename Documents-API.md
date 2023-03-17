@@ -547,7 +547,7 @@ _data_:
 - `v` : sa version
 
 - `mbtr` : map des membres de la tribu:
-  - _clé_ : id pseudo aléatoire, hash de la clé `rnd` du membre.
+  - _clé_ : id pseudo aléatoire, hash de la clé `rnd` du compte.
   - _valeur_ :
     - `na` : `[nom, rnd]` du membre crypté par la clé de la tribu.
     - `sp` : si `true` / présent, c'est un sponsor.
@@ -566,7 +566,12 @@ Tous les comptes connaissent le `nom, rnd` de leur tribu (donc leur id) : ce cou
 
 Un compte peut accéder à la liste des comptes de sa tribu. 
 
-L'ajout / retrait de la qualité de sponsor n'est effectué que par le comptable : dans le cadre d'un traitement de `gcvol` d'une disparition d'un compte, la map des membres est mise à jour par le traitement par le comptable lors de sa connexion.
+L'ajout / retrait de la qualité de `sponsor` n'est effectué que par le comptable.
+
+**Détection d'une disparition d'un compte**
+Le GC détecte la disparition d'un compte et écrit un document `gcvol` avec les informations tirées du `compta` du compte disparu.
+- le GC n'a pas accès à la connaissance de la tribu d'un compte et ne peut donc pas mettre à jour tribu / tribu2.
+- la prochaine connexion du Comptable scanne les `gcvol` et peut effectuer cette mise à jour.
 
 ### Synchronisations et versions
 Les versions de tribu et tribu2 leur sont spécifiques et servent juste en synchronisation à garantir la progression sans retour dans le passé.
@@ -591,7 +596,6 @@ _data_:
 - `hps1` : hash du PBKFD de la ligne 1 de la phrase secrète du compte : sert d'accès au row compta à la connexion au compte.
 - `shay` : SHA du SHA de X (PBKFD de la phrase secrète). Permet de vérifier la détention de la phrase secrète complète.
 - `kx` : clé K du compte, cryptée par le PBKFD de la phrase secrète courante.
-- `stp` : statut parrain (0: non, 1:oui) ???
 - `mavk` : map des avatars du compte cryptée par la clé K du compte. 
   - _clé_ : id de l'avatar.
   - _valeur_ : `[nom clé]` : son nom complet.
@@ -630,11 +634,11 @@ _data_ :
 - `cva` : carte de visite cryptée par la clé CV de l'avatar `{v, photo, info}`.
 - `lgrk` : map :
   - _clé_ : `ni`, numéro d'invitation obtenue sur une invitation.
-  - _valeur_ : cryptée par la clé K du compte de `[nomg, clég, im]` reçu sur une invitation.
+  - _valeur_ : cryptée par la clé K du compte de `[nomg, cleg, im]` reçu sur une invitation.
   - une entrée est effacée par la résiliation du membre au groupe (ce qui l'empêche de continuer à utiliser la clé du groupe).
 - `invits` : map des invitations en cours
   - _clé_ : `ni`, numéro d'invitation.
-  - _valeur_ : cryptée par la clé CV de l'avatar `[nomg, clég, im]`.
+  - _valeur_ : cryptée par la clé CV de l'avatar `[nomg, cleg, im]`.
   - une entrée est effacée par l'annulation de l'invitation du membre au groupe ou sur acceptation ou refus de l'invitation.
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
 - `hpc` : hash de la phrase de contact.
@@ -658,24 +662,38 @@ L'invitant connaît le `[nom, clé]` de l'invité qui est déjà dans la liste d
   - sur demande en session, à l'ouverture de la page présentant les chats (plus sur demande par un bouton) pour tous les chats d'un avatar (et seulement si c'est nécessaire).
 
 ## Document `chat`
-Un chat est une ardoise commune à deux avatars A et B:
-- pour être écrite par A :
-  - A doit connaître le `[nom, cle]` de B : membre du même groupe, sponsor de la tribu, ou par donnée de la phrase de contact de B.
-  - le chat est dédoublé, une fois sur A et une fois sur B.
-  - dans l'avatar A, le contenu est crypté par la clé de A.
-  - dans l'avatar B, le contenu est crypté par la clé de B.
-- un chat a un comportement d'ardoise : chacun _écrase_ la totalité du contenu.
-- si A essaie d'écrire à B et que B a disparu, la `dlv` est positionnée sur les deux exemplaires si elle ne l'était pas déjà.
+Un chat est une ardoise commune à deux avatars I et E:
+- vis à vis d'une session :
+  - I est l'avatar _interne_,
+  - E est un avatar _externe_ connu comme _contact_.
+- pour être écrite par I :
+  - I doit connaître le `[nom, cle]` de E : membre du même groupe, compte de la tribu, chat avec un autre avatar du compte, ou obtenu en ayant fourni la phrase de contact de E.
+  - le chat est dédoublé, une fois sur I et une fois sur E.
+  - dans l'avatar I, le contenu est crypté par la clé de I.
+  - dans l'avatar E, le contenu est crypté par la clé de E.
+- un chat a un comportement d'ardoise : chaque écriture de l'un _écrase_ la totalité du contenu pour les deux.
+- si I essaie d'écrire à E et que E a disparu, 
+  - la `dlv` est positionnée sur l'exemplaire de I (celui de E n'existe plus) si elle ne l'était pas déjà,
+  - le statut `st` est marqué 2 _disparu_ afin que la session de I enregistre cette information.
 
 L'id d'un chat est le couple id, ids. Du côté de A:
 - `id`: id de A,
 - `ids`: hash du cryptage de `idA/idB` par le `rnd` de A.
 
 **Suppression d'un chat**
-- chacun peut supprimer son chat : par exemple A supprime son chat avec B
-- côté A, la `dlv` du chat avec B est positionnée au jour courant + 365 (afin de permettre la synchronisation sur plusieurs sessions / appareils): c'est le GC quotidien qui le purgera.
+- chacun peut supprimer son chat : par exemple I supprime son chat avec E.
+- côté I, 
+  - la `dlv` du chat avec E est positionnée au jour courant + 365 (afin de permettre la synchronisation sur plusieurs sessions / appareils): c'est le GC quotidien qui le purgera un jour, sauf si E réécrit sur le chat.
+  - le statut `st` du chat côté E est mis à 1.
 - en session comme en serveur, dès qu'il y a une `dlv`, le chat est considéré comme inexistant.
-- si B réécrit un chat à A, côté A la `dlv` du chat de B est remise à 0. Le chat _renaît_ (s'il avait été supprimé).
+- si E réécrit un chat à I, côté I la `dlv` du chat de B est remise à 0, son `st` revient à 0. Le chat _renaît_ (s'il avait été supprimé).
+
+**Détection de la disparition de l'avatar E**
+- à la connexion d'une session les chats des avatars disparus ont juste un chat _zombi_ qui évite d'enregistrer l'avatar du chat comme _contact_ (et le purge de IDB le cas échéant).
+- lors de l'ouverture de la page listant les _chats_ d'un de ses avatar, une session reçoit les CV mises à jour ET les avis de disparitions des contacts E.
+- lors de l'écriture d'un chat, la session reçoit aussi ce même avis de disparition éventuelle de l'avatar E.
+- le _contact_ E est marqué _disparu_.
+- en session, si l'avatar disparu est avatar principal ET de la même tribu, l'opération `DisparitionCompte` peut être lancée : elle requiert l'id de la tribu et le nom complet de l'avatar, infos disponibles dans la mémoire de la session.
 
 _data_:
 - `id`
@@ -684,8 +702,11 @@ _data_:
 - `vcv` : version de la carte de visite
 - `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
+- `st` : statut:
+  - 0 : le chat est vivant des 2 côtés
+  - 1 : le chat a été supprimé par _l'autre_ de son côté.
+  - 2 : _l'autre_ a été détecté disparu : 
 - `mc` : mots clés attribués par l'avatar au chat
-- `sa` : si `true`, le chat a été supprimé par _l'autre_.
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé CV de _l'autre_
 - `contc` : contenu crypté par la clé CV de l'avatar _lecteur_.
   - `na` : `[nom, cle]` de _l'autre_.
@@ -965,9 +986,13 @@ _data_:
 **Disparitions d'un membre**
 - un membre est _disparu_ quand sa `dlv` est dépassée.
 - le GC quotidien le purge et met son statut à _disparu_ dans `ast` de son groupe.
-- en session ou en serveur, dès que `dlv` est dépassée, le row est supposé inexistant (_zombi_).
-- pour le groupe il est donc _disparu / oublié_.
+- en session ou en serveur, dès que `dlv` est dépassée, le row est supposé inexistant (_zombi_). Pour le groupe il est donc _disparu / oublié_.
+- en session la connexion comme la synchronisation du membre disparu ou le changement de statut dans son groupe,
+permet de déclarer que le _contact_ est disparu :
+  - a) en cherchant en mémoire quel _contact_ à ce membre [idg, ids] comme membre de groupe,
+  - b) en l'y marquant _disparu_.
 - que le membre soit avatar principal ou secondaire, l'avatar est aussi en voie de disparition : la présence du membre dans son `lgrk` n'est plus observable (et n'est donc pas enlevée).
+- si le membre disparu est de la même tribu ET que la disparition est détectée par synchronisation, le nom complet du disparu et l'id de sa tribu sont accessibles (ce qui n'est pas le cas à la connexion) permettent de lancer l'opération DisparitionCompte pour finir le travail du GC sans attendre que le Comptable ouvre sa session.
 
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
