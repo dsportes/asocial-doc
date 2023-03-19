@@ -894,7 +894,7 @@ _data_:
 - `mc` : mots clés du membre à propos du groupe.
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `datag` : données, immuables, cryptées par la clé du groupe :
-  - `nom` `cle` : nom complet de l'avatar.
+  - `nom` `rnd` : nom complet de l'avatar.
   - `ni` : numéro aléatoire d'invitation du membre. Permet de supprimer l'invitation et d'effacer le groupe dans son avatar (clé de `lgrk invits`).
 	- `idi` : indice du membre qui l'a inscrit en comme _contact_.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
