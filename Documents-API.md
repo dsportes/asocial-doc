@@ -269,7 +269,7 @@ Le serveur recherche l'id du compte par `hps1` (index de `comptas`)
 Attribut opaque _data_ : contient les informations de point de reprise du GC.
 
 ### Document `notif`
-Attribut opaque _data_ : crypté par la clé du Comptable (qui est une constante bien connue), c'est un texte d'information du comptable à propos de l'application (sous-objet `notification`)
+Attribut opaque _data_ : sérialisé, non crypté
 
 Ce texte est synchronisé par toutes les sessions connectées.
 
