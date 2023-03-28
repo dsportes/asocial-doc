@@ -556,7 +556,7 @@ _data_:
 - `mbtr` : map des membres de la tribu:
   - _clé_ : hash de la clé `rnd` du compte.
   - _valeur_ :
-    - `na` : `[nom, rnd]` du membre crypté par la clé de la tribu.
+    - `na` : `[nom, rnd]` du compte crypté par la clé de la tribu.
     - `sp` : si `true` / présent, c'est un sponsor.
     - `q1 q2` : quotas attribués de volumes V1 et V2 (redondance dans l'attribut `compteurs` de `compta`)
     - `blocage` : blocage de niveau compte, crypté par la clé de la tribu.
