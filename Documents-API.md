@@ -1127,7 +1127,7 @@ C'est une opération _normale_:
 Le GC détecte un membre disparu par dépassement de sa `dlv` :
 - purge de son document `membre`.
 - si c'était le dernier membre _actif_ du groupe:
-  - le document `groupe` passe en _zombi_ et sa `dlv` est positionnée de manière à être purgé dans un an quand toutes les synchronisations / connexions l'auront prise en compte.
+  - le document `groupe` passe en _zombi_ et sa `dlv` est positionnée de manière à être purgée dans un an quand toutes les synchronisations / connexions l'auront prise en compte.
   - dans son planning l'id du groupe est inscrite pour purge de ses données.
 - si ce n'était PAS le dernier membre _actif_ du groupe:
   - dans `groupe` son statut `ast` passe à _disparu_.
