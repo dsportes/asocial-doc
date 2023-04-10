@@ -631,25 +631,24 @@ _data_ :
 - `v`,
 - `vcv` : version de la carte de visite afin qu'une opération puisse détecter (sans lire le document) si la carte de visite est plus récente que celle qu'il connaît.
 
+- `pub` : clé publique RSA
+- `privk`: clé privée RSA cryptée par la clé K.
 - `cva` : carte de visite cryptée par la clé CV de l'avatar `{v, photo, info}`.
 - `lgrk` : map :
   - _clé_ : `ni`, numéro d'invitation obtenue sur une invitation.
-  - _valeur_ : cryptée par la clé K du compte de `[nomg, cleg, im]` reçu sur une invitation.
+  - _valeur_ : cryptée par la clé K du compte de `[nomg, clég, im]` reçu sur une invitation.
   - une entrée est effacée par la résiliation du membre au groupe (ce qui l'empêche de continuer à utiliser la clé du groupe).
-- `invits` : map des invitations en cours
-  - _clé_ : `ni`, numéro d'invitation.
-  - _valeur_ : cryptée par la clé CV de l'avatar `[nomg, cleg, im]`.
-  - une entrée est effacée par l'annulation de l'invitation du membre au groupe ou sur acceptation ou refus de l'invitation.
+  - pour une invitation en attente _valeur_ est cryptée par la clé publique RSA de l'avatar
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
 - `hpc` : hash de la phrase de contact.
 - `napc` : `[nom, clé]` de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 **Invitation à un groupe**  
 L'invitant connaît le `[nom, clé]` de l'invité qui est déjà dans la liste des membres en tant que pressenti. L'invitation consiste à :
-- inscrire un terme `[nomg, cleg]` dans `invits` de son avatar (ce qui donne la clé du groupe à l'invité, donc accès à la carte de visite du groupe) en le cryptant par la clé de la carte de visite de l'invité,
+- inscrire un terme `[nomg, cleg]` dans `lgrk` de son avatar (ce qui donne la clé du groupe à l'invité, donc accès à la carte de visite du groupe) en le cryptant par la clé publique RSA l'invité,
 - inscrire un `chat` de la part de l'invitant (ou ajouter un mot dans son chat).
 - en cas de refus, l'invité donnera les raisons dans ce même `chat`.
-- l'acceptation par l'avatar transfert l'entrée de `invits` dans `lgrk` en ré-encryptant l'entrée par la clé K.
+- l'acceptation par l'avatar transcode l'entrée de `lgrk` par la clé K.
 
 ### Cartes de visites
 **Mise à jour: avatar et tribu**
@@ -680,6 +679,13 @@ Un chat est une ardoise commune à deux avatars I et E:
   - la `dlv` est positionnée sur l'exemplaire de I (celui de E n'existe plus) si elle ne l'était pas déjà,
   - le statut `st` est marqué 2 _disparu_ afin que la session de I enregistre cette information.
 
+#### Clé `cc` d'un chat
+Chaque chat est crypté par une clé cc aléatoire générée à la création du chat. Du côté I:
+- `ccPub` : est la clé `cc` cryptée par la clé publique RSA de E.
+- `ccK` : est la clé `cc` cryptée par la clé K du compte de I.
+
+A la création d'un chat, côté I par exemple, I génère une clé cc et la crypte en ccK et ccPub (de E). MAIS, côté E il y a peut-être déjà une clé cc existante: elle est retournée et le chat créé côté I est ré-encrypté par cette clé.
+
 L'id d'un chat est le couple `id, ids`. Du côté de A:
 - `id`: id de A,
 - `ids`: hash du cryptage de `idA/idB` par le `rnd` de A.
@@ -704,8 +710,11 @@ _data_:
   - 1 : le chat a été supprimé par _l'autre_ de son côté.
   - 2 : _l'autre_ a été détecté disparu : 
 - `mc` : mots clés attribués par l'avatar au chat
-- `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé CV de _l'autre_
-- `contc` : contenu crypté par la clé CV de l'avatar _lecteur_.
+- `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé CV de _l'autre_.
+- `ccPub` : clé `cc` du chat cryptée par la clé publique RSA de E.
+- `ccK` : clé `cc` du chat cryptée par la clé K du compte de I.
+
+- `contc` : contenu crypté par la clé `cc` du chat.
   - `na` : `[nom, cle]` de _l'autre_.
   - `dh`  : date-heure de dernière mise à jour.
   - `txt` : texte du chat.
