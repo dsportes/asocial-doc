@@ -41,7 +41,7 @@ Présentation en Collections / Documents :
         /Collection `sponsorings`
           Document `sponsoring`   id **ids v iv **dlv
         /Collection `chats`
-          Documents               id ids v iv vcv ivc **dlv
+          Documents               id ids v iv vcv ivc
 
     /Collection `groupes`
       Document `groupe`           id v iv dfh
@@ -68,7 +68,7 @@ Présentation en Collections / Documents :
     secrets     id ids v _data_       iv
     transferts  id ids                                  dlv
     sponsorings id v _data_           iv                dlv ids
-    chats       id ids v _data_       iv                dlv
+    chats       id ids v _data_       iv                
     membres     id ids v _data_       iv                dlv
 
 Tous les documents, ont un attribut _data_ (mais toujours {} pour `transferts`), qui porte les informations sérialisées du document.
@@ -665,6 +665,8 @@ L'invitant connaît le `[nom, clé]` de l'invité qui est déjà dans la liste d
 - en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant `vcv` en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
 
 ## Document `chat`
+Un chat est éternel, une fois créé il ne disparaît qu'à la disparition des avatars en cause.
+
 Un chat est une ardoise commune à deux avatars I et E:
 - vis à vis d'une session :
   - I est l'avatar _interne_,
@@ -672,48 +674,29 @@ Un chat est une ardoise commune à deux avatars I et E:
 - pour être écrite par I :
   - I doit connaître le `[nom, cle]` de E : membre du même groupe, compte de la tribu, chat avec un autre avatar du compte, ou obtenu en ayant fourni la phrase de contact de E.
   - le chat est dédoublé, une fois sur I et une fois sur E.
-  - dans l'avatar I, le contenu est crypté par la clé de I.
-  - dans l'avatar E, le contenu est crypté par la clé de E.
-- un chat a un comportement d'ardoise : chaque écriture de l'un _écrase_ la totalité du contenu pour les deux.
-- si I essaie d'écrire à E et que E a disparu, 
-  - la `dlv` est positionnée sur l'exemplaire de I (celui de E n'existe plus) si elle ne l'était pas déjà,
-  - le statut `st` est marqué 2 _disparu_ afin que la session de I enregistre cette information.
-
-#### Clé `cc` d'un chat
-Chaque chat est crypté par une clé cc aléatoire générée à la création du chat. Du côté I:
-- `ccPub` : est la clé `cc` cryptée par la clé publique RSA de E.
-- `ccK` : est la clé `cc` cryptée par la clé K du compte de I.
-
-A la création d'un chat, côté I par exemple, I génère une clé cc et la crypte en ccK et ccPub (de E). MAIS, côté E il y a peut-être déjà une clé cc existante: elle est retournée et le chat créé côté I est ré-encrypté par cette clé.
+- un chat a une clé de cryptage `cc` propre générée à sa création (première écriture):
+  - cryptée par la clé K,
+  - ou cryptée par la clé publique de l'avatar I (par exemple) : dans ce cas la première écriture de contenu de I remplacera cette clé par celle cryptée par K.
+- un chat a un comportement d'ardoise : chaque écriture de l'un _écrase_ la totalité du contenu pour les deux. Un numéro séquentiel détecte les écritures croisées risquant d'ignorer la maj de l'un par celle de l'autre.
+- si I essaie d'écrire à E et que E a disparu, le statut `st` de I vaut 1 pour informer la session.
 
 L'id d'un chat est le couple `id, ids`. Du côté de A:
 - `id`: id de A,
 - `ids`: hash du cryptage de `idA/idB` par le `rnd` de A.
-
-**Suppression d'un chat**
-- chacun peut supprimer son chat : par exemple I supprime son chat avec E.
-- côté I, 
-  - la `dlv` du chat côté I est positionnée au jour courant + 365 afin de permettre la synchronisation sur plusieurs sessions / appareils: c'est le GC quotidien qui le purgera un jour, sauf si E réécrit sur le chat.
-  - le statut `st` du chat côté E est mis à 1.
-- en session comme en serveur, dès qu'il y a une `dlv`, le chat est considéré comme inexistant.
-- si E réécrit un chat à I, côté I la `dlv` du chat est remise à 0, son `st` revient à 0. Le chat _renaît_ (s'il avait été supprimé).
 
 _data_:
 - `id`
 - `ids` : identifiant du chat relativement à son avatar, hash du cryptage de `idA/idB` par le `rnd` de A.
 - `v`
 - `vcv` : version de la carte de visite
-- `dlv` : la dlv permet au GC de purger les chats. Dès qu'il y a une dlv, le chat est considéré comme inexistant autant en session que pour le serveur.
 
 - `st` : statut:
   - 0 : le chat est vivant des 2 côtés
-  - 1 : le chat a été supprimé par _l'autre_ de son côté.
-  - 2 : _l'autre_ a été détecté disparu : 
+  - 1 : _l'autre_ a été détecté disparu : 
 - `mc` : mots clés attribués par l'avatar au chat
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé CV de _l'autre_.
-- `ccPub` : clé `cc` du chat cryptée par la clé publique RSA de E.
-- `ccK` : clé `cc` du chat cryptée par la clé K du compte de I.
-
+- `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I.
+- `seq` : numéro de séquence de changement du texte.
 - `contc` : contenu crypté par la clé `cc` du chat.
   - `na` : `[nom, cle]` de _l'autre_.
   - `dh`  : date-heure de dernière mise à jour.
