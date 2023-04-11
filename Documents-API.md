@@ -160,10 +160,6 @@ Ces dates sont données en jour `aaaammjj` (UTC).
 - permet au GC de détecter les transferts en échec et de nettoyer le Storage.
 - l'index est _groupe de collection_ afin de s'appliquer aux fichiers des groupes comme des avatars.
 
-**Sur _chats_:**
-- jour à partir duquel le `chat` peut être physiquement purgé par le GC.
-- dès qu'un `chat` a une `dlv`, **il est considéré comme détruit** (supprimé de la session) autant en connexion qu'en synchronisation.
-
 **Sur _sponsorings_:**
 - jour à partir duquel le sponsoring n'est plus applicable ni pertinent à conserver. Les sessions suppriment automatiquement à la connexion les sponsorings ayant dépassé leur `dlv` (idem pour les synchronisations).
 
@@ -398,8 +394,9 @@ Elle comporte un document par chat ouvert avec un avatar (externe, pas un avatar
 - `id` : id de son avatar.
 - `ids` : numéro du chat pour l'avatar - hash de la clé de l'autre avatar le partageant.
 - `v`
+- `vcv`
 - `iv`
-- `dlv` : permet au GC de purger les chats. Dès qu'il y a une `dlv`, le chat est considéré comme inexistant autant en session que pour le serveur.
+- `ivc`
 - _data_ : contenu du chat crypté par la clé de l'avatar. Contient le `[nom, clé]` de l'émetteur.
 
 #### Avatars _externes_ E connaissant l'avatar A, chat entre avatars
