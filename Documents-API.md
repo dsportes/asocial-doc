@@ -848,6 +848,18 @@ Le compte peut mettre fin à son hébergement:
 - cet indice est attribué en séquence : le premier membre est celui du créateur du groupe a pour indice 1.
 - le statut de chaque membre d'index `ids` est stocké dans `ast[ids]`
 
+**Modes d'invitation**
+- _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par un animateur (un suffit).
+- _unanime_ : dans ce mode il faut que _tous_ les animateurs aient validé l'invitation (le dernier ayant validé provoque la validation).
+- pour passer en mode _unanime_ il suffit qu'un seul animateur le demande.
+- pour revenir au mode _simple_ depuis le mode _unanime_, il faut que tous les animateurs aient validé ce retour.
+
+**Oubli et disparition**
+- la _disparition_ correspond au fait que l'avatar du membre n'existe plus, soit par non connexion au cours des 365 jours qui précèdent, soit par auto-résiliation de l'avatar.
+- _l'oubli_ a été explicitement demandé, soit par le membre lui-même soit par un animateur. 
+- dans les deux cas le membre est _effacé_, ni son nom, ni son identifiant, ni sa carte de visite ne sont accessibles.
+- un membre _oublié / disparu_ n'apparaît plus que par #99 où 99 était son indice. Ainsi dans un secret, la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
+
 _data_:
 - `id` : id du groupe.
 - `v` : version, du groupe, ses secrets, ses membres. 
@@ -856,8 +868,10 @@ _data_:
 
 - `idhg` : id du compte hébergeur crypté par la clé du groupe.
 - `imh` : indice `im` du membre dont le compte est hébergeur.
-- `stx` : 1-ouvert (accepte de nouveaux membres), 2-fermé (ré-ouverture en vote)
-- `sty` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
+- `msu` : mode _simple_ ou _unanime_.
+  - `null` : mode simple.
+  - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
+- `pe` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
 - `ast` : array des statuts des membres (dès qu'ils ont été inscrits en _contact_) :
   - 10: contact, 
   - 20,21,22: invité en tant que lecteur / auteur / animateur, 
@@ -879,7 +893,9 @@ _data_:
 - `ddi` : date de la dernière invitation
 - `dda` : date de début d'activité (jour de la première acceptation)
 - `dfa` : date de fin d'activité (jour de la dernière suspension)
-- `vote` : vote de réouverture.
+- `inv` : validation de la dernière invitation:
+  - `null` : le membre n'a pas été invité où le mode d'invitation du groupe était _simple_ au moment de l'invitation.
+  - `[ids]` : liste des indices des animateurs ayant validé la dernière invitation.
 - `mc` : mots clés du membre à propos du groupe.
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `datag` : données, immuables, cryptées par la clé du groupe :
@@ -924,7 +940,7 @@ _data_:
 - dans `membre` seuls `datag cva` sont significatifs. 
 
 **Invité suite à une invitation par un animateur**
-- invitation depuis un état _contact_ ou _suspendu_
+- invitation depuis un état _contact_  _suspendu_ _refus d'invitation_
 - son statut dans `ast` passe à 20, 21, ou 22.
 - dans `membre` `datag cva ddi` sont significatifs.
 - si `dda` ou `dfa`, 
