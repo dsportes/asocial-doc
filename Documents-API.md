@@ -30,7 +30,7 @@ Présentation en Collections / Documents :
       Documents                   id v iv hps1
 
     /Collection `versions`
-      Documents                   id v iv dlv
+      Documents                   id v iv
 
     /Collection `avatars`
       Document                    id v iv vcv ivc hpc
@@ -60,7 +60,7 @@ Présentation en Collections / Documents :
     tribus      id v _data_           iv
     tribu2s     id v _data_           iv
     comptas     id v _data_           iv hps1
-    versions    id v _data_           iv dlv dfh
+    versions    id v _data_           iv dlv
     avatars     id v vcv hpc _data_   iv ivc
     groupes     id v _data_           iv
 
@@ -327,7 +327,8 @@ Un document par compte rattaché à sa tribu portant :
 - `dlv` : signature de vie + 365 (aaaammjj).
 - `iv`
 - _data_ :
-  - `v1 q1 v2 q2`: pour un groupe
+  - `v`, 
+  - `vols`: `{v1, v2, q1, q2}` pour un groupe
 
 ## Collection `avatars`
 Cette collection a un document par avatar principal ou secondaire.
