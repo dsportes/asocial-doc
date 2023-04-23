@@ -345,7 +345,7 @@ La création d'un compte est un processus court qui aboutit in fine à la récup
 - `avcontact` (ida, nc) : données d'un contact d'un avatar    
 - `avinvitct` () (idb) : invitation adressée à B à lier un contact avec A  
 - `avinvitgr` () (idm) : invitation à M à devenir membre d'un groupe G  
-- `rencontre` (dpbh) ida : communication par A de son identifications complète à un compte inconnu  
+- `rencontre` (hps1) ida : communication par A de son identifications complète à un compte inconnu  
 
 **Fil GR** : structure des groupes
 - `grlmg` (idg) : liste des id + nc + c1 des membres du groupe  

@@ -140,14 +140,14 @@ Table:
 ## Table : `compte` - CP `id`. Authentification d'un compte
 _Phrase secrète_ : une ligne 1 de 16 caractères au moins et une ligne 2 de 16 caractères au moins.  
 `pcb` : PBKFD de la phrase complète (clé X) - 32 bytes.  
-`dpbh` : hashBin (53 bits) du PBKFD du début de la phrase secrète (32 bytes).
+`hps1` : hashBin (53 bits) du PBKFD du début de la phrase secrète (32 bytes).
 
 Table :
 
     CREATE TABLE "compte" (
     "id"	INTEGER,
     "v"		INTEGER,
-    "dpbh"	INTEGER,
+    "hps1"	INTEGER,
     "pcbh"	INTEGER,
     "kx"  BLOB,
     "stp"  INTEGER,
@@ -158,11 +158,11 @@ Table :
     "vsh"	INTEGER,
     PRIMARY KEY("id")
     ) WITHOUT ROWID;
-    CREATE UNIQUE INDEX "dpbh_compte" ON "compte" ( "dpbh" );
+    CREATE UNIQUE INDEX "hps1_compte" ON "compte" ( "hps1" );
 
 - `id` : id de l'avatar primaire du compte.
 - `v` :
-- `dpbh` : hashBin (53 bits) du PBKFD du début de la phrase secrète (32 bytes). Pour la connexion, l'id du compte n'étant pas connu de l'utilisateur.
+- `hps1` : hashBin (53 bits) du PBKFD du début de la phrase secrète (32 bytes). Pour la connexion, l'id du compte n'étant pas connu de l'utilisateur.
 - `pcbh` : hashBin (53 bits) du PBKFD de la phrase complète pour quasi-authentifier une connexion avant un éventuel échec de décryptage de `kx`.
 - `kx` : clé K du compte, cryptée par la X (phrase secrète courante).
 - `stp` : statut parrain (0: non, 1:oui).
