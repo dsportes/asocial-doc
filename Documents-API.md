@@ -298,10 +298,12 @@ Le serveur recherche l'id du compte par `hps1` (index de `comptas`)
 ### Document `checkpoint`
 Attribut opaque _data_ : contient les informations de point de reprise du GC.
 
-### Document `notif`
-Attribut opaque _data_ : sérialisé, non crypté
+## Collection `espaces`
+Un document par espace (considéré comme faisant partie de la _partition_).
 
-Ce texte est synchronisé par toutes les sessions connectées.
+**Document:** - `id` : entier aléatoire
+- `id` : de l'espace de 10 à 89.
+- _data_ : notifications, blocage et taille.
 
 ## Collection `gcvols`
 Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable. C'est un avis de disparition d'un compte que seul le comptable peut décrypter et traiter pour mette à jour sa tribu.
@@ -559,8 +561,19 @@ Une autre forme de notification est gérée : le taux maximum d'utilisation du v
 
 Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
 
+## Document `espace`
+- `id` : de l'espace de 10 à 89.
+- `v`
+
+_data_:
+- `notifA` : notification de l'administrateur, cryptée par la clé du Comptable.
+- `notifC` : notification du Comptable cryptée par la clé du Comptable.
+- `blocage`: de l'administrateur.
+- `t` : taille de l'espace, de 1 à 9, fixé par l'administrateur : son poids relatif dans l'ensemble des espaces.
+
 ## Document `gcvol`
 - `id` : entier pseudo aléatoire, hash de `nctkc`.
+
 _data_:
 - `nctkc` : `[nom, cle]` de la tribu qui doit récupérer les quotas **crypté par la clé K du comptable**.
 - `nat`: `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
