@@ -1,12 +1,34 @@
 # Données persistantes sur le serveur
+## Espaces de noms
+L'ensemble des documents est _partionné_, chaque partition étant un espace de nommage :
+- les singletons : sont des documents d'administration technique.
+- il y a un document `espaces` par partition / espace de nom : son id est une entier de de 10 à 89.
+- tous les autres documents ont un id de 16 chiffres (et un ids secondaire pour les sous collections) dont les 2 premiers sont l'id de leur espace de nom.
 
-Présentation en Collections / Documents :
-- tous les attributs **indexés** sont indiqués:
+Il est techniquement simple:
+- d'extraire / exporter tous les documents d'un espace (dont _son_ document espaces) par simple condition sur la valeur de leurs ids.
+  - l'importation est concevable dans une base dont le numéro d'espace ne serait pas utilisé.
+- de purger un espace selon les mêmes critères.
+
+> Il s'agit bien d'un _partitionnement_ : aucun document d'une partition ne référence un document d'une autre partition.
+
+>L'administrateur technique a pour rôle unique de gérer les espaces:
+- les créer / les détruire,
+- définir leurs quotas utilisables par le comptable de chaque espace,
+- gérer une notification par espace,
+- gérer un blocage par espace.
+
+## Présentation en Collections / Documents :
+- les attributs **indexés** sont:
   - `id, ids` : les identifiants
-  - `v` : numéro de version d'un document (entier croissant), `vcv` : pour la version de la carte de visite.
-  - `dlv` : date limite de validité
-  - `dfh` : date de fin d'hébergement
-  - _attributs de statut_ permettant de filtrer les collections:  `iv ivc dh/dhb idt/idtb hps1 hpc`.
+  - `v` : numéro de version d'un document (entier croissant), 
+  - `vcv` : pour la version de la carte de visite.
+  - `dlv` : date limite de validité `avatars membres` et `sponsorings transferts`
+  - `dfh` : date de fin d'hébergement `groupes`
+  - `hps1 hpc` : clé d'accès secondaires directes aux documents `comptas avatars`
+  - _attributs composés_ :  
+    - `iv` : `id + v`
+    - `ivc` : `id + vcv`
 - les attributs _data_ (non indexés) contiennent des données sérialisées opaques.
 
 ## Structure générale
@@ -16,6 +38,9 @@ Présentation en Collections / Documents :
     /Collection `singletons`
       Document `checkpoint`
       Document `notif`
+
+    /Collection `espaces`
+      Documents                   id (numéro de 10 à 99)
 
     /Collection `gcvols`        
       Documents                   id
@@ -56,6 +81,7 @@ Présentation en Collections / Documents :
     singletons  _data_
 
     La _clé primaire_ est id:
+    espace      id
     gcvols      id _data_
     tribus      id v _data_           iv
     tribu2s     id v _data_           iv
@@ -109,7 +135,7 @@ L'état en session est conservé à niveau en _s'abonnant_ à un certain nombre 
 - (4) les documents `groupes` des groupes dont les avatars sont membres - listés par (3)
 - (5) les sous-collections `secrets chats sponsorings` des avatars - listés par (3)
 - (6) les sous-collections `membres secrets` des groupes - listés par (4)
-- (7) le singleton `notif`.
+- (7) le document `espaces` de son espace.
 - pour le comptable, abonnement à **toutes** les tribus.
 
 Au cours d'une session au fil des synchronisations, la portée va donc évoluer depuis celle déterminée à la connexion:
@@ -120,7 +146,7 @@ Une session a une liste d'ids abonnées :
 - l'id de son compte : quand un document `compta` change il est transmis à la session.
 - les ids de ses `groupes` et `avatars` : quand un document `version` ayant une de ces ids change, il est transmis à la session. La tâche de synchronisation de la session va chercher, par une transaction pour chaque document majeur, le document majeur et ses sous documents ayant des versions postérieures à celles détenues en session.
 - sa `tribu tribu2` actuelle (qui peut donc changer) pour un compte normal.
-- implicitement le singleton `notif`.
+- implicitement le document `espaces` de son espace.
 - **pour le Comptable** : en plus, 
   - implicitement toutes les `tribu`,
   - ponctuellement une `tribu2` _courante_.
@@ -130,15 +156,15 @@ Une session a une liste d'ids abonnées :
 - en **FireStore** ce n'est pas possible : la session pose un écouteur sur des objets `compta` et `version` individuellement, l'ordre ne peut pas être garanti entre objets majeurs.
 
 #### Id-version : `iv`
-Un `iv` est constitué sur 15 chiffres :
-- en tête des 9 derniers chiffres de l'`id` du document majeur.
+Un `iv` est constitué sur 16 chiffres :
+- en tête des 10 premiers chiffres de l'`id` du document majeur.
 - suivi sur 6 chiffres de `v`, numéro de la version.
 
 Un `iv` permet de filtrer un document précis selon sa version. Il sert:
 - **à gérer une mémoire cache dans le serveur des documents majeurs** récemment accédés : si la version actuelle est déjà en cache, le document _n'est pas_ chargé (seul l'index est accédé pour vérification).
 - **à remettre à jour en session _incrémentalement_ UN document majeur ET ses sous-documents** en ne chargeant à la connexion QUE les documents plus récents que la version de leur document majeur détenue dans la session.
 
-Comme un `iv` ne comporte pas une `id` complète mais seulement ses 9 derniers chiffres, de temps en temps (mais très rarement) le filtrage _peut_ retourner des _faux positifs_ qu'il faut retirer du résultat en vérifiant leur `id` dans le document.
+Comme un `iv` ne comporte pas une `id` complète mais seulement ses 10 premiers chiffres, de temps en temps (mais très rarement) le filtrage _peut_ retourner des _faux positifs_ qu'il faut retirer du résultat en vérifiant leur `id` dans le document.
 
 #### `dlv` et `dfh` : **date limite de validité** et **date de fin d'hébergement** 
 Ces dates sont données en jour `aaaammjj` (UTC).
@@ -148,12 +174,12 @@ Ces dates sont données en jour `aaaammjj` (UTC).
 - les `dlv` permettent au GC de récupérer tous les _disparus_.
 
 **Sur _membres_ :**
-- sur _membres_ : les `dlv` sont indexées et permet au GC de savoir que le membre a disparu SANS avoir à chager le document.
+- sur _membres_ : les `dlv` sont indexées et permet au GC de savoir que le membre a disparu SANS avoir à changer le document.
 - l'index est _groupe de collection_ afin de s'appliquer aux membres de tous les groupes.
 
-**Sur _groupes_ :**
-- jour de purge d'un `groupe` (qui est _zombi_ depuis un an).
-- les groupes dont la `dlv` est antérieure au jour J sont considérés comme _disparu_. Leur document reste encore mais réduit a minima, sans _data_, est immuable et sera, un an plus tard, techniquement purgés.
+**Sur _versions des groupes_ :**
+- jour de purge.
+- les groupes dont la `dlv` dans leur `versions` est antérieure au jour J sont considérés comme _disparu_. Leur document `versions` reste encore mais réduit a minima, sans _data_, est immuable et sera, un an plus tard, techniquement purgés.
 
 **Sur _transferts_:**
 - **jour auquel il est considéré que le transfert tenté a définitivement échoué**.
@@ -164,7 +190,7 @@ Ces dates sont données en jour `aaaammjj` (UTC).
 - jour à partir duquel le sponsoring n'est plus applicable ni pertinent à conserver. Les sessions suppriment automatiquement à la connexion les sponsorings ayant dépassé leur `dlv` (idem pour les synchronisations).
 
 **Sur _groupes_ `dfh` :**
-- la **date de fin d'hébergement** sur un groupe permet au GC de mettre ce groupe en _zombi_ (disparu logiquement): sa `dlv` dans son `version` est mise à la date du jour + 365.
+- la **date de fin d'hébergement** sur un groupe permet au GC de purger ce groupe: sa `dlv` dans son `versions` est mise à la date du jour + 365.
 
 #### Index de groupes de collection: `dlv ids`
 - `dlv` : **date limite de validité**:
@@ -201,23 +227,31 @@ Le **nom complet** d'un avatar / groupe / tribu est un couple `[nom, cle]`
   - 1 : avatar secondaire.
   - 2 : groupe,
   - 3 : tribu.
-- A l'écran le nom est affiché sous la forme `nom@xyzt` (sauf `Comptable`) ou `xyzt` sont les 4 premiers chiffres de l'id.
+- A l'écran le nom est affiché sous la forme `nom@xyzt` (sauf `Comptable`) ou `xyzt` sont les 4 derniers chiffres de l'id.
 
 **Dans les noms,** les caractères `< > : " / \ | ? *` et ceux dont le code est inférieur à 32 (donc de 0 à 31) sont interdits afin de permettre d'utiliser le nom complet comme nom de fichier.
 
 #### Les ids
-**Singletons**
-- il y a 2 singletons d'id respectives `checkpoint` `notif`.
+Les singletons une une id, un code court, qui permet de l'accéder.
 
-**Ids des documents majeurs `avatar` (sauf comptable), `groupe`, `tribu`:**
-- le hash (_integer_) de la clé est un entier SAFE en Javascript : il est divisé par 10.
-- un dernier chiffre (0 à 3) donne le _type_ de l'objet identifié.
+Les espace de nom ont pour id un entier de 10 à 89 : on retrouve cette id en tête de tous les ids des documents de l'espace.
 
-**Compte de nom réservé `Comptable`**
-- son id est Number.MAX_SAFE_INTEGER (2^53 - 1 = `9007199254740990`) mais ramené à la dizaine inférieure.
-- sa clé est également fixe : [0, 255, 255 ...].
-- son nom est réservé et non attribuable par les autres avatars.
-- pas de carte de visite : le comptable dispose de la notification globale s'il veut donner des précisions sur lui-même.
+Une `id` est composé de 16 chiffres `nntaa..`, _entier safe_ en Javascript :
+- `nn` : de 10 à 89. Numéro d'espace.
+- `t` : 
+  - 0: avatar principal / compte
+  - 1: avatar secondaire
+  - 2: groupe
+  - 3: tribu
+- `aa...` : 13 chiffres aléatoires.
+  - pour le comptable c'est 13 zéros.
+  - pour les autres c'est un hash des 32 bytes de la clé random du document (13 derniers chiffres, zéros à gauche si nécessaire)
+
+**Pour chaque espace `nn`, un compte de nom réservé `Comptable`**
+- son id est `nn 0 0 000 000 000 000` : le numéro de l'espace suivi de 14 zéros.
+- sa clé de 32 bytes vaut : `[nn, 0, 0 ...]` : nn et 31 0.
+- il n'a pas de nom `''` mais apparaît à l'affichage avec un libellé configurable `Comptable`.
+- il n'a pas de carte de visite : le comptable dispose de la notification globale s'il veut donner des précisions sur lui-même.
 
 **Sous-documents**
 - l'id d'un `sponsoring`, `ids` est le hash de la phrase de reconnaissance.
@@ -412,14 +446,14 @@ Tout _avatar externe_ E connaissant A peut lui écrire un chat qui est dédoubl�
 - en supprimant le dernier chat avec E émis par E, A perd toute connaissance de E si c'était la seule raison pour laquelle il connaissait E.
 
 ## Collection `groupes`
-Cette collections comporte un document par groupe existant.
+Cette collection comporte un document par groupe existant.
 
 **Documents :** - `id` : id du groupe
 - `id` : id du groupe,
 - `v`
 - `iv`
 - `dfh` : date de fin d'hébergement. Le groupe s'auto détruit à cette date là (sauf si un compte a repris l'hébergement, `dfh` étant alors remise à 0)
-- _data_ : données du groupe. Absent / null en état _zombi_ (les sous-collections ont déjà été purgées ou sont en cours de purge).
+- _data_ : données du groupe.
 
 ### Sous-collection `membres`
 Elle comporte un document membre par membre.
@@ -465,6 +499,7 @@ Ce sont des _structures_ qu'on peut trouver dans les _data_ de plusieurs documen
 
 Ce sont :
 - `blocage` : décrit une procédure de blocage. Se trouve dans :
+  - `espace` : cryptée par la clé du Comptable, décrit la procédure de blocage en cours au niveau de _l'espace_ par l'administrateur.
   - `tribu` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau de la tribu.
   - `tribu2` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau du compte.
 - `notif` : décrit une _notification_, un avis plus ou moins important destiné soit à tous les comptes, soir à tous ceux d'une tribu, soit à un compte particulier.
@@ -477,7 +512,7 @@ Ce sont :
     - `notifsp` : notification issue d'un des sponsors de la tribu.
 
 ### `blocage`
-- `sp`: id si créé / gérée par un sponsor (0 pour un blocage _tribu_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
+- `sp`: id si créé / gérée par un sponsor (0 pour un blocage _tribu ou général_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
 - `jib` : jour initial de la procédure de blocage sous la forme `aaaammjj`.
 - `nja njl` : nb de jours passés en niveau _alerte_, et _lecture seule_.
 - `dh` : date-heure de dernière modification (informative).
@@ -495,20 +530,30 @@ Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
 - le nombre de jours restant avant d'atteindre la date de fin du niveau et des niveaux suivants.
 - le nombre de jours avant disparition du compte (dernier jour du niveau _bloqué_).
 
+**Trois étages de blocage, le plus contraignant s'appliquant:**
+- G - portée générale pour l'espace, émise par l'administrateur,
+- T - portée d'une tribu, émise par le Comptable,
+- C - portée d'un compte, émise par le Comptable ou un sponsor.
+
 ### `notif`
 - `txt` : texte court de la notification.
 - `dh` : date-heure d'inscription de la notification.
-- `id` : id de l'auteur (0 c'est le comptable).
+- `id` : id de l'auteur (0 c'est le comptable ou l'administrateur).
 - `g` : `false`: normale, `true`: importante.
 
 Une notification peut être remplacée par une autre plus récente et peut-être effacée.
 
-Il existe donc 5 notifications pour un compte:
-- générale,
-- pour tous les comptes d'une tribu émise par le Comptable,
-- pour tous les comptes d'une tribu émise par un sponsor,
-- pour un seul compte désigné, émise par le Comptable,
-- pour un seul compte désigné, émise par un sponsor de sa tribu.
+Il existe 6 notifications perceptibles par un compte:
+- cible : G-générale, T-tribu, C-compte
+- émetteur : A-administrateur, C-Comptable, S-sponsor d'une tribu.
+
+Liste :
+- GA - émise par l'administrateur, pour tous les comptes (de l'espace),
+- GC - émise par le Comptable pour tous les comptes (de l'espace),
+- TC - émise par le Comptable pour tous les comptes d'une tribu,
+- TS - émise par un sponsor, pour tous les comptes d'une tribu,
+- CC - émise par le Comptable, pour un seul compte désigné,
+- CS - émise par un sponsor de sa tribu pour un seul compte désigné.
 
 Une autre forme de notification est gérée : le taux maximum d'utilisation du volume V1 ou V2 par rapport à son quota.
 
@@ -839,11 +884,11 @@ L'hébergement d'un groupe est noté par :
 Le compte peut mettre fin à son hébergement:
 - `dfh` indique le jour de la fin d'hébergement. Les secrets ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe. 
 - à `dfh`, 
-  - le GC plonge le groupe en état _zombi_, _data_ et `dfh` sont absents / 0.
-  - `dlv`  dans le `version` du groupe est mis à la date du jour + 365.
+  - le GC purge le groupe.
+  - `dlv`  dans le `versions` du groupe est mis à la date du jour + 365.
   - les secrets et membres sont purgés.
-  - le groupe est _ignoré_ en session, comme s'il n'existait plus. Il est retiré au fil des connexions et des synchronisations des maps `lgrk invits` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
-  - le document `groupe` sera effectivement détruit par le GC à `dlv`.
+  - le groupe est retiré au fil des connexions et des synchronisations des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
+  - le document `versions` du groupe sera purgé par le GC à `dlv`.
 
 **Les membres d'un groupe** reçoivent lors de leur création (quand ils sont inscrits en _contact_) un indice membre `ids` :
 - cet indice est attribué en séquence : le premier membre est celui du créateur du groupe a pour indice 1.
@@ -1133,7 +1178,7 @@ C'est une opération _normale_:
 Le GC détecte un membre disparu par dépassement de sa `dlv` :
 - purge de son document `membre`.
 - si c'était le dernier membre _actif_ du groupe:
-  - le document `groupe` passe en _zombi_ et sa `dlv` est positionnée de manière à être purgée dans un an quand toutes les synchronisations / connexions l'auront prise en compte.
+  - le document `groupe` est purgé et la `dlv` dans sa `versions` est positionnée de manière à être purgée dans un an quand toutes les synchronisations / connexions l'auront prise en compte.
   - dans son planning l'id du groupe est inscrite pour purge de ses données.
 - si ce n'était PAS le dernier membre _actif_ du groupe:
   - dans `groupe` son statut `ast` passe à _disparu_.
@@ -1141,12 +1186,11 @@ Le GC détecte un membre disparu par dépassement de sa `dlv` :
 
 ### Autres purges sur dépassement de `dlv`
 La `dlv` est une date de **purge** dans les cas suivants:
-- sur `version` d'un groupe : le groupe était en état _zombi_.
-- sur `chat` : le chat était _supprimé_.
-- sur `secret`: secret était _zombi_.
-- sur `sponsoring` : il avait atteint limite de validité.
+- sur `versions` d'un groupe.
+- sur `secrets`: secret était _zombi_.
+- sur `sponsorings` : il avait atteint limite de validité.
 
-Sur `transfert`, déclenchement de l'opération pour suppression de fichiers dans le FileStore.
+Sur `transferts`, déclenchement de l'opération pour suppression de fichiers dans le FileStore.
 
 ### Chat : détection de la disparition de l'avatar E
 A la connexion d'une session les chats avec des avatars E disparus ne sont pas détectés.
@@ -1180,7 +1224,7 @@ Le GC quotidien effectue les activités de nettoyage suivantes :
 
 #### Etape 1
 Une transaction pour chaque groupe ayant dépassé leur `dfh`:
-- `dfh` : mise en état _zombi_ du `groupe`. Ce changement d'état est synchronisé. 
+- `dfh` : purge du `groupe` et positionnement de la `dlv` de sa `versions`. Ce changement d'état est synchronisé. 
   - les sessions ouvertes et accédant à ces groupes, émettront ultérieurement une opération pour retirer le groupe de la liste des groupes de leur avatar.
   - les sessions s'ouvrant postérieurement feront la même opération au chargement initial.
 - inscription de l'id du groupe,
@@ -1189,7 +1233,7 @@ Une transaction pour chaque groupe ayant dépassé leur `dfh`:
 
 #### Etape 1b
 Purge des documents ayant dépassé leur `dlv`.
-- sur `groupe` : ils étaient _zombi_.
+- sur `versions` d'un groupe.
 - sur `chat` : les chat étaient considérés comme _supprimé_.
 - sur `secret`: ils étaient _zombi_.
 - sur `sponsoring` : ils avaient dépassé leur limite de validité.
