@@ -192,12 +192,13 @@ Ces dates sont données en jour `aaaammjj` (UTC).
 **Sur _groupes_ `dfh` :**
 - la **date de fin d'hébergement** sur un groupe permet au GC de purger ce groupe: sa `dlv` dans son `versions` est mise à la date du jour + 365.
 
-#### Index de groupes de collection: `dlv ids`
-- `dlv` : **date limite de validité**:
-  - sur _transferts_: permet au GC de détecter _tous_ les transferts définitivement échoués et de nettoyer le Storage.
+#### Index de _groupes_ de collection: `dlv ids`
+- `dlv` : date limite de validité,
+  - sur _membres_ pour détecter les membres disparus.
+  - sur _transferts_ pour détecter les transferts définitivement échoués de nettoyer le Storage.
 - `ids` : hash de la phrase de parrainage sur `sponsorings` afin de rendre un sponsorings accessible par index sans connaître le sponsor.
 
-#### Cache locale des `comptas versions avatars groupes tribus` dans une instance d'un serveur
+#### Cache locale des `espaces comptas versions avatars groupes tribus` dans une instance d'un serveur
 - les `comptas` sont utilisées à chaque mise à jour de secrets.
 - les `versions` sont utilisées à chaque mise à jour des avatars, de ses chats, secrets, sponsorings.
 - les `avatars groupes tribus` sont également souvent accédés.
@@ -207,34 +208,41 @@ Ces dates sont données en jour `aaaammjj` (UTC).
 La mémoire cache est gérée par LRU (tous types de documents confondus)
 
 ## Généralités
-Les clés AES et les PBKFD sont des bytes de longueur 32.
+**Les clés AES et les PBKFD** sont des bytes de longueur 32. Un texte crypté a une longueur variable :
+- quand le cryptage est spécifié _libre_ le premier byte du texte crypté est le numéro du _salt_ choisi au hasard dans une liste pré-compilée : un texte donné 'AAA' ne donnera donc pas le même texte crypté à chaque fois ce qui iempêche de pouvoir tester l'égalité de deux textes cryptés au vu de leur valeur cryptée.
+- quand le cryptage est _fixe_ le numéro de _salt_ est 1 : l'égalité de valeurs cryptées traduit l'égalité de leur valeurs sources.
 
-Un entier sur 53 bits est intègre en Javascript (15 chiffres décimaux). Il peut être issu de 6 bytes aléatoires.
+**Un entier sur 53 bits est intègre en Javascript** (9,007,199,254,740,991 soit 16 chiffres décimaux si le premier n'est pas 9). Il peut être issu de 6 bytes aléatoires.
 
 Le hash (_integer_) d'un bytes est un entier intègre en Javascript.
 
 Le hash (_integer_) d'un string est un entier intègre en Javascript.
 
-Les date-heures sont exprimées en milli-secondes depuis le 1/1/1970, un entier intègre en Javascript(ce serait d'ailleurs aussi le cas pour une date-heure en micro-seconde).
+Les date-heures sont exprimées en milli-secondes depuis le 1/1/1970, un entier intègre en Javascript (ce serait d'ailleurs aussi le cas pour une date-heure en micro-seconde).
 
 Les dates sont exprimées en `aaaammjj` sur un entier (géré par la class `AMJ`). En base ce sont des dates UTC, elles peuvent s'afficher en date _locale_.
 
+**Les clé RSA** sont de longueurs différentes pour la clé de cryptage (publique) et de décryptage (privée). Le résultat d'un cryptage a une longueur fixe de 256 bytes. Deux cryptages RSA avec la même clé d'un même texte donnent deux valeurs cryptées différentes.
+
 #### Nom complet d'un avatar / groupe / tribu
 Le **nom complet** d'un avatar / groupe / tribu est un couple `[nom, cle]`
-- `nom` : nom lisible et signifiant, entre 6 et 20 caractères. Le nom `Comptable` est réservé.
-- `cle` : 32 bytes aléatoires. Clé de cryptage. Le premier byte donne le _type_ de l'id (qu'on retrouve comme dernier chiffre de l'id) :
+- `nom` : nom lisible et signifiant, entre 6 et 20 caractères. Le nom `Comptable` est réservé. Le Comptable n'a pas de nom.
+- `cle` : 32 bytes aléatoires. Clé de cryptage.
+  - Le premier byte de 10 à 89 donne l'id de l'espace, qu'on retrouve dans les deux premiers chiffres.
+  - Le second byte donne le _type_ de l'id, qu'on retrouve comme troisième chiffre de l'id :
   - 0 : compte / avatar principal.
   - 1 : avatar secondaire.
   - 2 : groupe,
   - 3 : tribu.
+  - Les autres bytes sont aléatoires, sauf pour le Comptable où ils sont tous nuls.
 - A l'écran le nom est affiché sous la forme `nom@xyzt` (sauf `Comptable`) ou `xyzt` sont les 4 derniers chiffres de l'id.
 
 **Dans les noms,** les caractères `< > : " / \ | ? *` et ceux dont le code est inférieur à 32 (donc de 0 à 31) sont interdits afin de permettre d'utiliser le nom complet comme nom de fichier.
 
 #### Les ids
-Les singletons une une id, un code court, qui permet de l'accéder.
+Les singletons une id, un code court, qui permet de l'accéder.
 
-Les espace de nom ont pour id un entier de 10 à 89 : on retrouve cette id en tête de tous les ids des documents de l'espace.
+Les `espaces` de nom ont pour id un entier de 10 à 89 : on retrouve cette id en tête de tous les ids des documents de l'espace.
 
 Une `id` est composé de 16 chiffres `nntaa..`, _entier safe_ en Javascript :
 - `nn` : de 10 à 89. Numéro d'espace.
@@ -259,13 +267,18 @@ Une `id` est composé de 16 chiffres `nntaa..`, _entier safe_ en Javascript :
 - l'id d'un `secret` est un numéro `ids` aléatoire relatif à celui de son avatar ou groupe.
 - l'id d'un `membre` est `ids` un indice croissant depuis 1 relatif à son groupe.
 
-#### Les `dlv` : sur avatars et membres, date de dernière signature + 1 an
-A la connexion d'un compte, si sa `dlv` précédente a plus de 10 jours, il signe en inscrivant une `dlv` dans le document `version` de ses avatars:
-- par la date du jour pour son principal (son compte) + 1 an.
-- par une date `d2` de 10 jours postérieure: pour ses avatars secondaires.
-
-La date `d2` est aussi celle mise dans chaque `membre` d'un groupe correspondant aux avatars du compte.
-
+#### Les `dlv`
+- `versions` **d'un avatar** : date de dernière signature + 1 an. A la connexion d'un compte, si la `dlv` précédente a plus de 10 jours, une nouvelle  `dlv` est inscrite:
+  - date du jour `d1` pour un avatar principal (compte) + 1 an.
+  - date `d2` de 10 jours postérieure à `d1` pour les avatars secondaires.
+  - un avatar ayant une `dlv` **dépassée** est considéré comme disparu (purgé ou en voie de l'être).
+- `membres` : date de dernière signature + 1 an. Même règle que pour un avatar secondaire.
+- `versions` **d'un groupe** : 
+  - dès qu'une `dlv` existe, le groupe correspond est considéré comme disparu (purgé ou en voie de l'être), ainsi que tous ses membres et secrets. 
+  - la `dlv` indique au GC quand il pourra aussi purger le document `versions` lui-même. Dès qu'il y a une `dlv`, il n'y a plus de _data_ et le document est immuable.
+- `transferts`: une `dlv` **dépassée** indique que le transfert est définitivement traité (OK ou échoué).
+- `sponsorings` : une `dlv` **dépassée** indique que le sponsoring est inutilisable et quel que soit son statut peut être supprimé (plus visible en historique)
+.
 ### Authentification
 - Les opérations liées aux créations de compte ne sont pas authentifiées, elles vont justement enregistrer leur authentification.  
 - Les opérations de tests de type _ping_ ne le sont pas non plus.  
@@ -303,7 +316,7 @@ Un document par espace (considéré comme faisant partie de la _partition_).
 
 **Document:** - `id` : entier aléatoire
 - `id` : de l'espace de 10 à 89.
-- _data_ : notifications, blocage et taille.
+- _data_ : notifications et taille.
 
 ## Collection `gcvols`
 Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable. C'est un avis de disparition d'un compte que seul le comptable peut décrypter et traiter pour mette à jour sa tribu.
@@ -499,67 +512,50 @@ Ce sont des _structures_ qu'on peut trouver dans les _data_ de plusieurs documen
 - sérialisées,
 - cryptées par une clé qui dépend du contexte où se trouve la structure.
 
-Ce sont :
-- `blocage` : décrit une procédure de blocage. Se trouve dans :
-  - `espace` : cryptée par la clé du Comptable, décrit la procédure de blocage en cours au niveau de _l'espace_ par l'administrateur.
-  - `tribu` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau de la tribu.
-  - `tribu2` : cryptée par la clé de la tribu, décrit la procédure de blocage en cours au niveau du compte.
-- `notif` : décrit une _notification_, un avis plus ou moins important destiné soit à tous les comptes, soir à tous ceux d'une tribu, soit à un compte particulier.
-  - _data_ du singleton `notif` : cryptée par la clé bien connue constante du Comptable, signale une notification globale pour tous les comptes.
-  - _tribu_ : cryptée par la clé de la tribu:
-    - `notifco` : notification issue du Comptable.
-    - `notifsp` : notification issue d'un des sponsors de la tribu.
-  - _tribu2_ : cryptée par la clé de la tribu:
-    - `notifco` : notification issue du Comptable.
-    - `notifsp` : notification issue d'un des sponsors de la tribu.
+### Notification
+Les notifications servent à transmettre une information importante aux compte avec plusieurs niveaux :
+- **0-notification** d'information importante dont le compte doit tenir compte, typiquement pour réduire son volume, contacter le Comptable, etc.
+- 1-2 la procédure de blocage est engagée:
+  - **1-lecture seulement** : compte avec un comportement de mode _avion_ mais peut toutefois chatter avec le comptable et les sponsors.
+  - **2-restreint** : le compte ne peut plus **que** chatter avec son sponsor ou le Comptable et n'a plus accès à ses données.
+- **3-bloqué** : la procédure a conduit à la disparition des comptes concernés et à l'interdiction d'en créer d'autres sur la cible de la notification. Cet état n'est pas observable que dans des situations particulières (dans une tribu _bloquée_ on ne peut plus créer de compte).
 
-### `blocage`
-- `sp`: id si créé / gérée par un sponsor (0 pour un blocage _tribu ou général_). Lorsque le comptable a pris le contrôle sur une procédure de blocage de compte, un sponsor ne peut plus la modifier / remplacer / supprimer.
-- `jib` : jour initial de la procédure de blocage sous la forme `aaaammjj`.
-- `nja njl` : nb de jours passés en niveau _alerte_, et _lecture seule_.
+**Le Comptable a un degré de liberté** supérieur aux autres comptes:
+- en niveau 1 et 2 il peut: 
+  - gérer les tribus, création, gestion de quotas, gestion des comptes et de leurs quotas,
+  - chatter avec les comptes,
+  - gérer les notifications aux tribus et comptes.
+- en niveau 3, il ne peut plus rien faire. 
+
+On trouve des notifications aux niveaux suivants :
+- **G-niveau global** d'un espace, émise par l'Administrateur (cryptée par la clé du Comptable).
+- **T-niveau tribu**. Cryptée par la clé de la tribu et émise :
+  - soit par le Comptable,
+  - soit par un sponsor de la tribu : toutefois quand il existe une notification du Comptable elle ne peut pas être modifiée par un sponsor.
+- **C-niveau compte**. Cryptée par la clé de la tribu et émise :
+  - soit par le Comptable,
+  - soit par un sponsor de la tribu : toutefois quand il existe une notification du Comptable elle ne peut pas être modifiée par un sponsor.
+
+Un compte peut donc faire l'objet de 0 à 3 notifications :
+- le niveau applicable au jour J est le plus dégradé (le plus élevé).
+- les 3 textes sont lisibles, avec leur source (Administrateur, Comptable, Sponsor).
+- un compte ayant un niveau de blocage positif ne _signe plus_ ses connexions, ceci le conduira à la disparition si la situation persiste un an.
+
+**_data_ d'une notification :**
+- `source`: id de la source, du Comptable ou du sponsor, par convention 0 pour l'administrateur.
+- `cible` : 0 pour le global, sinon id de la tribu ou du compte.
+- `jbl` : jour de déclenchement de la procédure de blocage sous la forme `aaaammjj`, 0 s'il n'y a pas de procédure de blocage en cours.
+- `nj` : en cas de procédure ouverte, nombre de jours après son ouverture avant de basculer en niveau 2.
+- `texte` : texte informatif, pourquoi, que faire ...
 - `dh` : date-heure de dernière modification (informative).
 
-Il y a trois niveaux :
-- **1-alerte** : simple annonce qu'une procédure est engagée, **mais** les comptes ne _signant_ plus leurs connexions, le compte est déjà engagée dans une procédure qui conduira, si rien n'est fait, à sa disparition un an après le début de la procédure.
-- **2-lecture seule** : le compte ne peut plus que,
-  -_lire_ toutes ses données,
-  - _chatter_ avec le Comptable et les sponsors de sa tribu.
-- **3-bloquée** : le compte ne peut plus que,
-  - _lire_ sa propre comptabilité, les informations de blocage et les notifications. 
-  - _chatter_ avec le Comptable et les sponsors de sa tribu.
-
 Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
-- le nombre de jours restant avant d'atteindre la date de fin du niveau et des niveaux suivants.
-- le nombre de jours avant disparition du compte (dernier jour du niveau _bloqué_).
+- le nombre de jours restant avant d'atteindre le niveau **2-retreint** quand on est au niveau **1-lecture**.
+- le nombre de jours avant disparition du compte (niveau **3-bloqué**).
 
-**Trois étages de blocage, le plus contraignant s'appliquant:**
-- G - portée générale pour l'espace, émise par l'administrateur,
-- T - portée d'une tribu, émise par le Comptable,
-- C - portée d'un compte, émise par le Comptable ou un sponsor.
+> Une autre forme de notification est gérée : le taux maximum d'utilisation du volume V1 ou V2 par rapport à son quota.
 
-### `notif`
-- `txt` : texte court de la notification.
-- `dh` : date-heure d'inscription de la notification.
-- `id` : id de l'auteur (0 c'est le comptable ou l'administrateur).
-- `g` : `false`: normale, `true`: importante.
-
-Une notification peut être remplacée par une autre plus récente et peut-être effacée.
-
-Il existe 6 notifications perceptibles par un compte:
-- cible : G-générale, T-tribu, C-compte
-- émetteur : A-administrateur, C-Comptable, S-sponsor d'une tribu.
-
-Liste :
-- GA - émise par l'administrateur, pour tous les comptes (de l'espace),
-- GC - émise par le Comptable pour tous les comptes (de l'espace),
-- TC - émise par le Comptable pour tous les comptes d'une tribu,
-- TS - émise par un sponsor, pour tous les comptes d'une tribu,
-- CC - émise par le Comptable, pour un seul compte désigné,
-- CS - émise par un sponsor de sa tribu pour un seul compte désigné.
-
-Une autre forme de notification est gérée : le taux maximum d'utilisation du volume V1 ou V2 par rapport à son quota.
-
-Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
+> Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
 
 ## Document `espace`
 - `id` : de l'espace de 10 à 89.
