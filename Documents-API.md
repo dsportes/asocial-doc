@@ -563,7 +563,7 @@ Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
 
 _data_:
 - `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
-- `stats`: statistiques sérialisées de l'espace par le comptable {'a1', 'a2', 'q1', 'q2', 'nbc', 'nbsp', 'ncoS', 'ncoB'}
+- `stats`: statistiques sérialisées de l'espace par le comptable {'ntr', 'a1', 'a2', 'q1', 'q2', 'nbc', 'nbsp', 'ncoS', 'ncoB'}
 - `t` : taille de l'espace, de 1 à 9, fixé par l'administrateur
   son poids relatif dans l'ensemble des espaces.
 
