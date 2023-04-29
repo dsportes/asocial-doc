@@ -562,10 +562,10 @@ Le _niveau_ d'un blocage dépend du jour d'observation. On en déduit aussi:
 - `v`
 
 _data_:
-- `notifA` : notification de l'administrateur, cryptée par la clé du Comptable.
-- `notifC` : notification du Comptable cryptée par la clé du Comptable.
-- `blocage`: de l'administrateur.
-- `t` : taille de l'espace, de 1 à 9, fixé par l'administrateur : son poids relatif dans l'ensemble des espaces.
+- `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
+- `stats`: statistiques sérialisées de l'espace par le comptable {'a1', 'a2', 'q1', 'q2', 'nbc', 'nbsp', 'ncoS', 'ncoB'}
+- `t` : taille de l'espace, de 1 à 9, fixé par l'administrateur
+  son poids relatif dans l'ensemble des espaces.
 
 ## Document `gcvol`
 - `id` : entier pseudo aléatoire, hash de `nctkc`.
