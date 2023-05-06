@@ -929,10 +929,11 @@ _data_:
 - `pe` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
 - `ast` : array des statuts des membres (dès qu'ils ont été inscrits en _contact_) :
   - 10: contact, 
-  - 20,21,22: invité en tant que lecteur / auteur / animateur, 
   - 30,31,32: **actif** (invitation acceptée) en tant que lecteur / auteur / animateur, 
   - 40: invitation refusée,
   - 50: résilié / suspendu, 
+  - 60,61,62: invité en tant que lecteur / auteur / animateur, 
+  - 70,71,72: invitation à confirmer (tous les animateurs n'ont pas validé) en tant que lecteur / auteur / animateur, 
   - 0: disparu / oublié.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`. 
@@ -950,7 +951,7 @@ _data_:
 - `dfa` : date de fin d'activité (jour de la dernière suspension)
 - `inv` : validation de la dernière invitation:
   - `null` : le membre n'a pas été invité où le mode d'invitation du groupe était _simple_ au moment de l'invitation.
-  - `[ids]` : liste des indices des animateurs ayant validé la dernière invitation.
+  - `{ t, l : [ids]}` : texte du chat d'invitation (crypté par la clé du groupe) et liste des indices des animateurs ayant validé l'invitation.
 - `mc` : mots clés du membre à propos du groupe.
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `datag` : données, immuables, cryptées par la clé du groupe :
