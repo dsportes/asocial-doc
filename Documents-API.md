@@ -944,6 +944,7 @@ Le compte peut mettre fin à son hébergement:
 - _l'oubli_ a été explicitement demandé, soit par le membre lui-même soit par un animateur. 
 - dans les deux cas le membre est _effacé_, ni son nom, ni son identifiant, ni sa carte de visite ne sont accessibles.
 - un membre _oublié / disparu_ n'apparaît plus que par #99 où 99 était son indice. Ainsi dans un secret, la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
+- toutefois si le membre est de nouveau contacté, il récupère son indice antérieur (pas un nouveau) mais son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe mais avec la même identité, les secrets écrits dans la vie antérieure mentionnent à nouveau leur auteur au lieu d'un numéro #99.
 
 _data_:
 - `id` : id du groupe.
@@ -967,7 +968,18 @@ _data_:
   - 0: disparu / oublié.
 - `nig` : **array** des hash de la clé du membre crypté par la clé du groupe.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe cryptée par la clé du groupe.
-- `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`. 
+- `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
+- `ardg` : ardoise cryptée par la clé du groupe.
+
+**Remarque sur `ardg`**
+- texte libre que tous les membres du groupe actifs et invités peuvent lire et écrire.
+- un invité qui refuse son invitation peut écrire sur l'ardoise une explication.
+- on y trouve typiquement,
+  - une courte présentation d'un nouveau contact, voire quelques lignes de débat (si c'est un vrai débat un secret du groupe est préférable),
+  - un mot de bienvenue pour un nouvel invité,
+  - un mot de remerciement d'un nouvel invité.
+  - des demandes d'explication de la part d'un invité,
+  etc.
 
 ## Document `membre`
 _data_:
@@ -987,12 +999,6 @@ _data_:
 - `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
 - `nag` : `[nom, rnd]` : nom complet de l'avatar crypté par la clé du groupe :
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
-- `ardg` : ardoise gérée par les animateurs crypté par la clé du groupe.
-
-**Remarque sur `ardg`**
-- commentaire inscrit facultativement par le membre ayant inscrit le contact.
-- mises à jour ensuite exclusivement par les animateurs,
-- SAUF réponse d'acceptation ou de refus par le membre, seule occasion pour lui d'écrire sur l'ardoise (s'il n'est pas animateur).
 
 ### Cycle de vie
 - un document `membre` existe dans tous les états SAUF 0 _disparu / oublié_.
@@ -1028,12 +1034,12 @@ _data_:
 - le membre du groupe qui l'a inscrit, 
   - lui a attribué un index (taille de `ast` du groupe) : a vérifié que, `nig` (le hash de son `rnd` crypté n'était pas déjà cité dans `nig` du groupe) et l'inscrit.
   - a marqué le statut _contact_ dans cet `ast`,
-- dans `membre` seuls `ardg nag cva` sont significatifs. 
+- dans `membre` seuls `nag cva` sont significatifs. 
 
 **Invité suite à une invitation par un animateur**
 - invitation depuis un état _contact_  _résilié_ _refus d'invitation_
 - son statut dans `ast` passe à 60, 61, ou 62.
-- dans `membre` `ardg nag cva ddi` sont significatifs.
+- dans `membre` `nag cva ddi` sont significatifs.
 - inscription dans `lgrk` de son avatar (crypté par sa clé RSA publique).
 - si `dda`, c'est une ré-invitation après résiliation :  dans `membre` `mc infok` peuvent être présents.
 
@@ -1043,7 +1049,7 @@ _data_:
 - son statut dans `ast` passe à 
   - _résilié_ : si `dfa` existe, c'était un ancien membre actif
   - _contact_ : `dfa` est 0, il n'a jamais été actif.
-- dans `membre` seuls `ardg nag cva ddi` sont significatifs, possiblement `mc infok` si le membre avait été actif. 
+- dans `membre` seuls `nag cva ddi` sont significatifs, possiblement `mc infok` si le membre avait été actif. 
 
 **Actif suite à l'acceptation d'une invitation par le membre**
 - son statut dans `ast` passe à 30, 31, ou 32.
@@ -1067,7 +1073,7 @@ _data_:
   - refus d'invitation _forte_,
   - résiliation ou auto-résiliation _forte_, 
   - demande par un animateur.
-- son statut dans `ast` passe à 0. Son index ne sera **jamais** réutilisé. Son entrée dans `nig` est mise à 0.
+- son statut dans `ast` passe à 0. Son index ne sera **jamais** réutilisé. Son entrée dans `nig` n'est PAS remise à 0 : s'il est à nouveau contacté, il obtiendra le MEME indice.
 - son document `membre` est purgé.
 
 **Résiliation d'un membre par un animateur ou auto résiliation**
