@@ -966,7 +966,7 @@ _data_:
   - 60,61,62: invité en tant que lecteur / auteur / animateur, 
   - 70,71,72: invitation à confirmer (tous les animateurs n'ont pas validé) en tant que lecteur / auteur / animateur, 
   - 0: disparu / oublié.
-- `nig` : **array** des hash de la clé du membre crypté par la clé du groupe.
+- `nag` : **array** des hash de la clé du membre crypté par la clé du groupe.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
 - `ardg` : ardoise cryptée par la clé du groupe.
