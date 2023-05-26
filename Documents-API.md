@@ -1305,6 +1305,189 @@ Une transaction par avatar principal ayant dépassé sa `dlv` : voir ci-avant.
 #### Etape 4
 - purge progressive des sous-collections des avatars et groupes listés dans _purge1_ : `checkpoint` est mis à jour avec une liste raccourcie à chaque batch de suppressions.
 
+# API : opérations
+
+## Opérations SANS authentification
+
+### `yo` : ping du serveur
+GET - pas d'arguments `../op/yo`
+
+Ping du serveur SANS vérification de l'origine de la requête.
+
+Retourne 'yo' + la date et l'heure UTC
+
+### `yoyo` : ping du serveur
+GET - pas d'arguments `../op/yoyo`
+
+Ping du serveur APRES vérification de l'origine de la requête.
+
+Retourne 'yoyo' + la date et l'heure UTC
+
+### `EchoTexte` : retourne le texte passé en argument
+POST:
+- `to` : délai en secondes avant retour de la réponse
+- `texte` : texte à renvoyer en écho OU en détail de l'erreur fonctionnelle testée
+
+Retour:
+- `echo` : texte d'entrée retourné
+
+### `ErreurFonc` : simule une erreur fonctionnelle
+POST:
+- `to` : délai en secondes avant retour de la réponse
+- `texte` : détail de l'erreur fonctionnelle testée
+
+Exception:
+- `F_SRV 1` : en détail le texte passé en argument.
+
+### `PingDB` : teste l'accès à la base de données
+POST - pas d'arguments
+
+Retour : 
+- `OK` : true
+
+Exception: si la base n'est pas accessible.
+
+### `GetPub` : retoune la clé publique d'un avatar
+POST:
+- `id` : id de l'avatar
+
+Retour:
+- `pub` : clé publique de l'avatar ou null si l'avatar n'existe pas
+
+### `ChercherSponsoring` : recherche sponsoring par le hash de sa phrase de contact
+POST:
+- `ids` : hash de la phrase de contact.
+
+Retour:
+- `rowSponsoring` : le row s'il existe
+
+## Opérations authentifiées par l'administrateur
+
+### `CreerEspace` : cCréation d'un nouvel espace et du comptable associé
+POST:
+- `token` : jeton d'authentification du compte de **l'administrateur**
+- `rowEspace` : row de l'espace créé
+- `rowAvatar` : row de l'avatar du comptable de l'espace
+- `rowTribu` : row de la tribu primitive de l'espace
+- `rowTribu2` : row tribu2 de la tribu primitive avec l'entrée pour le compte comptable
+- `rowCompta` : row du compte du comptable
+- `rowVersion`: row de la version de l'avatar (avec sa dlv) 
+
+Retour: rien si OK (sinon exceptions)
+
+Règles de gestion à respecter par l'appelant
+- tous les rows passés en argument doivent être cohérents entre eux et se rapporter au nouvel espace à créer. Rien n'est vérifiable ni vérifié  par l'opération.
+
+### `SetNotifG` : déclaration d'une notification à un espace par l'administrateur
+POST:
+- `token` : jeton d'authentification du compte de **l'administrateur**
+- `ns` : id de l'espace notifié
+- `notif` : sérialisation de l'objet notif, cryptée par le rnd du comptable de l'espace. Ce rnd étant public, le cryptage est symbolique et vise seulement à éviter une lecture simple en base.
+  - `idSource`: id du Comptable ou du sponsor, par convention 0 pour l'administrateur.
+  - `jbl` : jour de déclenchement de la procédure de blocage sous la forme `aaaammjj`, 0 s'il n'y a pas de procédure de blocage en cours.
+  - `nj` : en cas de procédure ouverte, nombre de jours après son ouverture avant de basculer en niveau 4.
+  - `texte` : texte informatif, pourquoi, que faire ...
+  - `dh` : date-heure de dernière modification (informative).
+
+Retour: rien
+
+### `SetEspaceT` : déclaration du profil de volume de l'espace par l'administrateur
+POST:
+- `token` : jeton d'authentification du compte de **l'administrateur**
+- `ns` : id de l'espace notifié.
+- `t` : numéro de profil de 0 à N. Liste spécifiée dans config.mjs de l'application.
+
+Retour: rien
+
+## Opérations authentifiées par un compte Comptable ou sponsor de sa tribu
+
+### `AjoutSponsoring` : déclaration d'un nouveau sponsoring par le comptable ou un sponsor
+POST:
+- `token` : éléments d'authentification du comptable / compte sponsor de sa tribu.
+- `rowSponsoring` : row Sponsoring, SANS la version (qui est calculée par le serveur).
+
+Retour: rien
+
+Exceptions:
+- `F_SRV 7` : un sponsoring identifié par une même phrase (du moins son hash) existe déjà.
+
+Assertion sur l'existence du compte.
+
+Règles de gestion à respecter par l'appelant:
+- le row sponsoring doit être cohérent.
+- le compte déclarant doit être le Comptable ou un sponsor de la tribu.
+- le serveur ne peut pas vérifier ces informations.
+
+### `PrologerSponsoring` : prolongation d'un sponsoring existant
+Ne fais rien si le sponsoring n'est pas _actif_ (hors limite, déjà accepté ou refusé).
+POST:
+- `token` : éléments d'authentification du comptable / compte sponsor de sa tribu.
+- `id ids` : identifiant du sponsoring.
+- `dlv` : nouvelle date limite de validité `aaaammjj`ou 0 pour une  annulation.
+
+Retour: rien
+
+Assertion sur l'existence du sponsoring.
+
+## Opération NON authentifiée de REFUS de connexion par un compte
+
+### Refus d'un sponsoring : refus de son sponsoring par le _sponsorisé_
+Ne fais rien si le sponsoring n'est pas _actif_ (hors limite, déjà accepté ou refusé).
+POST:
+- `ids` : identifiant du sponsoring, hash de la phrase de contact.
+- `ardx` : justification / remerciement du _sponsorisé.
+
+Retour: rien.
+
+Exceptions:
+- `F_SRV 8` : le sponsoring n'existe pas.
+
+Assertion sur l'existence du compte sponsor.
+
+### AcceptationSponsoring : création du compte du _sponsorisé_
+
+args...
+token: authToken,
+rowCompta, rowAvatar, rowVersion: du compte / avatar en création
+idt: id de sa tribu
+ids: ids du sponsoring
+rowChatI: chatI (interne) pour le compte en création
+rowChatE: chatE (externe) pour le sponsor - version à fixer
+ardx: ardoise du sponsoring à mettre à jour (avec statut 2 accepté)
+mbtrid : id de son élément mbtr (hash de la clé `rnd` du membre)
+mbtre: élément de la map mbtr de sa tribu
+quotas : `[v1, v2]` quotas attribués par le parrain.
+Retour:
+- rowTribu
+- rowTribu2
+- rowChat (I)
+- credentials
+- notifG
+*/
+
+
+### `SetStats` : déclaration des statistiques de l'espace par son Comptable
+A sa connexion, le comptable agrège les compteurs statistiques de **toutes les tribus de l'espace** et les soumet au serveur pour stockage dans dle document de l'espace.
+
+POST:
+- `token` : jeton d'authentification du comptable de l'espace.
+- `ns` : id de l'espace
+- `stats` : sérialisation de l'objet portant les compteurs statistiques de l'espace:
+  - `ntr` : nombre de tribus
+  - `a1 a2` : somme des quotas _attribués aux comptes_ des tribus.
+  - `q1 q2` : somme des quotas actuels des tribus
+  - `nbc` : nombre de comptes.
+  - `nbsp` : nombre de sponsors.
+  - `ncoS` : nombres de comptes ayant une notification simple.
+  - `ncoB` : nombres de comptes ayant une notification bloquante.
+
+Retour: rien
+
+Règles de gestion à respecter par l'appelant
+- calculs corrects de l'enregistrement stats, non vérifiables / vérifiés par le serveur.
+
+
+
 # Annexe I : requêtes génériques (5)
 Requêtes s'appliquant,
 - aux documents majeurs : tribus comptas avatars groupes
