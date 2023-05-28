@@ -613,6 +613,243 @@ Retour: rien.
 
 Assertion sur l'existence du compte.
 
+### `NouvelleTribu` : création d'une nouvelle tribu par le comptable
+POST: 
+- `token` : éléments d'authentification du comptable.
+- `rowTribu` : row de la nouvelle tribu.
+- `rowTribu2` : row de la nouvelle tribu2.
+
+Retour: rien.
+
+### `SetAttributTribu` : déclaration d'un attribut d'une tribu
+Les deux attributs possibles sont :
+- `infok` : commentaire privé du comptable crypté par la clé K du comptable.
+- `notif` : notification de la tribu (cryptée par la clé de la tribu).
+
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id de la tribu
+- `attr` : nom de l'attribut `infok` ou `notif`.
+- `val` : nouvelle valeur de l'attribut.
+
+Retour: rien.
+
+Assertion sur l'existence de la tribu.
+
+### `SetQuotasTribu` : déclaration des quotas d'une tribu par le comptable
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id de la tribu
+- `q1 q2` : quotas de volume V1 et V2.
+
+Retour: rien.
+
+Assertion sur l'existence de la tribu.
+
+### `SetAttributTribu2` : déclaration d'un attribut d'une entrée de tribu2 QUI IMPACTE tribu
+Ne concerne pas la _carte de visite_ gérée par ailleurs. Pour l'instant :
+- `sp` : si `true` / présent, c'est un sponsor.
+
+ POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id de la tribu
+- `hrnd`: clé de l'élément du compte dans la map des comptes de tribu2 (`mbtr`).
+- `attr` : nom de l'attribut (`sp`).
+- `val` : valeur de l'attribut.
+
+Retour: rien.
+
+Assertion sur l'existence de la tribu et de tribu2.
+
+### `SetQuotasCompte` : déclaration des quotas d'un compte par un sponsor de sa tribu
+POST:
+- `token` : éléments d'authentification du sponsor.
+- `idc` : id du compte sponsorisé.
+- `id` : id de sa tribu.
+- `hrnd` : clé de son entrée dans la map des membres de la tribu (mbtr de tribu2).
+- `q1 q2` : ses nouveaux quotas de volume V1 et V2.
+
+Retour: rien.
+
+Assertion sur l'existence de la tribu et de tribu2.
+
+### `SetNotifC` : notification d'un compte par un sponsor ou le Comptable
+Inscription dans tribu2 de la notification et recalcul de la synthèse dans tribu.
+
+POST:
+- `token` : éléments d'authentification du comptable ou du sponsor.
+- `id` : id de la tribu
+- `hrnd` : clé de son entrée dans la map des membres de la tribu (mbtr de tribu2).
+- `notif`: notification du compte.
+- `ntfb` : `true` si la notification est _bloquante_.
+
+Retour: rien.
+
+Assertion sur l'existence de la tribu et de tribu2.
+
+### `SetDhvuCompta` : enregistrement de la date-heure de _vue_ des notifications dans une session
+POST: 
+- `token` : éléments d'authentification du compte.
+- `dhvu` : date-heure cryptée par la clé K.
+
+Retour: rien.
+
+Assertion sur l'existence du compte.
+
+### `MajNctkCompta` : mise à jour de la tribu d'un compte 
+POST: 
+- `token` : éléments d'authentification du compte.
+- `nctk` : `[nom, rnd]` de la la tribu du compte crypté par la clé K du compte.
+
+Retour: rien.
+
+Assertion sur l'existence du compte.
+
+### `GetCompteursCompta` : retourne les "compteurs" d'un compte
+POST:
+- `token` : éléments d'authentification du compte demandeur.
+- `id` : id du compte dont les compteurs sont à retourner.
+
+Retour:
+- `compteurs` : objet `compteurs` enregistré dans `compta`.
+
+Assertion sur l'existence du compte.
+
+### `ChangerTribu` : changer un compte de tribu par le Comptable
+POST:
+- `token` : éléments d'authentification du comptable.
+- `id` : id du compte qui change de tribu.
+- `trIdav` : id de la tribu quittée
+- `trIdap` : id de la tribu intégrée
+- `hrnd` : clé de son entrée dans la map des membres de la tribu (`mbtr` de tribu2).
+- `mbtr` : entrée mbtr dans sa nouvelle tribu.
+- _Données concernant `compta` :_
+  - `nctk` : `[nom, clé]` de la tribu crypté par la clé de la carte de visite de l'avatar principal du compte.
+  - `nctkc` : `[nom, clé]` de la tribu crypté par la clé K **du Comptable**: 
+  - `napt` : `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
+
+Retour: rien.
+
+Assertions sur l'existence du compte et de ses tribus _avant_ et _après_.
+
+## Opérations authentifiées sur la gestion des groupes
+
+### `MajCvGr` : déclaration de la carte de visite d'un groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id du groupe dont la carte de visite est mise à jour.
+- `v` : version du groupe incluse dans la carte de visite. Si elle a changé sur le serveur, retour `OK` `false`.
+- `cvg` : carte de visite du groupe {v, photo, info} crypté par la clé du groupe.
+
+Retour:
+- `OK` : si `false`, la version a changé (mises à jour concurrentes), reboucler sur la requête.
+
+Assertions sur le groupe et sa `versions`.
+
+### `NouveauGroupe` : création d'un nouveau groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `rowGroupe` : row du groupe créé.
+- `rowMembre` : row membre de l'avatar créateur dans ce groupe.
+- `id` : id de l'avatar créateur
+- `quotas` : [q1, q2] attribué au groupe.
+- `kegr` : clé dans la map des groupes de l'avatar créateur (`lgrk`). Hash du `rnd` inverse de l'avatar crypté par le `rnd` du groupe.
+- `egr` : élément de `lgrk` dans l'avatar créateur.
+
+Retour: rien.
+
+Assertions sur l'existence de l'avatar et de sa `versions`.
+
+### `MotsclesGroupe` : déclaration des mots clés du groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `mcg` : map des mots clés cryptée par la clé du groupe.
+- `idg` : id du groupe.
+
+Retour: rien.
+
+Assertions sur l'existence du groupe et de sa `versions`.
+
+### `ArdoiseGroupe` : mise à jour de l'ardoise du groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `ardg` : texte de l'ardoise crypté par la clé du groupe.
+- `idg` : id du groupe.
+
+Retour: rien.
+
+Assertions sur l'existence du groupe et de sa `versions`.
+
+### `HebGroupe` : déclaration d'hébergement d'un groupe
+POST: 
+- `token` : éléments d'authentification du compte.
+- `t` : type d'opération :
+  - 1 : changement des quotas, 
+  - 2 : prise d'hébergement, 
+  - 3 : transfert d'hébergement.
+- `idd` : (3) id du compte de départ en cas de transfert.
+- `ida` : id du compte (d'arrivée en cas de prise / transfert).
+- `idg` : id du groupe.
+- `idhg` : (2, 3) id du compte d'arrivée en cas de transfert CRYPTE par la clé du groupe
+- `q1 q2` : quotas attribués.
+
+1-Cas changement de quotas :
+- les volumes et quotas sur compta a sont inchangés.
+- sur la version du groupe, q1 et q2 sont mis à jour.
+2-Prise hébergement :
+- les volumes v1 et v2 sont pris sur le groupe.
+- les volumes (pas les quotas) sont augmentés sur compta a.
+- sur la version du groupe, q1 et q2 sont mis à jour.
+- sur le groupe, idhg est mis à jour.
+3-Cas de transfert :
+- les volumes v1 et v2 sont pris sur le groupe.
+- les volumes (pas les quotas) sont diminués sur compta d.
+- les volumes (pas les quotas) sont augmentés sur compta a.
+- sur la version du groupe, q1 et q2 sont mis à jour.
+- sur le groupe, idhg est mis à jour.
+
+Retour: rien.
+
+Assertions sur l'existence du groupe et de sa `versions` ainsi que le ou les comptes impactés selon le type de l'opération.
+
+### `FinHebGroupe` : déclaration de fin d'ébergement d'un groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id du compte.
+- `idg` : id du groupe.
+- `dfh` : date de fin d'hébergement.
+
+Traitement :
+- les volumes v1 et v2 sont récupérés sur le groupe.
+- les volumes (pas les quotas) sont diminués sur la compta du compte.
+- sur le groupe :
+  - `dfh` : date du jour + N jours
+  - `idhg, imh` : 0
+
+Retour: rien.
+
+Assertions sur l'existence du groupe et de sa `versions` ainsi que le compte.
+
+### `NouveauMembre` : déclaration d'un nouveau membre (contact)
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id du contact devenant membre (de statut contact).
+- `idg` : id du groupe.
+- `im` : 
+  - soit l'indice de l'avatar dans ast/nag s'il avait déjà participé, 
+  - soit ast.length.
+- `nig` : hash du `rnd` du membre crypté par le `rnd` du groupe. Permet de vérifier l'absence de doublons.
+- `ardg` : texte de l'ardoise du groupe crypté par la clé du groupe. Si null, le texte actuel est inchangé.
+- `rowMembre` : row membre du membre créé.
+
+Traitement: 
+- vérification que le statut ast n'existe pas (ou est 0) pour ce contact.
+- insertion du row membre, maj groupe
+
+Retour:
+- KO : true si l'indice im est déjà attribué.
+
+
 ## Purgatoire : opérations pas encore ou plus utilisées
 
 ### `ChargerCvs` : retourne les cartes de visite dont les versions sont postérieures à celles détenues en session
