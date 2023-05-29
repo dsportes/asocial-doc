@@ -844,122 +844,256 @@ POST:
 
 Traitement: 
 - vérification que le statut ast n'existe pas (ou est 0) pour ce contact.
-- insertion du row membre, maj groupe
+- insertion du row membre, mise à jour du groupe
 
 Retour:
 - KO : true si l'indice im est déjà attribué.
 
-
-## Purgatoire : opérations pas encore ou plus utilisées
-
-### `ChargerCvs` : retourne les cartes de visite dont les versions sont postérieures à celles détenues en session
-(PAS UTILISE)
-
+### `MajInfoMembre` : mise à jour du commentaire d'un membre
 POST:
 - `token` : éléments d'authentification du compte.
-- `mcv` : map,
-  - _clé_ : id, 
-  - _valeur_ : version détenue en session (ou 0).
+- `id` : id du groupe.
+- `ids` : ids du membre.
+- `infok` : texte d'information du membre à propos du groupe, crypté par la clé K du compte.
 
-Retour:
-- `rowCvs` : array des row Cv `[{ _nom: 'cvs', id, _data_ } ...]`
-  _data_ : `{v, photo, info}` sérialisé et crypté par la clé de son avatar.
+Retour: rien.
 
+Assertion sur l'existence du membre et de la version du groupe.
 
-# Annexe I : requêtes génériques (5)
-Requêtes s'appliquant,
-- aux documents majeurs : tribus comptas avatars groupes
-- aux sous-documents : 
-  - d'un avatar : secrets transferts sponsorings chats
-  - d'un groupe : secrets transferts membres
+### `MajMCMembre` : mise à jour des mots clés d'un membre à propos du groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id du groupe.
+- `ids` : ids du membre.
+- `mc` : vecteur des mots clés.
 
-### Mises à jour d'un (sous) document (3)
+Retour: rien.
 
-ins / upd (set)
-- d'un document ou sous-document
+Assertion sur l'existence du membre et de la version du groupe.
 
-del
-- d'un document / sous-document
+### `ModeSimple` : gestion du dode simple / unanime d'un groupe
+POST:
+- token : éléments d'authentification du compte.
+- id : id du groupe
+- ids : ids du membre demandant le retour au mode simple. Si 0, c'est la demande de retour au mode unanime.
 
-### Lecture d'UN (sous) document (1)
+Le mode redevient _simple_ quand TOUS les animateurs ont exprimé leur souhait de revenir au mode simple. Il s'agit d'un anamiateur déclarant vouloir rester au mode unanime pour que le mode reste _unanime_ et que les votes exprimés pour le retour au mode simple soient annulés.
 
-get 0-1
-- d'un (sous) document, conditionné ou non à être de version postérieure à v
+Retour: rien.
 
-### Lecture des documents d'une (sous) collection (1)
+Assertion sur l'existence du groupe et de la version du groupe.
 
-coll 0-N
-- de N (sous) documents, conditionnés ou non à être de version postérieure à v
+### `StatutMembre` : changement de statut d'un membre d'un groupe
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id du groupe.
+- `ids` : ids du membre cible.
+- `ida` : id de l'avatar du membre cible.
+- `idc` : id du COMPTE de ida, en cas de fin d'hébergement par résiliation / oubli.
+- `ima` : ids (imdice membre) du demandeur de l'opération.
+- `idh` : id du compte hébergeur.
+- `kegr` : clé du membre dans la liste des groupes de l'avatar (lgrk). Hash du rnd inverse de l'avatar crypté par le rnd du groupe.
+- `egr` : (invitations seulement) élément de l'avatar invité dans cette liste, crypté par la clé RSA publique de l'avatar.
+- `laa` : 0:lecteur, 1:auteur, 2:animateur
+- `ardg` : ardoise du groupe cryptée par la clé du groupe. null si inchangé.
+- `dlv` : pour les acceptations d'invitation, _signature_ du compte pour l'accès au groupe.
+- `fn` : fonction à appliquer
+  - 0 - maj de l'ardoise seulement, rien d'autre ne change
+  - 1 - invitation
+  - 2 - modification d'invitation
+  - 3 - acceptation d'invitation
+  - 4 - refus d'invitation
+  - 5 - modification du rôle laa (actif)
+  - 6 - résiliation
+  - 7 - oubli
 
-# Annexe II : requêtes spécifiques (25)
-TODO : à reprendre complètement.
+Retour: `code` : code d'anomalie: 
+- 1 - situation inchangée, c'était déjà l'état actuel
+- 2 - changement de laa impossible, membre non actif
+- 3 - refus d'invitation impossible, le membre n'est pas invité
+- 4 - acceptation d'invitation impossible, le membre n'est pas invité
+- 5 - modification d'invitation impossible, le membre n'est pas invité
+- 7 - le membre est actif, invitation impossible
+- 8 - le membre a disparu, opération impossible
 
-### Lecture (9)
-getCv 0-1
-- lecture d'une CV [photo, info] d'UN `avatars`, conditionnée ou non à être de version postérieure à `v`
+Assertion sur la version du groupe (quand le groupe existe).
 
-hps1 0-1
-- lecture du document `comptas` ayant `hps1` == x
+# Annexe I : classes majeures internes du serveur
 
-hpc 0-1
-- lecture du document `avatars` ayant `hpc` == x
+## `Cache` : cache des objets majeurs `tribus comptas avatars groupes`
 
-sponsorings 0-1 - collectionGroup
-- lecture du document `sponsorings` d'une phrase donnée (`ids`)
+### `static getRow (transaction, nom, id)`
+Obtient le row de la cache ou va le chercher.
+- Si le row actuellement en cache est le plus récent on a évité une lecture effective et la méthode s'est limité à un filtre sur index qui ne coûte rien en FireStore et pas grand chose en SQL.
+- Si le row n'était pas en cache ou que la version lue est plus récente IL Y EST MIS:
+  - certes la transaction _peut_ échouer, mais au pire on a lu une version,  pas forcément la dernière, mais plus récente.
 
-comptaT 0-N
-- `comptas` d'une tribu t
+### `static update (newRows, delRowPaths)`
+Utilisée en fin de transaction pour enrichir la cache APRES le commit de la transaction avec tous les rows créés, mis à jour ou accédés (en ayant obtenu la _dernière_ version).
 
-comptaB 0-N
-- `comptas` bloquées
+## La classe `GenDoc`
+### Fonction `compile (row, nom) -> Objet`
+Cette fonction aurait pu être déclarée static de GenDoc et a été écrite comme fonction pour raccourcir le texte d'appel très fréquente.
 
-comptaTB 0-N
-- `comptas` bloquées d'une tribu `t`
+Chaque **row** d'une table SQL ou **document** Firestore apparaît sous deux formes :
+- **row** : c'est l'objet Javascript directement stocké en tant que row d'une table SQL ou document Firestore.
+- **objet compilé** : c'est une instance de la classe de document :
 
-tribuD 0-N
-- `tribus` mises à jour après `dh`
+    Espaces Gcvols Tribus Tribu2s COmptas Versions Avataars Groupes
+    Notes Transferts Sponsorings Chats Membres
 
-tribuDB 0-N
-- `tribus` bloquées mises à jour après dh
+Ces classes héritent de la classe générique `GenDoc`.
 
-tribuB 0-N
-- `tribus` bloquées
+Les noms symboliques sont ceux des classes ci-dessus avec une minuscule au lieu d'une majuscule en tête.
 
-### Lecture / écriture singletons (4)
-lecture de `notif`
+La méthode `compile()` retourne l'objet compilé depuis sa forme row et son nom symbolique : si l'argument row est null, le retour est null (sans levée d'exception).
 
-écriture de `notif`
+### Méthode `GenDoc.toRow()`
+Réciproquement depuis un objet `a` par exemple de classe `Avatars`, `a.toRow()` retourne sa forme **row** prête à être stockée en row SQL ou document Firestore.
 
-lecture de `checkpoint`
+### Liste restrictive des attributs d'un row
+Cette liste est fermée : pour chaque classe la liste exhaustive est donnée.
+- `nom` : nom symbolique de la classe dont est issue le row ('avatar', 'groupe', ...).
+- `id` : l'id principale (et unique pour les objets majeurs).
+- `ids` : l'id secondaire pour les `Notes Transferts Sponsorings Chats Membres`.
+- `v` : sauf Gcvols. Version de l'objet.
+- `iv` : sauf Gcvols. Fusion de l'id et de la version : 10 premiers chiffres de l'id et 6 derniers chiffres de la version.
+- `vcv` : pour Avatars Chats Membres : version de la carte de visite.
+- `iv` : pour Avatars Chats Membres : 10 premiers chiffres de l'id et 6 derniers chiffres de la version de la carte de visite.
+- `dlv`: pour Versions Transferts Sponsorings Membres : date limite de validité (`aaaammjj`). A partir de cette date, le document n'est plus _valide_, il est sémantiquement _disparu_. En compilé l'attribut `_zombi` vaut `true`.
+- `hps1` : sur Comptas, hash de la phrase secrète raccourcie.
+- `dfh` : sur Groupes date de fin d'hébergement.
+- `hpc` : sur Avatars, hash de la phrase de contact (pseudo plus ou moins temporaire).
+- `_data_` : sérialisation de tous les attributs, dont ceux ci-dessus.
 
-écriture de `checkpoint`
+En forme compilé, `_data_` n'est pas présent mais à la place tous les attributs dela classe sont présents.
+- quand _data n'existe pas ou est null dans le format row, l'attribut _zombi de la classe correspondante vaut true.
 
-### Lecture pour le GC (4)
-dlvAvatars 0-N
-- `dlv` >= jour j
+Les attributs `iv` et `ivc` sont calculés par la méthode toRow() depuis l'id de l'objet et la version (`v`) de l'objet ou de la carte de visite (`vcv`).
 
-dlvGroupes 0-N
-- `dlv` >= jour J
+### Méthodes statiques _publiques_ de `GenDoc`
+Elles offrent les accès,
+- soit en SQL aux tables,
+- soit en Firestore aux collections et sous-collections de documents.
 
-dfhGroupes 0-N
-- `dfh` >= jour J
+Chaque méthode _publique_ invoque l'une des deux méthodes _privées_ correspondant aux implémentations SQL et Firecstore.
 
-dlvTransferts 0-N - collectionGroup
-- `dlv` >= jour J
+Des méthodes _privées_ utilitaires existent pour chacun des deux modes.
 
-### Purge sous collection (5)
-purgeSecrets
+`static async get (transaction, nom, id, v, ids)`
+- retourne le row de nom donné, pour cette id (et ids le cas échéant pour un sous-document) si sa version est postérieure à v.
 
-purgeTransferts
+`static async getAvatarVCV (transaction, id, vcv)`
+- retourne le row de l'avatar d'id donnée si la version de sa carte de visite est postérieure à vcv.
 
-purgeSponsorings
+`static async getChatVCV (transaction, id, ids, vcv)`
+- retourne le chat si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
 
-purgeChats
+`static async coll (transaction, nom, v)`
+- retourne tous les rows de la collection de nom donné, tous espaces confondus.
 
-purgeMembres
+`static async collNs (transaction, nom, ns)`
+- retourne tous les rows de la collection de nom donné, pour l'espace ns.
 
-### Purge par `dlv` (3) - à `dlv` + 370 jours
-purgeGroupes - collectionGroup
+`static async scoll (transaction, nom, id, v)`
+- retourne tous les rows de la sous-collection de nom donné (`notes transferts membres sponsorings chats`) de version postérieure à v.
+
+`static async getComptaHps1 (transaction, hps1)`
+- retourne le row `comptas` dont l'attribut hps1 est celui donné en argument (accès par le hash de la phrase secrète raccourcie).
+
+`static async getAvatarHpc (transaction, hpc)`
+- retourne le row `avatars` dont l'attribut hpc est celui donné en argument (accès par le hash de la phrase de contact raccourcie).
+
+`static async getSponsoringIds (transaction, ids)`
+- retourne le row `sponsorings` dont l'attribut ids est celui donné en argument (accès par le hash de la phrase de sponsorings raccourcie).
+
+## Classe `Operation`
+Le déclenchement d'une opération `MonOp` sur réception d'une requête `.../op/MonOp`,
+- créé un objet `MonOp` héritant de `Operation`,
+- invoque successivement :
+  - sa méthode `phase1()` qui s'exécute hors de toute transaction, typiquement pour des contrôles d'argments,
+  - sa méthode `phase2()` qui s'exécute dans le contexte d'une unique transaction.
+
+### Authentification avant `phase1()`
+Chaque classe Operation spécifie un attribut authMode qui déclare comment interpréter l'attribut token reçu dans l'objet args (argments sérialisés reçu dans le body de la requête ou queryString de l'URL). Cet objet est disponible dans `this.args` :
+- `authMode === 3` : SANS TOKEN, pings et accès non authentifiés (recherche phrase de sponsoring).
+- `authMode === 2` : AVEC TOKEN, créations de compte. Elles ne sont pas encore enregistrées, elles vont justement enregistrer leur authentification.
+- `authMode === 1` : AVEC TOKEN, première connexion à un compte : `this.rowComptas` et `this.compta` sont disponibles.
+- `authMode undefined` : AVEC TOKEN, cas standard, vérification de l'authentification, voire enregistrement éventuel.
+
+### Méthodes génériques disponibles en phase 1 et 2
+`setRes(prop, val)`
+- Fixe LA valeur de la propriété 'prop' du résultat (et la retourne).
+
+`addRes(prop, val)`
+- AJOUTE la valeur en fin de la propriété Array 'prop' du résultat (et la retourne).
+
+### Méthodes génériques disponibles en phase 2
+`insert (row)`
+- Inscrit row dans les rows à insérer en phase finale d'écritue, juste après la phase 2.
+
+`update (row)`
+- Inscrit row dans les rows à mettre à jour en phase finale d'écritue, juste après la phase2 .
+
+`delete (row) `
+- Inscrit row dans les rows à détruire en phase finale d'écritue, juste après la phase 2.
+
+### Méthodes de gestion du checkpoint
+`static async getCkpt (transaction, ns)`
+- retourne l'objet Checkpoint de l'esppace ou nulll s'il n'existe pas.
+- transaction est l'objet this.transaction d'iune opération.
+
+`static async setCkpt (transaction, ns, obj, insert)`
+- enregistre l'objet obj comme checkpoint de l'espace.
+
+### Méthodes `async` de lecture
+Selon la méthode,
+- retourne UN row (ou null) ou un array de rows (possiblement vide).
+- quand le dernier paramètre assert est true, au lieu de retourner null, lève une exception A_SRV (assertion).
+
+    async getAllRowsEspace ()
+    async getRowEspace (id, assert)   // de Cache
+    async getAllRowsTribu ()
+    async getRowTribu (id, assert)    // de Cache
+    async getRowTribu2 (id, assert)   // de Cache
+    async getRowCompta (id, assert)   // de Cache
+    async getRowVersion (id, assert)  // de Cache
+    async getRowAvatar (id, assert)   // de Cache
+    async getRowGroupe (id, assert)   // de Cache
+    async getAllRowsSecret(id, v)
+    async getRowSecret (id, ids, v, assert)
+    async getAllRowsChat(id, v)
+    async getRowChat (id, ids, v, assert)
+    async getAllRowsSponsoring(id, v)
+    async getRowSponsoring (id, ids, v, assert)
+    async getAllRowsMembre(id, v)
+    async getRowMembre (id, ids, v, assert)
+
+### Méthodes invoquées depuis plus d'une opération
+`async majVolumeGr (idg, dv1, dv2)`
+- Met à jour les volumes du groupe.
+- Refuse si le volume est en expansion et qu'il dépasse le quota.
+- L'objet version du groupe est dans this.vgroupe (l'a lu si this.vgroupe est null).
+- Son changement de version et update a été fait.
+- Retourne cette version.
+
+`async majCompteursCompta (idc, dv1, dv2, vt, ex, noupd)`
+- Si `ex` lève une exception en cas de dépassement de quota
+- Si `noupd`, n'effectue pas la mise à jour "this.update(compta.toRow())" et le laisse faire à l'appelant.
+- Retourne `compta` ou null s'il n'y avait rien à faire.
+
+`async majTribu12 (tribu2, exq)`
+-  Répercussion de tribu2 sur son tribu associé, à l'occasion de :
+  - acceptation d'un sponsoring
+  - disparition d'un compte
+  - changement de quota d'un compte
+  - changement de tribu d'un compte
+  - notification de niveau compte
+- Actions :
+  - met à jour la version de tribu2.
+  - update tribu et tribu2.
+  - si exq, lève une exception en cas de dépassement de quotas.
+- Retour : `[rowtribu, rowTribu2]` pour transmission éventuelle en résultat.
 
 # Annexe III : implémentations
 Deux implémentations sont disponibles : SQL et Firestore.
