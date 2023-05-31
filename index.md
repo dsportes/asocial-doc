@@ -8,15 +8,11 @@ Vue d'ensemble de l'application - [Présentation](./Présentation.md)
 
 Les comptes et leurs avatars - [Comptes](./Comptes.md)
 
-Contacts entre deux avatars - [Contacts](./Contacts.md)
-
 Groupes et membres des groupes - [Groupes](./Groupes.md)
 
-Secrets - [Secrets](./Secrets.md)
+Notes - [Notes](./Notes.md)
 
 Mots clés - [Motsclés](./Motsclés.md)
-
-Chat avec le Comptable - [Chat](./Chat.md)
 
 Détection et gestion des disparitions - [Disparitions](./Disparitions.md)
 
@@ -28,7 +24,7 @@ Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique - [Et
 
 ## Spécification Technique détaillée
 
-Données, tables et logique associée - [Données](./Données.md)
+Structuration des données centrales en _documents_ - [Documents](./Documents.md)
 
 Liste des tables de la base de données centrale - [Tables-DB](./Tables-DB.md)
 

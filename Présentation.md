@@ -58,23 +58,23 @@ Un membre peut attacher ses propres mots clés à un groupe afin de faciliter sa
 Il peut aussi attacher ses propres mots clés aux notes du groupe pour sélectionner plus rapidement celles qu'il recherche, par centre d'intérêt, importance, etc.
 
 ### "Chats" entre avatars
-Deux avatars peuvent disposer d'une _ardoise_ commune sur laquelle ils peuvent _chatter_ : l'ardoise est un simple texte commun modifiable à loisir par l'un ou l'autre.
+Deux avatars en contact peuvent ouvrir une _ardoise de chat_ commune sur laquelle ils peuvent écrire un texte de moins de 5000 signes, modifiable à loisir par l'un ou l'autre.
 
 Une fois créée une ardoise ne disparaît que quand les deux avatars qui la partagent ont disparu. Chacun peut effacer le texte de l'ardoise et chacun peut attacher au _chat_ ses propres mots clés (par exemple _poubelle_ ou _important_ ...) que l'autre ne voit pas.
 
 Pour partager une ardoise de chat avec un avatar B, un avatar A doit connaître le **nom complet** de son interlocuteur B:
 - c'est le cas pour les membres des groupes auxquels il participe,
-- c'est le cas aussi pour son sponsor (et les autres sponsors de la même _tribu_ -voir plus avant ce qu'est une tribu),
+- c'est le cas aussi pour les autres comptes de la même _tribu_ -voir plus avant ce qu'est une tribu-,
 - c'est enfin le cas quand l'avatar A a eu connaissance directe d'une **phrase de contact** de B.
 
 #### Établissement d'un chat par une _phrase de contact_
 B peut déclarer une _phrase de contact_, unique dans l'application et pas trop semblable à une déjà déclarée. Par exemple : `les courgettes sont bleues au printemps`
 - B peut la changer ou la supprimer à tout instant.
-- B peut communiquer, par un moyen de son choix, à A cette phrase. Dès lors A a connaissance du nom complet de B et peut ouvrir une ardoise de chat avec B. Il pourra aussi proposer à B d'intégrer un de ses groupes et plus si affinités ...
+- B peut communiquer, par un moyen de son choix, cette phrase à A qui peut ainsi ouvrir une ardoise de chat avec B. Il pourra aussi proposer à B d'intégrer un de ses groupes et plus si affinités ...
 
->Il est recommandé que les phrases de contact aient une durée de vie le plus limité possible afin d'éviter que des personnes non destinataires ne s'invite (ce qui a toutefois un impact limité à la création d'un _chat_).
+> Il est recommandé que les phrases de contact aient une durée de vie le plus limité possible afin d'éviter que des personnes non souhaitées ouvrent une ardoise de chat (ce qui a toutefois un impact limité, on n'est pas obligé de la lire!).
 
-Dès qu'une ardoise de chat est ouverte, les cartes de visite des interlocuteurs sont échangées.
+Dès qu'une ardoise de chat est ouverte entre A et B, leurs cartes de visite sont mutuellement visibles.
 
 # Modes *synchronisé*, *incognito* et *avion*
 Pour se connecter à son compte, le titulaire choisit d'abord sous quel **mode** sa session va s'exécuter: _synchronisé_, _avion_ ou _incognito_.
@@ -115,13 +115,13 @@ Il y a deux types de quotas :
 Comme tout est anonyme même pour les fonctions d'administration techniques, la mise en place de _quotas préalables_ est un moyen efficace pour contenir l'inflation des volumes. Sans cette contrainte, quelques comptes pourraient siphonner toutes les ressources techniques sans qu'il sot possible de savoir à qui s'adresser réellement pour rétablir une nécessaire modération.
 
 ## Le compte du "Comptable"
-A l'installation d'un réseau, l'administrateur technique s'est concerté avec le demandeur de l'installation qui lui a donné une _phrase secrète provisoire_. Ainsi un compte un peu privilégié a été créé, le **Comptable** : ce dernier peut ainsi se connecter et s'empresser de changer la phrase secrète pour une nouvelle inconnue de l'administrateur technique.
+A l'installation d'un réseau, l'administrateur technique s'est concerté avec le demandeur de l'installation qui lui a donné une _phrase secrète provisoire_. Un compte un peu privilégié a été créé, le **Comptable** : ce dernier peut se connecter et s'empresser de changer la phrase secrète pour une nouvelle inconnue de l'administrateur technique.
 
 Ce compte **Comptable** ne peut pas être supprimé, a un numéro fixe reconnaissable, a pour nom d'avatar principal `Comptable` et n'a pas de carte de visite. Il est par défaut connu de tous les futurs comptes.
 
-C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Mais il a quelques privilèges importants.
+C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Mais il a le privilège important d'attribuer des quotas d'espaces aux _tribus_.
 
-> Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes : ce n'est en aucune façon un modérateur et n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars et des comptes, exceptés ceux qu'il a en tant que compte _normal_.
+> Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats : ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes, exceptés ceux qu'il a en tant que compte _normal_.
 
 ### Les tribus
 Le Comptable appartient de par sa création à une _tribu_ **Primitive**. Il peut surtout déclarer d'autres **tribus** avec un code et un commentaire pour lui. 
@@ -147,22 +147,22 @@ Un compte **sponsor de sa tribu** peut sponsoriser de nouveaux comptes, sponsor 
 - le Comptable dispose de plus de la liste des tribus et pour chaque tribu peut connaître ces mêmes informations.
 
 ## Notifications / blocages du Comptable et des sponsors
-Une notification a un court message qui en explicite l'utilité. Une notification peut être :
+Une notification a un court message qui en explicite la raison. Une notification peut être :
 - **simple** : elle se limite au texte informatif.
 - **bloquante** : elle est associée à une _procédure de blocage_ du ou des comptes.
 
 Un compte perçoit jusqu'à 3 notifications en cliquant sur l'indicateur des notifications:
 - une **notification générale** de l'administrateur technique, s'adressant à tous les comptes de toutes les tribus.
 - une **notification de tribu** du Comptable ou d'un sponsor de la tribu, s'adressant à tous les comptes de la tribu.
-- une **notification de compte** du Comptable ou d'un sponsor, s'adressant à ce seul compte.
+- une **notification de compte** du Comptable ou d'un sponsor, s'adressant à lui-même.
 
 ### Procédure de blocage
-Une notification peut être assorti d'une procédure de blocage qui a 3 niveaux :
+Une notification peut être assortie d'une procédure de blocage qui a 3 niveaux :
 - **1-écritures bloquées** : le compte agit comme s'il était en mode _avion_ mais peut toutefois chatter avec le Comptable et les sponsors.
-- **2-lectures et écritures bloquées** : le compte ne peut plus **que** chatter avec son sponsor ou le Comptable et n'a plus accès à ses autres données.
+- **2-lectures et écritures bloquées** : le compte ne peut plus **que** chatter avec son sponsor ou le Comptable et n'a plus accès, même en lecture, à ses autres données.
 - **3-compte bloqué** (connexion impossible): cet état est rarement observable du compte ... puisqu'il ne peut pas se connecter. Si la situation se produit en cours de session, celle-ci est brutalement fermée.
 
-La procédure de blocage spécifie combien de jours le niveau restera (1). La destruction du compte intervient à l'anniversaire de l'ouverture de la procédure.
+La procédure de blocage spécifie combien de jours après son ouverture le niveau passera à 2. La destruction du compte, niveau 3, intervient à l'anniversaire de l'ouverture de la procédure.
 
 Un **sponsor d'une tribu** peut avoir diverses raisons d'initier une notification bloquante :
 - Le _compte ciblé_ n'acquitte plus auprès de la tribu la cotisation convenue.
@@ -170,8 +170,21 @@ Un **sponsor d'une tribu** peut avoir diverses raisons d'initier une notificatio
 - Le _compte ciblé_ a quitté l'organisation qui exige que son compte soit bloqué.
 - Autres, décès ...
 
-Une fois le problème réglé, l'auteur d'une notification la supprime.
+Une fois le problème réglé, l'émetteur d'une notification la supprime.
 
 > Quand le Comptable a ouvert une procédure de blocage pour une tribu ou un compte, les sponsors ne peuvent plus alors y intervenir.
 
 > **Quand une procédure de blocage est en cours sur un compte, le délai de _péremption_ du compte commence à courir**, comme si le titulaire du compte ne se connectait plus à l'application. Au bout d'un an sans activité, un compte disparaît. Ne pas intervenir par passivité pour régler une procédure de blocage en cours se termine toujours par une issue fatale pour le compte.
+
+# Annexe : les _espaces_
+L'administrateur technique d'un site peut héberger techniquement sur le site jusqu'à 80 **espaces** numérotés de 10 à 79.
+
+Tout ce qui précède se rapporte à UN espace et les utilisateurs ne peuvent avoir aucune perception des autres espaces hébergés par le même serveur technique.
+- dans la base de données, les informations sont partitionnées par les deux premiers chiffres (majeurs) des identifiants.
+- dans l'espace de stockage des fichiers, des sous-espaces sont séparés.
+
+L'administrateur technique a ainsi la possibilité d'ouvrir _instantanément_ un nouvel espace pour une association ou organisation en faisant la demande. Cette ouverture crée le compte Comptable de l'espace, qui comme les autres n'a aucune perception de l'existence d'autres espaces. C'est à cette occasion que la phrase secrète du Comptable (de l'espace) a été fixée, sachant que ce dernier a intérêt à la changer dès sa première connexion.
+
+Le Comptable et l'administrateur technique se sont mis d'accord sur le volume utilisable et la participation éventuelle aux frais d'hébergement.
+
+Toutefois si cet accord n'était pas respecté, l'administrateur technique a le moyen d'ouvrir une procédure de blocage vis à vis de l'ensemble des comptes de l'espace, menant le cas échéant jusqu'à leur clôture en cas d'absence de solution.
