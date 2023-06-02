@@ -84,7 +84,7 @@ Dans chaque tribu les comptes ayant un pouvoir de sponsor peuvent:
 
     /Collection `avatars`
       Document                    id v iv vcv ivc hpc
-        /Collection `secrets`
+        /Collection `notes`
           Documents               id ids v iv
         /Collection `sponsorings`
           Document `sponsoring`   id **ids v iv **dlv
@@ -97,8 +97,8 @@ Dans chaque tribu les comptes ayant un pouvoir de sponsor peuvent:
       Document `groupe`           id v iv dfh
         /Collection `membres`
           Document membre         id ids v iv vcv ivc **dlv        
-        /Collection `secrets`
-          Document `secret`       id ids v iv         
+        /Collection `notes`
+          Document `note`       id ids v iv         
         /Collection `transferts`  
           Document `transfert`    id ids **dlv
 
@@ -116,7 +116,7 @@ Dans chaque tribu les comptes ayant un pouvoir de sponsor peuvent:
     groupes     id v _data_           iv dfh
 
     La _clé primaire_ est id+ids
-    secrets     id ids v _data_       iv
+    notes     id ids v _data_       iv
     sponsorings id v _data_           iv                dlv ids
     chats       id ids vcv v _data_   iv  ivc              
     membres     id ids vcv v _data_   iv  ivc           dlv
@@ -135,19 +135,19 @@ Les documents _majeurs_ sont ceux des collections `tribus tribu2s comptas avatar
   - `avatars` et `groupes` ont leurs versions gérées par le document `versions` portant leur id (voir ci-dessous)
 
 #### Gestion des versions dans `versions`
-- un document `avatar` d'id `ida` et les documents de ses sous collections `chats secrets transferts sponsorings` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
-- idem pour un document `groupe` et ses sous-collections `membres secrets transferts`.
+- un document `avatar` d'id `ida` et les documents de ses sous collections `chats notes transferts sponsorings` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
+- idem pour un document `groupe` et ses sous-collections `membres notes transferts`.
 - toute mise à jour du document maître (avatar ou groupe) et de leur sous-documents provoque l'incrémentation du numéro de version dans `versions` et l'inscription de cette valeur comme version du (sous) document mis à jour.
 
 Un document `version` gère aussi :
 - `dlv` : la signature de vie de son avatar ou groupe.
 - en _data_ pour un groupe :
-  - `v1 q1` : volume et quota dee textes des secrets du groupe.
-  - `v2 q2` : volume et quota dee fichiers des secrets du groupe.
+  - `v1 q1` : volume et quota dee textes des notes du groupe.
+  - `v2 q2` : volume et quota dee fichiers des notes du groupe.
 
 #### Documents d'une sous-collection d'un document majeur :
-- `chats secrets transferts sponsorings` d'un **avatar**.
-- `membres secrets transferts` d'un **groupe**.
+- `chats notes transferts sponsorings` d'un **avatar**.
+- `membres notes transferts` d'un **groupe**.
 
 Leur identifiant relatif à leur document majeur est `ids`.
 
@@ -159,8 +159,8 @@ L'état en session est conservé à niveau en _s'abonnant_ à un certain nombre 
 - (2) le document `tribus` de l'id de la tribu du compte - connu par (1)
 - (3) les documents `avatars` des avatars du compte - listé par (1)
 - (4) les documents `groupes` des groupes dont les avatars sont membres - listés par (3)
-- (5) les sous-collections `secrets chats sponsorings` des avatars - listés par (3)
-- (6) les sous-collections `membres secrets` des groupes - listés par (4)
+- (5) les sous-collections `notes chats sponsorings` des avatars - listés par (3)
+- (6) les sous-collections `membres notes` des groupes - listés par (4)
 - (7) le document `espaces` de son espace.
 - pour le comptable, abonnement à **toutes** les tribus.
 
@@ -242,8 +242,8 @@ Un tel index sur les sous-documents permet une indexation globale et pas seuleme
 - `ids` : hash de la phrase de parrainage sur `sponsorings` afin de rendre un sponsorings accessible par index sans connaître le sponsor.
 
 #### Cache locale des `espaces comptas versions avatars groupes tribus` dans une instance d'un serveur
-- les `comptas` sont utilisées à chaque mise à jour de secrets.
-- les `versions` sont utilisées à chaque mise à jour des avatars, de ses chats, secrets, sponsorings.
+- les `comptas` sont utilisées à chaque mise à jour de notes.
+- les `versions` sont utilisées à chaque mise à jour des avatars, de ses chats, notes, sponsorings.
 - les `avatars groupes tribus` sont également souvent accédés.
 
 **Les conserver en cache** par leur `id` est une bonne solution : mais en _FireStore_ (ou en SQL multi-process) il peut y avoir plusieurs instances s'exécutant en parallèle. Il faut en conséquence interroger la base pour savoir s'il y a une version postérieure et ne pas la charger si ce n'est pas le cas en utilisant un filtrage par `iv`. Ce filtrage se faisant sur l'index n'est pas décompté comme une lecture de document quand le document n'a pas été trouvé parce que de version déjà connue.
@@ -307,7 +307,7 @@ Une `id` est composé de 16 chiffres `nntaa..`, _entier safe_ en Javascript :
 **Sous-documents**
 - l'id d'un `sponsoring`, `ids` est le hash de la phrase de reconnaissance.
 - l'id d'un `chat` est un numéro `ids` construit depuis la clé de _l'autre_ avatar du chat.
-- l'id d'un `secret` est un numéro `ids` aléatoire relatif à celui de son avatar ou groupe.
+- l'id d'un `note` est un numéro `ids` aléatoire relatif à celui de son avatar ou groupe.
 - l'id d'un `membre` est `ids` un indice croissant depuis 1 relatif à son groupe.
 
 ### Authentification
@@ -425,30 +425,30 @@ Deux variantes, l'avatar principal ayant des données supplémentaires.
 - `hpc` : hash de la phrase de contact.
 - _data_ : sérialisation des autres attributs. **Un avatar principal / compte est reconnaissable par son `id`** et comporte des données supplémentaires dans _data_.
 
-### Sous-collection `secrets`
-Elle compte un document par secret.
+### Sous-collection `notes`
+Elle compte un document par note.
 
-**Documents** : `ids`, numéro de secret dans son avatar.
+**Documents** : `ids`, numéro de note dans son avatar.
 - `id` : id de son avatar.
 - `ids` : identifiant relatif à son avatar.
 - `v` : sa version.
 - `iv`
-- _data_ : données sérialisées du secret.
+- _data_ : données sérialisées de le note.
 
-Un secret est _logiquement supprimé_ quand sa _data_ est absente / null (il est _zombi_ et désormais immuable). La suppression est synchronisable par changement de la version `v` : il est purgé lors de la purge de son avatar.
+Une note est _logiquement supprimée_ quand sa _data_ est absente / null (il est _zombi_ et désormais immuable). La suppression est synchronisable par changement de la version `v` : il est purgé lors de la purge de son avatar.
 
 ### Sous-collection `transferts`
-Elle comporte un document par transfert de fichier en cours pour un secret de l'avatar.
+Elle comporte un document par transfert de fichier en cours pour une note de l'avatar.
 
 L'upload d'un fichier est long. Ce document permet de gérer un commit à 2 phases:
 - phase 1 : début de l'upload : insertion d'un document identifiant le fichier commençant à être uploadé,
-- phase 2 : validation du fichier par le commit du document `secret` : suppression du document.
+- phase 2 : validation du fichier par le commit du document `note` : suppression du document.
 
-**Documents:** - `ids` identifiant du fichier relatif à l'avatar de son secret.
+**Documents:** - `ids` identifiant du fichier relatif à l'avatar de sa note.
 
 **Attributs:**
 - `id` : id de son avatar.
-- `ids` : id du fichier relatif à l'avatar de son secret
+- `ids` : id du fichier relatif à l'avatar de sa note
 - `dlv` : date de validité permettant de purger les fichiers uploadés (ou pas d'ailleurs) sur échec du commit entre les phases 1 et 2. Ceci permet de faire la différence entre un upload en cours et un vieil upload manqué.
 
 ### Sous-collection `sponsorings`
@@ -516,29 +516,29 @@ Elle comporte un document membre par membre.
 - `iv`
 - _data_ : données du membre. Contient en particulier [photo, info], la carte de visite de l'avatar.
 
-### Sous-collection `secrets`
-Elle compte un document par secret.
+### Sous-collection `notes`
+Elle compte un document par note.
 
 **Documents:**
 - `id` : id du groupe.
 - `ids` : identifiant relatif à son groupe.
 - `v` : sa version.
 - `iv`
-- _data_ : données sérialisées du secret.
+- _data_ : données sérialisées de la note.
 
-Un secret est _supprimé_ quand sa _data_ est absente / null (il est _zombi et immuable_). La suppression est synchronisable par changement de la version `v` : il sera purgé lors de la purge de son groupe.
+Une note est _supprimée_ quand sa _data_ est absente / null (il est _zombi et immuable_). La suppression est synchronisable par changement de la version `v` : il sera purgé lors de la purge de son groupe.
 
 ### Sous-collection `transferts`
-Elle comporte un document par transfert de fichier en cours pour un secret du groupe.
+Elle comporte un document par transfert de fichier en cours pour une note du groupe.
 
 L'upload d'un fichier est long. Ce document permet de gérer un commit à 2 phases:
 - phase 1 : début de l'upload : insertion d'un document identifiant le fichier commençant à être uploadé,
-- phase 2 : validation du fichier par le commit du document `secret` : suppression du document.
+- phase 2 : validation du fichier par le commit du document `note` : suppression du document.
 
 **Documents:** 
-- `ids` identifiant du fichier relatif au groupe de son secret.
+- `ids` identifiant du fichier relatif au groupe de sa note.
 - `id` : id de son groupe.
-- `ids` : id du fichier relatif au groupe de son secret
+- `ids` : id du fichier relatif au groupe de sa note
 - `dlv` : date de validité permettant de purger les fichiers uploadés (ou pas d'ailleurs) sur échec du commit entre les phases 1 et 2. Ceci permet de faire la différence entre un upload en cours et un vieil upload manqué.
 
 # Détail des documents
@@ -696,7 +696,7 @@ _data_:
 - `compteurs`: compteurs sérialisés (non cryptés).
 
 **Remarques :**  
-- Le document est mis à jour à minima à chaque mise à jour d'un secret (volumes dans compteurs).
+- Le document est mis à jour à minima à chaque mise à jour d'une note (volumes dans compteurs).
 - La version de `compta` lui est spécifique (ce n'est pas la version de l'avatar principal du compte).
 - `napt nctkc` sont transmis par le GC dans un document `gcvols` pour notifier au Comptable, quel est le compte détecté disparu et sa tribu.
 
@@ -706,7 +706,7 @@ _data_ :
 - `v` : plus haute version attribuée aux documents de l'avatar / groupe.
 - `dlv` : date de fin de vie, peut être future pour un avatar, est toujours dépassée pour un groupe. Date de purge définitive un an plus tard.
 - `iv`
-- `{v1 q1 v2 q2}`: pour un groupe, volumes et quotas des secrets.
+- `{v1 q1 v2 q2}`: pour un groupe, volumes et quotas des notes.
 
 ## Document `avatar`
 
@@ -835,23 +835,23 @@ _data_
 - un mot de remerciement est écrit par le filleul au parrain sur `ard` **ET** ceci est dédoublé dans un chat filleul / sponsor.
 - le statut du `sponsoring` est 2.
 
-## Document `secret`
-La clé de cryptage du secret `cles` est selon le cas :
-- *secret personnel d'un avatar A* : la clé K de l'avatar.
-- *secret d'un groupe G* : la clé du groupe G.
+## Document `note`
+La clé de cryptage du note `cles` est selon le cas :
+- *note personnelle d'un avatar A* : la clé K de l'avatar.
+- *note d'un groupe G* : la clé du groupe G.
 
-Le droit de mise à jour d'un secret est contrôlé par le couple `x p` :
-- `x` : pour un secret de groupe, indique quel membre (son `im`) a l'exclusivité d'écriture et le droit de basculer la protection.
+Le droit de mise à jour d'une note est contrôlé par le couple `x p` :
+- `x` : pour une note de groupe, indique quel membre (son `im`) a l'exclusivité d'écriture et le droit de basculer la protection.
 - `p` indique si le texte est protégé contre l'écriture ou non.
 
-**Secret temporaire et permanent**
-Par défaut à sa création un secret est _permanent_. Pour un secret _temporaire_ :
+**Note temporaire et permanente**
+Par défaut à sa création une note est _permanente_. Pour une note _temporaire_ :
 - son `st` contient la _date limite de validité_ indiquant qu'il sera automatiquement détruit à cette échéance.
-- un secret temporaire peut être prolongé, tout en restant temporaire.
-- par convention le `st` d'un secret permanent est égal à `99999999`. Un temporaire peut être rendu permanent par :
-  - l'avatar propriétaire pour un secret personnel.
-  - un des animateurs du groupe pour un secret de groupe.
-- **un secret temporaire ne peut pas avoir de fichiers attachés**.
+- une note temporaire peut être prolongé, tout en restant temporaire.
+- par convention le `st` d'une note permanent est égal à `99999999`. Un temporaire peut être rendu permanent par :
+  - l'avatar propriétaire pour une note personnelle.
+  - un des animateurs du groupe pour une note de groupe.
+- **une note temporaire ne peut pas avoir de fichiers attachés**.
 
 _data_:
 - `id` : id de l'avatar ou du groupe.
@@ -866,48 +866,48 @@ _data_:
 - `v1` : volume du texte
 - `v2` : volume total des fichiers attachés.
 - `mc` :
-  - secret personnel : vecteur des index de mots clés.
-  - secret de groupe : map sérialisée,
+  - note personnelle : vecteur des index de mots clés.
+  - note de groupe : map sérialisée,
     - _clé_ : `im` de l'auteur (0 pour les mots clés du groupe),
     - _valeur_ : vecteur des index des mots clés attribués par le membre.
-- `txts` : crypté par la clé du secret.
+- `txts` : crypté par la clé de la note.
   - `d` : date-heure de dernière modification du texte.
-  - `l` : liste des auteurs pour un secret de groupe.
+  - `l` : liste des auteurs pour une note de groupe.
   - `t` : texte gzippé ou non.
 - `mfas` : map des fichiers attachés.
-- `refs` : couple `[id, ids]` crypté par la clé du secret référençant un autre secret _référence de voisinage_ qui par principe, lui, n'aura pas de `refs`.
+- `refs` : couple `[id, ids]` crypté par la clé de la note référençant une autre note _référence de voisinage_ qui par principe, lui, n'aura pas de `refs`.
 
-**_Remarque :_** un secret peut être explicitement supprimé. Afin de synchroniser cette forme particulière de mise à jour pendant un an (le délai maximal entre deux login), le document est conservé _zombi_ avec un _data_ absente / null. Il sera purgé avec son avatar / groupe.
+**_Remarque :_** une note peut être explicitement supprimé. Afin de synchroniser cette forme particulière de mise à jour pendant un an (le délai maximal entre deux login), le document est conservé _zombi_ avec un _data_ absente / null. Il sera purgé avec son avatar / groupe.
 
 **Mots clés `mc`:**
-- Secret personnel : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
-- Secret de groupe : `mc` est une map :
+- Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
+- Note de groupe : `mc` est une map :
   - _clé_ : `im`, indice du membre dans le groupe. Par convention 0 désigne le groupe lui-même.
-  - _valeur_ : vecteur d'index de secrets. Les index sont ceux personnels du membre, ceux du groupe, ceux de l'organisation.
+  - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du membre, ceux du groupe, ceux de l'organisation.
 
 **Map des fichiers attachés :**
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id` du groupe / avatar, `idf`
-- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé S du secret.
+- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé S de la note.
 
 **Identifiant de stockage :** `id/idf`
-- `id` : id de l'avatar / groupe auquel le secret appartient.
+- `id` : id de l'avatar / groupe auquel la note appartient.
 - `idf` : identifiant aléatoire du fichier.
 
 En imaginant un stockage sur file-system,
 - l'application a un répertoire racine par espace,
-- il y un répertoire par avatar / groupe ayant des secrets ayant des fichiers attachés,
+- il y un répertoire par avatar / groupe ayant des notes ayant des fichiers attachés,
 - pour chacun, un fichier par fichier attaché.
 
-_Un nouveau fichier attaché_ est stocké sur support externe **avant** d'être enregistré dans son document `secret`. Ceci est noté dans un document `transfert` de la sous-collection `transferts` des transferts en cours. 
-Les fichiers créés par anticipation et non validés dans un `secret` comme ceux qui n'y ont pas été supprimés après validation du secret, peuvent être retrouvés par un GC qui peut s'exécuter en lisant seulement les _clés_ de la map `mafs`.
+_Un nouveau fichier attaché_ est stocké sur support externe **avant** d'être enregistré dans son document `note`. Ceci est noté dans un document `transfert` de la sous-collection `transferts` des transferts en cours. 
+Les fichiers créés par anticipation et non validés dans une `note` comme ceux qui n'y ont pas été supprimés après validation de la note, peuvent être retrouvés par un GC qui peut s'exécuter en lisant seulement les _clés_ de la map `mafs`.
 
 La purge d'un avatar / groupe s'accompagne de la suppression de son _répertoire_. 
 
-La suppression d'un secret s'accompagne de la suppressions de N fichiers dans un seul _répertoire_.
+La suppression d'un note s'accompagne de la suppressions de N fichiers dans un seul _répertoire_.
 
 ## Document `transfert`
-- `id` : id du groupe ou de l'avatar du secret.
-- `ids` : id relative à son secret (en fait à son avatar / groupe)
+- `id` : id du groupe ou de l'avatar du note.
+- `ids` : id relative à son note (en fait à son avatar / groupe)
 - `dlv` : date-limite de validité pour nettoyer les uploads en échec sans les confondre avec un en cours.
 
 ## Document `groupe`
@@ -921,11 +921,11 @@ L'hébergement d'un groupe est noté par :
 - `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé.
 
 Le compte peut mettre fin à son hébergement:
-- `dfh` indique le jour de la fin d'hébergement. Les secrets ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe. 
+- `dfh` indique le jour de la fin d'hébergement. Les notes ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe. 
 - à `dfh`, 
   - le GC purge le groupe.
   - `dlv`  dans le `versions` du groupe est mis à la date du jour.
-  - les secrets et membres sont purgés.
+  - les notes et membres sont purgés.
   - le groupe est retiré au fil des connexions et des synchronisations des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
   - le document `versions` du groupe sera purgé par le GC à `dlv` + 365 jours.
 
@@ -943,12 +943,12 @@ Le compte peut mettre fin à son hébergement:
 - la _disparition_ correspond au fait que l'avatar du membre n'existe plus, soit par non connexion au cours des 365 jours qui précèdent, soit par auto-résiliation de l'avatar.
 - _l'oubli_ a été explicitement demandé, soit par le membre lui-même soit par un animateur. 
 - dans les deux cas le membre est _effacé_, ni son nom, ni son identifiant, ni sa carte de visite ne sont accessibles.
-- un membre _oublié / disparu_ n'apparaît plus que par #99 où 99 était son indice. Ainsi dans un secret, la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
-- toutefois si le membre est de nouveau contacté, il récupère son indice antérieur (pas un nouveau) mais son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe mais avec la même identité, les secrets écrits dans la vie antérieure mentionnent à nouveau leur auteur au lieu d'un numéro #99.
+- un membre _oublié / disparu_ n'apparaît plus que par #99 où 99 était son indice. Ainsi dans un note, la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
+- toutefois si le membre est de nouveau contacté, il récupère son indice antérieur (pas un nouveau) mais son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe mais avec la même identité, les notes écrits dans la vie antérieure mentionnent à nouveau leur auteur au lieu d'un numéro #99.
 
 _data_:
 - `id` : id du groupe.
-- `v` : version, du groupe, ses secrets, ses membres. 
+- `v` : version, du groupe, ses notes, ses membres. 
 - `iv`
 - `dfh` : date de fin d'hébergement.
 
@@ -957,7 +957,7 @@ _data_:
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
-- `pe` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de secrets.
+- `pe` : 0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes.
 - `ast` : **array** des statuts des membres (dès qu'ils ont été inscrits en _contact_) :
   - 10: contact, 
   - 30,31,32: **actif** (invitation acceptée) en tant que lecteur / auteur / animateur, 
@@ -975,7 +975,7 @@ _data_:
 - texte libre que tous les membres du groupe actifs et invités peuvent lire et écrire.
 - un invité qui refuse son invitation peut écrire sur l'ardoise une explication.
 - on y trouve typiquement,
-  - une courte présentation d'un nouveau contact, voire quelques lignes de débat (si c'est un vrai débat un secret du groupe est préférable),
+  - une courte présentation d'un nouveau contact, voire quelques lignes de débat (si c'est un vrai débat un note du groupe est préférable),
   - un mot de bienvenue pour un nouvel invité,
   - un mot de remerciement d'un nouvel invité.
   - des demandes d'explication de la part d'un invité,
@@ -1002,7 +1002,7 @@ _data_:
 
 ### Cycle de vie
 - un document `membre` existe dans tous les états SAUF 0 _disparu / oublié_.
-- un auteur d'un secret `disparu / oublié`, apparaît avec juste un numéro (sans nom), sans pouvoir voir son membre dans le groupe.
+- un auteur d'un note `disparu / oublié`, apparaît avec juste un numéro (sans nom), sans pouvoir voir son membre dans le groupe.
 
 #### Transitions d'état d'un membre:
 - de contact : 
@@ -1090,7 +1090,7 @@ _data_:
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
 - **pour le mois en cours**, celui de la date ci-dessus :
   - `q1 q2`: quotas actuels.
-  - `v1 v2 v1m v2m`: volume actuel des secrets et moyens sur le mois en cours.
+  - `v1 v2 v1m v2m`: volume actuel des notes et moyens sur le mois en cours.
   - `trj` : transferts cumulés du jour.
   - `trm` : transferts cumulés du mois.
 - `tr8` : log des volumes des transferts cumulés journaliers de pièces jointes sur les 7 derniers jours + total (en tête) sur ces 7 jours.
@@ -1103,13 +1103,13 @@ _data_:
 Les mots clés sont utilisés pour :
 - filtrer / caractériser à l'affichage les **chats** accédés par un compte.
 - filtrer / caractériser à l'affichage les **groupes (membres)** accédés par un compte.
-- filtrer / caractériser à l'affichage les **secrets**, personnels ou partagés avec un groupe.
+- filtrer / caractériser à l'affichage les **notes**, personnels ou partagés avec un groupe.
 
 La **définition** des mots-clés (avatar et groupe) est une map :
 - _clé_ : indice du mot-clé de 1 à 255,
 - _valeur_ : texte `catégorie/label du mot-clé`.
 
-Affectés à un membre ou secret, c'est un array de nombre de 1 à 255 (Uin8Array).
+Affectés à un membre ou note, c'est un array de nombre de 1 à 255 (Uin8Array).
 
 Les mots clés d'indice,
 - 1-99 : sont ceux d'un compte.
@@ -1239,7 +1239,7 @@ Le GC détecte un membre disparu par dépassement de sa `dlv` :
 ### Autres purges sur dépassement de `dlv`
 La `dlv` est une date de **purge** dans les cas suivants:
 - sur `versions` d'un groupe.
-- sur `secrets`: secret était _zombi_.
+- sur `notes`: note était _zombi_.
 - sur `sponsorings` : il avait atteint limite de validité.
 
 Sur `transferts`, déclenchement de l'opération pour suppression de fichiers dans le FileStore.
@@ -1287,7 +1287,7 @@ Une transaction pour chaque groupe ayant dépassé leur `dfh`:
 Purge des documents ayant dépassé leur `dlv`.
 - sur `versions` d'un groupe.
 - sur `chat` : les chat étaient considérés comme _supprimé_.
-- sur `secret`: ils étaient _zombi_.
+- sur `note`: ils étaient _zombi_.
 - sur `sponsoring` : ils avaient dépassé leur limite de validité.
 - sur `transferts` : inscription de ce fichier dans _purge2_.
 

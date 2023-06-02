@@ -17,8 +17,8 @@ L'hébergeur d'un groupe peut décider de ne plus l'être :
 - si aucun membre ne se propose à devenir hébergeur, le groupe s'auto-détruit au bout d'un certain temps.
 
 ### Niveau de _pouvoir_ des membres d'un groupe
-- un membre **lecteur** ne peut que lire les secrets du groupe.
-- un membre **auteur** peut lire, créer, modifier les secrets du groupe et ajouter des _contacts_ au groupe.
+- un membre **lecteur** ne peut que lire les notes du groupe.
+- un membre **auteur** peut lire, créer, modifier les notes du groupe et ajouter des _contacts_ au groupe.
 - un membre **animateur** _en plus d'être auteur_ peut,
   - inviter des _contacts_ à rejoindre le groupe,
   - résilier des membres du groupe, sauf ceux eux-mêmes animateurs
