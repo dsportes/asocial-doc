@@ -1172,6 +1172,7 @@ Dans la même transaction :
 - dans le planning du GC l'id de l'avatar est inscrite pour purge de ses données.
 - pour tous les chats de l'avatar:
   - le chat E, de _l'autre_, est mis à jour : son `st` passe à _disparu_, sa `cva` passe à null.
+- purge des sponsorings de l'avatar.
 - pour tous les groupes dont l'avatar est membre:
   - purge de son document `membre`.
   - mise à jour dans son `groupe` du statut `ast` à _disparu_.
