@@ -1168,8 +1168,8 @@ Dans la même transaction :
   - l'entrée du compte dans `tribu2` est détruite,
   - le document `compta` est purgé.
 - le documents `avatar` est purgé.
-- le document `versions` de l'avatar a sa dlv fixée au jour courant (il est _zombi et immuable_).
-- dans le planning du GC l'id de l'avatar est inscrite pour purge de ses données.
+- le document `versions` de l'avatar a sa `dlv` fixée au jour `jdtr` du GC (il est _zombi et immuable_).
+- l'id de l'avatar est inscrite dans `purge`.
 - pour tous les chats de l'avatar:
   - le chat E, de _l'autre_, est mis à jour : son `st` passe à _disparu_, sa `cva` passe à null.
 - purge des sponsorings de l'avatar.
@@ -1178,18 +1178,18 @@ Dans la même transaction :
   - mise à jour dans son `groupe` du statut `ast` à _disparu_.
   - si c'était l'hébergeur du groupe, mise à jour des données de fin d'hébergement.
   - si c'était le dernier membre _actif_ du groupe:
-    - dans `versions` du groupe, `dlv` est mis au jour courant (il devient _zombi / immuable_), ce qui permet à une synchronisation avec une autre session (ou une connexion) de détecter la disparition du groupe.
+    - dans `versions` du groupe, `dlv` est mis au jour `jdtr` (il devient _zombi / immuable_), ce qui permet à une synchronisation avec une autre session (ou une connexion) de détecter la disparition du groupe.
     - purge du groupe puisque plus personne ne le référence (et donc qu'aucune session ne pouvait être dessus).
-    - dans le planning du GC l'id du groupe est inscrite pour purge de ses données.
+    - l'id du groupe est inscrite dans `purge`.
 
 Dans les autres sessions ouvertes sur le même compte :
 - si c'est l'avatar principal : 
   - la session est notifiée par un changement de `tribu2`. Remarque : la disparition de compta n'est pas notifiée -c'est une purge-.
   - y constate la disparition de l'entrée du compte,
-  - **la session est close avec un avis de résiliation du compte** par une autre session SANS suppression de la base IDB (les connexions en mode _avion_ restent possibles). 
+  - **la session est close** SANS mise à jour de la base IDB (les connexions en mode _avion_ restent possibles). 
 - si c'est un avatar secondaire :
   - la session est notifiée d'un changement de `compta` et détecte la suppression d'un avatar.
-  - la session supprime en mémoire ce qui est relatif à cet avatar : si c'était l'avatar courant, l'avatar primaire devient courant. La page d'accueil est affichée si c'était une des pages dépendante de l'avatar courant qui l'était.
+  - la session supprime en mémoire ce qui est relatif à cet avatar : si c'était l'avatar courant, l'avatar primaire devient courant.
   - la session supprime toutes les entrées de IDB relatives à l'avatar.
 
 Lors des futures connexions sur le même compte:
@@ -1204,13 +1204,6 @@ Dans les autres sessions ouvertes sur d'autres comptes, la synchronisation fait 
 #### Effectuée par le GC
 Le GC détecte la disparition d'un avatar par dépassement de sa `dlv` : **le compte a déjà disparu**.
 
-Rappel : si c'est un avatar principal,
-- il inscrit un document `gcvols` pour traitement ultérieur par l'ouverture d'une session du Comptable (mise à jour `tribu / tribu2`).
-- le document `compta` est purgé.
-
-Avatars secondaire ou primaire :
-- dans son planning l'id de l'avatar est inscrite pour purge de toutes ses données.
-
 **Conséquences :**
 - il reste des chats référençant cet avatar et dont le statut n'est pas encore marqué _disparu_ (mais le GC n'y a pas accès).
 - il reste des groupes dont le statut du membre correspondant n'est pas _disparu_ et des documents `membres` référençant un avatar (principal) disparu.
@@ -1222,28 +1215,9 @@ C'est une opération _normale_:
 - mise à jour dans son `groupe` du statut `ast` à _disparu_.
 - si c'était l'hébergeur du groupe, mise à jour des données de fin d'hébergement.
 - si c'était le dernier membre _actif_ du groupe :
-  - `dlv` du jour dans `versions` du groupe, devient _zombi / immuable_. Ceci permet aux autres sessions de détecter la disparition du groupe.
+  - `dlv` du jour `djtr` dans `versions` du groupe, devient _zombi / immuable_. Ceci permet aux autres sessions de détecter la disparition du groupe.
   - purge du `groupe` puisque plus personne ne le référence (et donc qu'aucune session ne peut être dessus, la synchronisation de `versions` ayant permis de détecter la disparition).
-  - dans le planning du GC l'id du groupe est inscrite pour purge de ses données.
-
-#### Détectée et effectuée par le GC
-Le GC détecte un membre disparu par dépassement de sa `dlv` :
-- purge de son document `membre`.
-- si c'était le dernier membre _actif_ du groupe, 
-  - le document `groupe` est purgé,
-  - la `dlv` dans sa `versions` est positionnée de manière à être purgée dans un an quand toutes les synchronisations / connexions l'auront prise en compte en tant que disparition du groupe où leur avatar était encore _invité_ ou _actif_ (fin d'hébergement typiquement).
-  - dans son planning l'id du groupe est inscrite pour purge de ses données.
-- si ce n'était PAS le dernier membre _actif_ du groupe:
-  - dans `groupe` son statut `ast` passe à _disparu_.
-  - si c'était l'hébergeur du groupe, mise à jour des données de fin d'hébergement (`dfh, idhg, imh`).
-
-### Autres purges sur dépassement de `dlv`
-La `dlv` est une date de **purge** dans les cas suivants:
-- sur `versions` d'un groupe.
-- sur `notes`: note était _zombi_.
-- sur `sponsorings` : il avait atteint limite de validité.
-
-Sur `transferts`, déclenchement de l'opération pour suppression de fichiers dans le FileStore.
+  - l'id du groupe est inscrite dans `purge`.
 
 ### Chat : détection de la disparition de l'avatar E
 A la connexion d'une session les chats avec des avatars E disparus ne sont pas détectés.
@@ -1258,51 +1232,88 @@ Lors de l'ouverture de la page listant les _chats_ d'un de ses avatars,
 
 > Un _contact_ peut donc apparaître "à tort" en session alors que l'avatar / compte correspondant a été résilié du fait, a) qu'il est un des comptes de la tribu de la session, b) qu'un chat est ouvert avec lui. Toutefois l'ouverture du chat ou de la page des chats, rétablit cette distorsion temporelle provisoire.
 
-# GC quotidien
-Délais :
-- N1 : 370 jours, un peu plus d'un an. Inactivité d'un compte.
-- N2 : 90 jours. Délai de survie d'un groupe sans hébergeur.
+# Opérations GC, documents `log` et `purges`
+### Singleton `log`
+Le document `log` est un singleton créé en même que `espace`.
+- `dh` : date-heure de dernière écriture du document (sa _version_).
+- `_data_` : map sérialisée avec une entrée par opération GC.
+  - `dhok` ; date-heure de dernière exécution avec succès.
+  - `dhko` : date-heure de la dernière exécution, uniquement si celle-ci est sortie en exception.
+  - `exc` : texte de cette exception.
+  - `info` : JSON informatif éventuel pour l'administrateur technique en cas d'exécution avec succès.
 
-Le GC quotidien a un _point de reprise_ enregistré dans le document singleton `checkpoint`.
-- date du jour de GC
-- array des date-heures de fin des étapes terminées.
-- _purge1_ : liste des ids des avatars et groupes dont les **sous-collections** sont à purger.
-- _purge2_ : liste des `[id, idf]` -`idf` peut être 0 si ce sont tous les fichiers du _folder_ qui sont concernés, des fichiers à purger dans le Storage.
+Chaque exécution d'une _opération GC_ se termine par l'enregistrement de son item dans la map et une `dh` globale. Une sortie en exception provoque l'émission d'un mail à l'adresse de l'administrateur technique avec le nom de l'opération, dhko et exc.
 
-Quand le GC est lancé,
-- soit il part sur un nouveau traitement quotidien si le dernier a eu toutes ses étapes terminées et que le jour courant est postérieur au dernier jour du traitement.
-- soit il part en reprise à l'étape qui suit la dernière terminée.
+Chaque opération GC peut être soumise par l'administrateur technique à n'importe quel moment : elles sont _quasi_ idempotentes, leurs exécution multiples, même en parallèle ne produisant ni erreurs ni irrégularités fonctionnelles.
 
-Le GC quotidien effectue les activités de nettoyage suivantes :
+### `purges` : liste des ids des avatars / groupes à purger
+Ces documents n'ont qu'une seule propriété id : l'id d'un avatar ou d'un groupe à purger.
 
-#### Etape 1
-Une transaction pour chaque groupe ayant dépassé leur `dfh`:
-- `dfh` : purge du `groupe` et positionnement de la `dlv` de sa `versions`. Ce changement d'état est synchronisé. 
-  - les sessions ouvertes et accédant à ces groupes, émettront ultérieurement une opération pour retirer le groupe de la liste des groupes de leur avatar.
-  - les sessions s'ouvrant postérieurement feront la même opération au chargement initial.
-- inscription de l'id du groupe,
-  - dans la liste _purge1_.
-  - dans la liste _purge2_ des _folder_ de fichiers externes à purger.
+### `GCRes` : traitement des résiliations
+Soit `jdtr` le jour de la dernière exécution avec succès de GcResil (sa dhok).
 
-#### Etape 1b
-Purge des documents ayant dépassé leur `dlv`.
-- sur `versions` d'un groupe.
-- sur `chat` : les chat étaient considérés comme _supprimé_.
-- sur `note`: ils étaient _zombi_.
-- sur `sponsoring` : ils avaient dépassé leur limite de validité.
-- sur `transferts` : inscription de ce fichier dans _purge2_.
+L'opération récupère toutes les `id` des `versions` dont la `dlv` est **postérieure ou égale à `jdtr` et antérieure ou égale à la date du jour**:
+- les comptes détectés non utilisés depuis un an,
+- les avatars secondaires de ces comptes un peu plus tard,
+- les membres des groupes accédés par ces compte.
 
-#### Etape 1c
-Une transaction pour chaque membre `id, ids` ayant dépassé sa `dlv`:
-- dans son groupe `id`, `ast[ids]` est mis à 0, `v` est incrémentée et la synchronisation est effectuée.
-- le `membre` est purgé.
+**Une transaction pour chaque compte :**
+- son document compta :
+  - est lu pour récupérer les compteurs v1 / V2 et nctkc;
+  - un document gcvol est inséré avec ces données : son id est aléatoire mais commence par le ns du document compta
+  - les gcvol seront traités par la prochaine ouverture de session du comptable de l'espace ce qui réaffectera les volumes v1 / v2 à la tribu identifiée par nctk.
+  - le document compta est purgé.
+- un row `purge` comportant la seule id du compte est inséré.
 
-#### Etape 2
-Une transaction par avatar principal ayant dépassé sa `dlv` : voir ci-avant.
+**Une transaction pour chaque avatar :**
+- l'id de l'avatar est inséré dans `purge`.
+- la dlv du document version de l'avatar est reculée à jdtr - 1 jour : ceci lui permet d'être exclu du prochain traitement GcResil. La version reste inchangée.
 
-#### Etape 3
-- purge progressive du FileStore des fichiers listés dans _purge2_ : `checkpoint` est mis à jour avec une liste raccourcie à chaque batch de suppressions.
+**Une transaction pour chaque membre `im` d'un groupe `idg` :**
+Le document `membre` est purgé (son état dans ast de son groupe le rend non accessible).
 
-#### Etape 4
-- purge progressive des sous-collections des avatars et groupes listés dans _purge1_ : `checkpoint` est mis à jour avec une liste raccourcie à chaque batch de suppressions.
+Le document `groupe` est lu et le statut de `im` dans son `ast` est 0 (disparu):
+- s'il existe encore un membre actif dans le groupe, la version est incrémenté et le document groupe écrit.
+- sinon le groupe doit disparaître :
+  - la dlv du document version du groupe est mise à jdtr - 1 jour (ce qui l'exclura des prochains traitement GcResil).
+  - le document groupe est purgé.
 
+### `GCHeb` : traitement des fin d'hébergement
+L'opération récupère toutes les ids des document groupe où dfh est postérieure ou égale au jour courant.
+
+Une transaction par groupe :
+- dans le document version du groupe, dlv est positionnée à jdtr - 1 jour (ce qui l'exclura des prochaines opérations GcResil).
+- le document groupe est purgé,
+- l'id du groupe est inscrite dans purge.
+
+### `GCSpo` : traitement des sponsorings obsolètes
+L'opération récupère toutes les documents sponsorings dont les dlv sont antérieures ou égales au jour J. 
+
+Ces documents sont purgés.
+
+### `GCTra` : traitement des transferts abandonnés
+L'opération récupère toutes les documents transferts dont les dlv sont antérieures ou égales au jour J.
+
+Le fichier id / idf cité dedans est purgé du Storage des fichiers.
+
+Les documents transferts sont purgés.
+
+### `GCObs` : purge des versions obsolètes
+Tous les versions de dlv antérieures à jour j - 400 sont purgés.
+
+### `GCPrg` : traitement du document `purge`
+Une transaction pour chaque document :
+- collecte des idf des fichiers des notes ayant cette id majeure.
+- suppression du Storage de ces fichiers.
+- purge des notes, chats, transferts, membres du document.
+- purge de la version.
+
+## Lancement global quotidien
+Le traitement enchaîne, en asynchronisme de la requête l'ayant lancé : 
+- `GCRes GCHeb GCSpo GCTra GCObs GCPrg`
+
+En cas d'exception de l'un deux, une seule relance est faite après une attente d'une heure.
+
+> Remarque : le traitement du lendemain est en lui-même une reprise.
+
+> Pour chaque opération, il y a N transactions, une par document à traiter, ce qui constitue un _checkpoint_ naturel fin.
