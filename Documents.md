@@ -355,11 +355,11 @@ Un document par espace (considéré comme faisant partie de la _partition_).
 Il y a autant de documents que de comptes ayant été détectés disparus et dont les quotas n'ont pas encore été rendus à leur tribu par une session du Comptable. C'est un avis de disparition d'un compte que seul le comptable peut décrypter et traiter pour mette à jour sa tribu.
 
 **Document:** - `id` : entier aléatoire
-- `id` : entier pseudo aléatoire, hash de `nctkc`.
+- `id` : id du compte disparu.
 - _data_ : 
-  - compteurs récupérés du document `compta` du compte. `f1, f2, v1, v2`
+  - compteurs récupérés du document `compta` du compte. `q1, q2, v1, v2`
   - `nctkc` : `[nom, cle]` de la tribu qui doit récupérer les quotas **crypté par la clé K du comptable**.
-  - `nat` : `[nom, rnd]` du compte disparu crypté par la clé t de sa tribu (`cle` ci-dessus).
+  - `napt` : `[nom, rnd]` du compte disparu crypté par la clé t de sa tribu (décodée de `nctkc.rnd`). Le hash de `rnd` est la clé d'accès de l'élément du compte dans la `mbtr` de `tribu2` pour supprimer cette entrée.
 
 ## Collection `tribus` et `tribu2s`
 Cette collection liste les tribus déclarées sur le réseau et les comptes rattachés à la tribu.
@@ -1260,29 +1260,31 @@ L'opération récupère toutes les `id` des `versions` dont la `dlv` est **post�
 **Une transaction pour chaque compte :**
 - son document compta :
   - est lu pour récupérer les compteurs v1 / V2 et nctkc;
-  - un document gcvol est inséré avec ces données : son id est aléatoire mais commence par le ns du document compta
-  - les gcvol seront traités par la prochaine ouverture de session du comptable de l'espace ce qui réaffectera les volumes v1 / v2 à la tribu identifiée par nctk.
+  - un document gcvol est inséré avec ces données : son id est celle du compte.
+  - les gcvol seront traités par la prochaine ouverture de session du comptable de l'espace ce qui réaffectera les volumes v1 v2 q1 q2 à la tribu identifiée par nctkc et supprimera l'entrée du compte dans tribu2 (la clé du compte dans mbtr étant le rnd du compte récupéré par napt).
   - le document compta est purgé.
-- un row `purge` comportant la seule id du compte est inséré.
+- traitement de résiliation de son avatar
 
 **Une transaction pour chaque avatar :**
-- l'id de l'avatar est inséré dans `purge`.
-- la dlv du document version de l'avatar est reculée à jdtr - 1 jour : ceci lui permet d'être exclu du prochain traitement GcResil. La version reste inchangée.
+- le document avatar est purgé
+- l'id de l'avatar est inséré dans `purges`.
+- le document version de l'avatar est purgé.
 
 **Une transaction pour chaque membre `im` d'un groupe `idg` :**
 Le document `membre` est purgé (son état dans ast de son groupe le rend non accessible).
 
 Le document `groupe` est lu et le statut de `im` dans son `ast` est 0 (disparu):
-- s'il existe encore un membre actif dans le groupe, la version est incrémenté et le document groupe écrit.
+- s'il existe encore un membre actif dans le groupe, la version est incrémentée et le document groupe écrit.
 - sinon le groupe doit disparaître :
-  - la dlv du document version du groupe est mise à jdtr - 1 jour (ce qui l'exclura des prochains traitement GcResil).
+  - la dlv du document version du groupe est mise à jdtr - 1 jour (ce qui l'exclura des prochains traitement GcRes). versions servira pendant un an à notifier les autres sessions de la disparition du groupe.
   - le document groupe est purgé.
+  - l'id du groupe est inséré dans `purges`.
 
-### `GCHeb` : traitement des fin d'hébergement
+### `GCHeb` : traitement des fins d'hébergement
 L'opération récupère toutes les ids des document groupe où dfh est postérieure ou égale au jour courant.
 
 Une transaction par groupe :
-- dans le document version du groupe, dlv est positionnée à jdtr - 1 jour (ce qui l'exclura des prochaines opérations GcResil).
+- dans le document version du groupe, dlv est positionnée à jdtr - 1 jour (ce qui l'exclura des prochaines opérations GcRes).
 - le document groupe est purgé,
 - l'id du groupe est inscrite dans purge.
 
