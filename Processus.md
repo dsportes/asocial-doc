@@ -22,7 +22,7 @@
 - inscription de `idf` dans la liste des avatars contacts
 
 ### Modification / annulation d'un parrainage
-(todo)
+
 
 ### Création d'un nouveau compte sur invitation
 **Client**  
@@ -124,15 +124,15 @@
 - `compte` : row transmis à toute sessions du compte `idc`.
 
 ### Maj des mots clés du compte (et _antivol_ ?)
-(todo)
+
 
 ### Création / mise à jour d'une carte de visite
 
 ### Modification de quotas pour un compte privilégié
-(todo)
+
 
 ### Don de quotas
-(todo)
+
 
 ## Création d'un groupe, invitation
 

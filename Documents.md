@@ -52,7 +52,7 @@ Dans chaque tribu les comptes ayant un pouvoir de sponsor peuvent:
   - `dfh` : date de fin d'hébergement sur `groupes`.
   - `hps1` : clé d'accès secondaires directes aux documents `comptas`.
   - `hpc` : clé d'accès secondaires directes aux documents `avatars`.
-  - _attributs composés_ :  
+  - _index composés_ :  
     - `iv` : `id + v`
     - `ivc` : `id + vcv`
 - les attributs _data_ (non indexés) contiennent des données sérialisées opaques.
@@ -1233,24 +1233,18 @@ Lors de l'ouverture de la page listant les _chats_ d'un de ses avatars,
 > Un _contact_ peut donc apparaître "à tort" en session alors que l'avatar / compte correspondant a été résilié du fait, a) qu'il est un des comptes de la tribu de la session, b) qu'un chat est ouvert avec lui. Toutefois l'ouverture du chat ou de la page des chats, rétablit cette distorsion temporelle provisoire.
 
 # Opérations GC, documents `log` et `purges`
-### Singleton `log`
-Le document `log` est un singleton créé en même que `espace`.
-- `dh` : date-heure de dernière écriture du document (sa _version_).
-- `_data_` : map sérialisée avec une entrée par opération GC.
-  - `dhok` ; date-heure de dernière exécution avec succès.
-  - `dhko` : date-heure de la dernière exécution, uniquement si celle-ci est sortie en exception.
-  - `exc` : texte de cette exception.
-  - `info` : JSON informatif éventuel pour l'administrateur technique en cas d'exécution avec succès.
-
-Chaque exécution d'une _opération GC_ se termine par l'enregistrement de son item dans la map et une `dh` globale. Une sortie en exception provoque l'émission d'un mail à l'adresse de l'administrateur technique avec le nom de l'opération, dhko et exc.
-
-Chaque opération GC peut être soumise par l'administrateur technique à n'importe quel moment : elles sont _quasi_ idempotentes, leurs exécution multiples, même en parallèle ne produisant ni erreurs ni irrégularités fonctionnelles.
+### Singleton `checkpoint` (id 1)
+Propriétés :
+- `id` : 1
+- `v` : date-time de sa dernière mise à jour ou 0 s'il n'a jamais été écrit.
+- `_data_` : sérialisation de son contenu.
+  - `jdtr` : jour du dernier traitement GCRes terminé avec succès. 
 
 ### `purges` : liste des ids des avatars / groupes à purger
 Ces documents n'ont qu'une seule propriété id : l'id d'un avatar ou d'un groupe à purger.
 
 ### `GCRes` : traitement des résiliations
-Soit `jdtr` le jour de la dernière exécution avec succès de GcResil (sa dhok).
+Soit `jdtr` le jour de la dernière exécution avec succès de GcRes.
 
 L'opération récupère toutes les `id` des `versions` dont la `dlv` est **postérieure ou égale à `jdtr` et antérieure ou égale à la date du jour**:
 - les comptes détectés non utilisés depuis un an,
@@ -1288,10 +1282,10 @@ Une transaction par groupe :
 - le document groupe est purgé,
 - l'id du groupe est inscrite dans purge.
 
-### `GCSpo` : traitement des sponsorings obsolètes
-L'opération récupère toutes les documents sponsorings dont les dlv sont antérieures ou égales au jour J. 
-
-Ces documents sont purgés.
+### `GCPrg` : traitement des documents `purges`
+Une transaction pour chaque document :
+- suppression du Storage des fichiers de l'avatar / groupe.
+- purge des notes, chats, transferts, membres du document.
 
 ### `GCTra` : traitement des transferts abandonnés
 L'opération récupère toutes les documents transferts dont les dlv sont antérieures ou égales au jour J.
@@ -1300,15 +1294,15 @@ Le fichier id / idf cité dedans est purgé du Storage des fichiers.
 
 Les documents transferts sont purgés.
 
-### `GCObs` : purge des versions obsolètes
-Tous les versions de dlv antérieures à jour j - 400 sont purgés.
+### `GCFpu` : traitement des documents `fpurges`
+Une transaction pour chaque document : suppression du Storage de ces fichiers.
 
-### `GCPrg` : traitement du document `purge`
-Une transaction pour chaque document :
-- collecte des idf des fichiers des notes ayant cette id majeure.
-- suppression du Storage de ces fichiers.
-- purge des notes, chats, transferts, membres du document.
-- purge de la version.
+### `GCVer` : purge des versions obsolètes
+L'opération récupère toutes les versions de dlv antérieures à jour j - 400. Ces documents sont purgés.
+
+### `GCSpo` : traitement des sponsorings obsolètes
+L'opération récupère toutes les documents sponsorings dont les dlv sont antérieures ou égales au jour J. Ces documents sont purgés.
+
 
 ## Lancement global quotidien
 Le traitement enchaîne, en asynchronisme de la requête l'ayant lancé : 
