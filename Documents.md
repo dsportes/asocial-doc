@@ -1238,7 +1238,17 @@ Propriétés :
 - `id` : 1
 - `v` : date-time de sa dernière mise à jour ou 0 s'il n'a jamais été écrit.
 - `_data_` : sérialisation de son contenu.
-  - `jdtr` : jour du dernier traitement GCRes terminé avec succès. 
+  - `start` : date-heure de lancement du dernier GC
+  - `duree` : durée de son exécution en ms
+  - `nbTaches` : nombre de taches terminées avec succès (sur 6)
+  - `jdtr` : jour du dernier traitement GCRes terminé avec succès.
+  - `log` : trace des exécutions des tâches : {}
+    - `nom` : nom
+    - `retry` : numéro de retry
+    - `start` : date-heure de lancement
+    - `duree` : durée en ms
+    - `err` : si sortie en exception, son libellé
+    - `stats` : {} compteurs d'objets traités (selon la tâche)
 
 ### `purges` : liste des ids des avatars / groupes à purger
 Ces documents n'ont qu'une seule propriété id : l'id d'un avatar ou d'un groupe à purger.
@@ -1297,10 +1307,9 @@ Les documents transferts sont purgés.
 ### `GCFpu` : traitement des documents `fpurges`
 Une transaction pour chaque document : suppression du Storage de ces fichiers.
 
-### `GCVer` : purge des versions obsolètes
+### `GCDlv` : purge des versions / sponsorings obsolètes
 L'opération récupère toutes les versions de dlv antérieures à jour j - 400. Ces documents sont purgés.
 
-### `GCSpo` : traitement des sponsorings obsolètes
 L'opération récupère toutes les documents sponsorings dont les dlv sont antérieures ou égales au jour J. Ces documents sont purgés.
 
 
