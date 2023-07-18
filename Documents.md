@@ -698,7 +698,7 @@ _data_:
 **Remarques :**  
 - Le document est mis à jour à minima à chaque mise à jour d'une note (volumes dans compteurs).
 - La version de `compta` lui est spécifique (ce n'est pas la version de l'avatar principal du compte).
-- `napt nctkc` sont transmis par le GC dans un document `gcvols` pour notifier au Comptable, quel est le compte détecté disparu et sa tribu.
+- `napt nctkc` sont transmis par le GC dans un document `gcvols` pour notifier au Comptable, quel est le compte détecté disparu et sa tribu. L'entrée d'un compte disparu dans tribu2.mbtr est à supprimer après disparition du compte et c'est le Comptable qui peut faire ça en récupérant le rnd du compte disparu dans napt.
 
 ## Document `version`
 _data_ :
