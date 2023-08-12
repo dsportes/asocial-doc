@@ -2,23 +2,23 @@
 
 Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
 - **GET** : le vecteur des arguments nommés sont dans le queryString :
-  ../op/MonOp1&arg1=v&&arg2=v2 ...
-  Ils se retrouvent à disposition dans l'opération dans l'objet args :
-  { **arg1**: V&, arg2: v2 }
+  `../op/MonOp1&arg1=v1&arg2=v2 ...`
+  Ils se retrouvent à disposition dans l'opération dans l'objet `args` :
+  { **arg1**: v1, arg2: v2 }
 - **POST** : le body de la requête est la sérialisation de l'array `[args, apitk]` :
   - `args` : `{ arg1: v1, arg2: v2 ... }`
-  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans process.env.APITK qui a été forcée lors du build webpack.
+  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `process.env.APITK` qui a été forcée lors du build webpack.
 
 ### `args.token` : le jeton d'authentification du compte
-Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map { sessionId, shax, hps1 } où :
+Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, hps1 }`:
 - `sessionId` : identifiant aléatoire (string) de session générée par l'application pour s'identifier elle-même (et transmise sur WebSocket en implémentation SQL).
 - `shax` : SHA256 du PBKFD de la phrase secrète en UTF-8.
 - `hps1` : Hash (sur un entier _safe_ en Javascript) du SHA256 de l'extrait de la phrase secrète.
 
-L'extrait consiste à prendre les bytes [0, 2, 4, 5, 8, 9, 12, 14, 18, 19, 23, 25, 28, 30] de la représentation en UTF-8 de la phrase complète.
+L'extrait consiste à prendre certains bytes du début de la représentation en UTF-8 de la phrase complète précédée du code de l'organisation.
 
 ### Headers requis
-- `origin` : site Web d'où l'application Web a été chargée. Au cas ou origin ne peut pas être obtenu, c'est `referer` qui est considéré. Les origines autorisées sont listées.
+- `origin` : site Web d'où l'application Web a été chargée. Au cas ou `origin` ne peut pas être obtenu, c'est `referer` qui est considéré. Les origines autorisées sont listées dans `config.mjs`.
 - `x-api-version` : numéro de version de l'API pour éviter un accès par des sessions ayant été chargées par une application _retardée_ par rapport au serveur.
 
 ### Retour des requêtes
@@ -29,12 +29,13 @@ L'extrait consiste à prendre les bytes [0, 2, 4, 5, 8, 9, 12, 14, 18, 19, 23, 2
   - 402 : E_SRV exception inattendue trappée dans le traitement
   - 403 : E_SRV exception inattendue NON trappée dans le traitement
   - le texte de l'erreur est un texte JSON : `{ code, args: [], stack }`
-  - à détection au retour d'une requête, une exception AppExc est générée depuis ces données.
-- autre statuts (500, 0 ...) : une exception AppExc est générée (E_SRV, 0, ex.message)
+  - à détection au retour d'une requête, une exception `AppExc` est générée depuis ces données.
+- autre statuts (500, 0 ...) : une exception `AppExc` est générée (E_SRV, 0, ex.message)
 
 #### Retour OK d'un GET
-- requêtes yo et yoyo : texte.
-- autres : arrayBuffer (binaire).
+- requête `/fs` : retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL.
+- requêtes `/op/yo` et `op/yoyo` : texte.
+- autres requêtes : `arrayBuffer` (binaire).
 
 #### Retour OK d'un POST
 Le terme binaire est désérialisé, on en obtient une map dont les éléments sont :
@@ -44,6 +45,12 @@ Le terme binaire est désérialisé, on en obtient une map dont les éléments s
   - les autres termes sont spécifiques du _retour_ de chaque opération.
 
 ## Opérations SANS authentification
+### `fs` : mode du serveur
+En fait N'EST PAS une opération.
+
+GET - pas d'arguments `../fs`
+
+Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL.
 
 ### `yo` : ping du serveur
 GET - pas d'arguments `../op/yo`
@@ -55,7 +62,7 @@ Retourne 'yo' + la date et l'heure UTC
 ### `yoyo` : ping du serveur
 GET - pas d'arguments `../op/yoyo`
 
-Ping du serveur APRES vérification de l'origine de la requête.
+Ping du serveur APRÈS vérification de l'origine de la requête.
 
 Retourne 'yoyo' + la date et l'heure UTC
 
