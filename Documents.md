@@ -18,10 +18,10 @@ Son _path_ en Firestore est `singletons/1`.
 
 Le document checkpoint est réécrit totalement à chaque exécution du GC.
 - son existence n'est jamais nécessaire et d'ailleurs lors de la première exécution il n'existe pas.
-- il ne sert qu'à l'administrateur technique pour s'informer, en cas de doutes, du bon fonctionnement du triatement GC en délivrant quelques compteurs, traces d'exécution, traces d'erreurs.
+- il ne sert qu'à l'administrateur technique pour s'informer, en cas de doutes, du bon fonctionnement du traitement GC en délivrant quelques compteurs, traces d'exécution, traces d'erreurs.
 
 ## Espaces
-Tous les autres documents comportent une colonne / attribut `id` dont la valeur détermine un partionnement en _espaces_ cloisonnés : dans chaque espace aucun document ne référence un document d'un autre espace.
+Tous les autres documents comportent une colonne / attribut `id` dont la valeur détermine un partitionnement en _espaces_ cloisonnés : dans chaque espace aucun document ne référence un document d'un autre espace.
 
 Un espace est identifié par `ns`, **un entier de 10 à 69**. Chaque espace à ses données réparties dans les collections / tables suivantes:
 - `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL)a pour valeur le `ns` de l'espace. Path pour le ns 24 par exemple : `espaces/24` `syntheses/24`.
@@ -36,14 +36,11 @@ Un utilitaire permet, en se basant exclusivement sur la valeur de l'attribut `id
 A la déclaration d'un espace sur un serveur, l'administrateur technique déclare un **code organisation**:
 - ce code ne peut plus changer.
 - le Storage de fichiers comporte un _folder_ racine portant ce code d'organisation ce qui partitionne le stockage de fichiers.
+- les connexions aux comptes citent ce _code organisation_: il préfixe les _phrases secrètes_ et de contact des comptes et avatars. Les PBKFD et autres hash stockés dans les documents en dépendent directement, ce qui exclut de pouvoir les changer.
 
 > Un Storage pour une organisation peut être exporté dans un autre Storage:
 - les fichiers sont physiquement recopiés,
-- à cette occasion le code de l'organisation (la racine du Storage) peut être changé, celui de la _cible_ pouvant différer de celui de la _source_.
-
-> Les connexions aux comptes citant ce _code organisation_ c'est une donnée dure, dont le changement ne peut intervenir que dans des circonstances très exceptionnelles puisqu'elle nécessite d'informer tous les utilisateurs ... dont personne n'a la liste. Il reste à _bloquer_ l'ancien espace et à indiquer dans l'information de blocage le nouveau couple URL / code organisation pour retrouver ses données après qu'elles aient été transférées.
-
-Les données ainsi ne faisant référence qu'à des id _courtes_ sont intègres dans la base cible de l'exportation.
+- à cette occasion le code de l'organisation (la racine du Storage) peut être changé, celui de la _cible_ pouvant différer de celui de la _source_. Le changement de code a pour seul intérêt d'effectuer un cliché (pour _backup_ ou test).
 
 ### Tables / collections
 #### Entête de l'espace: `espaces syntheses`
@@ -1195,3 +1192,17 @@ Il y a donc une stricte identité entre les documents extraits de SQL / Firestor
 _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
+
+# Features en réflexion
+
+## Branches
+Une organisation orgA #24 décide de créer une branche @b1 un jour donné :
+- la base de données est est exportée sous un #36.
+- le Storage est recopiée en changeant orgA en orgA@b1.
+- l'administrateur créé un espace #36 en lui donnat comme nom orgA@b1
+
+Les utilisateurs peuvent se connecter à l'organisation orgA@b1 en donnant leur phrases secrètes, celle qu'ils utilisaient en se connectant à orgA.
+
+Les espaces sont dédoublés, tous deux actifs si c'est ce qui est soujaité: les utilisateurs _n'ont plus qu'à_ veiller à savoir quelle branche ils souhaitent connecter.
+
+L'implémentation se limite à ne préfixer les phrases (secrète, de reconnaissance, de contact) que par le texte AVANt le @ (éventuel) et à accepter la syntaxe a@b dans un code d'organisation.

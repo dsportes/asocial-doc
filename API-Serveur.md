@@ -50,7 +50,7 @@ En fait N'EST PAS une opération.
 
 GET - pas d'arguments `../fs`
 
-Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL.
+Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL. Ceci évite dans le code de l'application d'avoir à configurer si la synchronisation est de type SQL (par WebSoket) ou Firestore, la découverte se faisant en runtime.
 
 ### `yo` : ping du serveur
 GET - pas d'arguments `../op/yo`
@@ -925,7 +925,95 @@ Retour: `code` : code d'anomalie:
 
 Assertion sur la version du groupe (quand le groupe existe).
 
-# Annexe I : classes majeures internes du serveur
+# Design interne du serveur
+
+Les deux modes SQL et Firestore sont implémentés dans tous les modules, le choix est exprimé en configuration mais géré en runtime.
+
+## Mode SQL
+L'implémentation utilise une base de données `SQLite` comme support de données persistantes :
+- elle s'exécute en tant que serveur HTTPS dans un environnement **node.js**.
+- le serveur sert aussi l'application Web front-end : quelques fichiers après build par _webpack_.
+- une session de l'application est connectée par WebSocket qui lui notifie les mises à jour des documents `espaces comptas tribus et versions` (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
+- les backups de la base peuvent être stockés sur un Storage.
+
+## Mode Firestore + GAE (Google App Engine)
+Le stockage persistant est Google Firestore.
+- en mode serveur, un GAE de type **node.js** sert de serveur.
+- le stockage est assurée par Firestore : l'instance FireStore est découplée du GAE, elle a sa propre vie et sa propre URL d'accès. En conséquence elle _peut_ être accédée depuis n'importe où, et typiquement par un utilitaire d'administration sur un PC pour gérer un upload/download avec une base locale _SQLite_ sur le PC.
+- une session de l'application reçoit de Firestore les mises à jour sur les espaces comptas tribus versions qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
+
+Dans les deux cas le Storage des fichiers peut-être,
+- soit `fs` : un file-system local du serveur,
+- soit `s3` : un Storage S3 de AWS (éventuellement minio).
+- soit `gc` : un Storage Google Cloud Storage.
+
+En pratique il n'y a pas de raisons fortes à assurer un Storage `s3` sous GAE.
+
+## Modules dans `src/`
+
+### `server.mjs`
+Point d'entrée du serveur:
+- initialisation du logger Winston, un peu différent en mode SQL et Firestore.
+- si les arguments de la ligne de commande sont `export delete storage`, se déroute sur le module `export.mjs`.
+
+**Actions:**
+- détection de la configuration et initialisation de l'accès SQL ou Firestore et du Storage choisi dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
+- lancement de l'écoute Express:
+  - traitement local des URLs simples: `/fs /favicon /robots.txt`.
+  - traitement des requêtes `OPTIONS`.
+  - route les requêtes `/storage/...` vers le module `storage.mjs`.
+  - met en forme les requêtes `/op/...` les vérifie et les route vers le module `operations.mjs` qui a les classes de traitement.
+- initialise les écoutes et réceptions de messages WebSocket dans le cas de l'implémentation SQL.
+
+### `config.mjs`
+Donne directement les options de configuration qui sont accessibles par simple import.
+
+Les données sont aussi disponibles pour convenance dans `ctx.config`.
+
+Détail de la configuration:
+(TODO)
+
+### `api.mjs`
+Ce module est strictement le même queapi.mjs dans l'application UI afin d'être certain que certaines interprétation sont bien identiques de part et d'autres:
+- quelques constantes exportées.
+- les classes `ID AppExc Compteurs AMJ`.
+
+### `base64.mjs`
+Module présent aussi dans l'application UI, Une implémentation locale de la conversion bytes / base64 afin d'éviter de dépendre de celle de Node.
+
+### `utile.mjs`
+Quelques fonctions générales qu'il fallait bien mettre quelque part.
+
+### `webcrypto.mjs`
+L'interface des rares fonctions cryptograpiques requises sur le serveur avec leur implémentation par Node.
+
+### `ws.mjs`
+Gestion des WebSocket ouverts avec les sessions UI en mode SQL:
+- gère l'ouverture / enregistrement d'une session,
+- stocke pour chaque session la liste de ses abonnements,
+- à chaque fin de transaction dispatche sur les WebSocket des sessions les _row_ mis à jour qui les intéresse et envoie le message aux sessions UI,
+- gère un heartbeat sur les sockets pour détecter les sessions perdues.
+
+### `export.mjs`
+Utilitaires `export delete storage`.
+
+`export` : services d'exportation d'un espace sur un autre espace, de SQL vers SQL, de FS vers SQL.
+
+`delete` : suppression d'un espace.
+
+`storage` : exporte le storgae d'un espace dans un autre.
+
+### `storage.mjs`
+Trois classes gérant le storage selon son type fs s3 gc avec le même interface vu des opérations.
+
+### `modele.mjs`
+Données :
+- la classe `Cache` conservant en static une mémoire cache des objets majeurs accédés. Détail ci-après.
+- la class `GenDoc` représentant un document _générique_ et ses méthodes d'accès. Détail ci-après.
+- la classe `Operation` : chaque opération est une instance héritant de cette classe générique. Quelques méthodes utilisées par plus d'une classe d'opération s'y retrouve.
+
+### `operations.mjs`
+Toutes les opérations de l'API figurant ci-avant dans ce document (qui héritent de Operation décrite dans `modele.mjs`).
 
 ## `Cache` : cache des objets majeurs `tribus comptas avatars groupes`
 
@@ -1102,30 +1190,3 @@ Selon la méthode,
   - si exq, lève une exception en cas de dépassement de quotas.
 - Retour : `[rowtribu, rowTribu2]` pour transmission éventuelle en résultat.
 
-# Annexe III : implémentations
-Deux implémentations sont disponibles : SQL et Firestore.
-
-## SQL
-Elle utilise une base de données `SQLite` comme support de données persistantes :
-- elle s'exécute en tant que serveur HTTPS dans un environnement **node.js**.
-- le serveur sert aussi l'application Web front-end : quelques fichiers après build par _webpack_.
-- une session de l'application est connectée par WebSocket qui lui notifie les mises à jour compta, tribu et versions (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
-- les backups de la base peuvent être stockés sur un Storage.
-- le Storage des fichiers peut-être,
-  - soit un file-system local du serveur,
-  - soit un Storage S3 (éventuellement minio).
-  - soit un Storage Google Cloud Storage.
-
-Un utilitaire **node.js** peut extraire et charger un seul espace.
-
-## Firestore + GAE (Google App Engine)
-Le stockage persistant est Google Firestore.
-- en mode serveur, un GAE de type **node.js** sert de serveur
-- le stockage est assurée par Firestore : l'instance FireStore est découplée du GAE, elle a sa propre vie et sa propre URL d'accès. En conséquence elle _peut_ être accédée depuis n'importe où, et typiquement par un utilitaire d'administration sur un PC pour gérer un upload/download avec une base locale _SQLite_ sur le PC.
-- une session de l'application reçoit de Firestore les mises à jour sur les compta, tribu et versions qui la concerne, par des requêtes spécifiques.
-- le Storage est Google Cloud Storage
-
-Un utilitaire **node.js** local peut accéder à un Firestore distant:
-- exporte un Firestore distant (ou local de test) dans une base SQLite locale.
-- importe dans un Firestore distant (ou local de test) vide une base SQLite locale.
-- opérations effectuées globalement ou pour un seul espace.
