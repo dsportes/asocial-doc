@@ -104,17 +104,51 @@ POST:
 Retour:
 - `rowSponsoring` : le row s'il existe
 
+### ExistePhrase : cherche le hash d'une phrase et détermine son existence
+POST:
+- `ids` : hash de la phrase de contact / de connexion.
+- `t` :
+  - 1 : phrase de connexion (`hps1` de `comptas`)
+  - 2 : phrase de sponsoring (`ids` de `sponsorings`)
+  - 3 : phrase de contact (`hpc` de `avatars`)
+
+Retour:
+- `existe` : `true` si le hash de la phrase existe.
+
 ## Opérations authentifiées par l'administrateur
+
+### Documents: les formats _row_ et _compilé_
+Que ce soit en SQL ou en Firestore, l'insertion ou la mise à jour d'un document se fait depuis un _objet Javascript_ ou chaque attribut correspond à une propriété de l'objet. 
+
+Par exemple un document tribus pour mise à jour en SQL ou Firestore est celui-ci : 
+
+    { id: 3200...00, v: 4, _data_: (Uint8Array) }
+
+Pour avoir le format _row_ une propriété _nom a été ajoutée : `{ _nom: 'tribus', id ... }`
+
+Ce format _row_ est celui utilisé entre session UI et serveur, dans les arguments d'opérations et en synchronisation.
+
+#### Format _compilé_
+Les attributs _data_ contiennent toutes les propriétés sérialisées, celles externalisées `id v ...` et celles internes. 
+
+- la fonction `tribu = compile(row)` désérialise le contenu de _data_ d'un objet row et retourne une instance `tribu` de la classe correspondant au nom (par exemple `Tribus` qui hérite de la classe `GenDoc`) avec les attributs externalisés `id v` et ceux internes sérialisés dans _data_. Si _data_ est `null`, il est reconstitué avec les seules propriétés externalisées et la propriété `_zombi` à `true`. Le serveur peut effectuer des calculs depuis tous les attributs.
+- la méthode `row = tribu.toRow()` reconstitue un objet au format _row_ depuis une instance `tribu`.
+
+En session UI le même principe est adopté avec deux différences : 
+- `compile()` sur le serveur est **synchrone et unique** (il n'y a pas d'implémentations pour chaque sous-classe de `GenDoc`).
+- en session `async compile()` est à écrire pour chaque classe : les méthodes effectuent des opérations de cryptage / décryptage asynchrones et de calculs de propriétés complémentaires spécifiques de chaque classe de document.
+- en session il n'y a pas d'équivalent à `toRow()`. Pour des créations de document la construction s'effectue directement en format _row_ et non sur un objet qui serait sérialisé ensuite. 
 
 ### `CreerEspace` : création d'un nouvel espace et du comptable associé
 POST:
 - `token` : jeton d'authentification du compte de **l'administrateur**
 - `rowEspace` : row de l'espace créé
+- `rowSynthese` : row `syntheses` créé
 - `rowAvatar` : row de l'avatar du comptable de l'espace
 - `rowTribu` : row de la tribu primitive de l'espace
-- `rowTribu2` : row tribu2 de la tribu primitive avec l'entrée pour le compte comptable
-- `rowCompta` : row du compte du comptable
-- `rowVersion`: row de la version de l'avatar (avec sa dlv) 
+- `rowCompta` : row du compte du Comptable
+- `rowVersion`: row de la version de l'avatar (avec sa dlv)
+- `hps1` : hps1 de la phrase secrète
 
 Retour: rien si OK (sinon exceptions)
 
@@ -125,14 +159,15 @@ Règles de gestion à respecter par l'appelant
 POST:
 - `token` : jeton d'authentification du compte de **l'administrateur**
 - `ns` : id de l'espace notifié
-- `notif` : sérialisation de l'objet notif, cryptée par le rnd du comptable de l'espace. Ce rnd étant public, le cryptage est symbolique et vise seulement à éviter une lecture simple en base.
+- `notif` : sérialisation de l'objet notif, cryptée par la clé du comptable de l'espace. Cette clé étant publique, le cryptage est symbolique et vise seulement à éviter une lecture simple en base.
   - `idSource`: id du Comptable ou du sponsor, par convention 0 pour l'administrateur.
   - `jbl` : jour de déclenchement de la procédure de blocage sous la forme `aaaammjj`, 0 s'il n'y a pas de procédure de blocage en cours.
   - `nj` : en cas de procédure ouverte, nombre de jours après son ouverture avant de basculer en niveau 4.
   - `texte` : texte informatif, pourquoi, que faire ...
   - `dh` : date-heure de dernière modification (informative).
 
-Retour: rien
+Retour: 
+- `rowEspace` : le row espaces mis à jour.
 
 ### `SetEspaceT` : déclaration du profil de volume de l'espace par l'administrateur
 POST:
@@ -970,18 +1005,21 @@ Donne directement les options de configuration qui sont accessibles par simple i
 
 Les données sont aussi disponibles pour convenance dans `ctx.config`.
 
-Détail de la configuration:
-(TODO)
+Détail de la configuration en annexe.
 
 ### `api.mjs`
 Ce module est strictement le même queapi.mjs dans l'application UI afin d'être certain que certaines interprétation sont bien identiques de part et d'autres:
 - quelques constantes exportées.
-- les classes `ID AppExc Compteurs AMJ`.
+- les classes,
+  - `AppExc` : format général d'une exception permettant son affichage en session, en particulier en supportant la traduction des messages.
+  - `ID` : les quelques fonctions statiques permettant de déterminer depuis une id si c'est celle d'un avatar, groupe, tribu, ou celle du Comptable.
+  - `Compteurs` : calcul et traitement des compteurs statistiques des compteurs statistiques des documents `comptas`.
+  - `AMJ` : une date en jour sous la forme d'un entier aaaammjj. Cette classe gère les opérations sur ce format.
 
 ### `base64.mjs`
-Module présent aussi dans l'application UI, Une implémentation locale de la conversion bytes / base64 afin d'éviter de dépendre de celle de Node.
+Module présent aussi dans l'application UI, donnant une implémentation locale de la conversion bytes / base64 afin d'éviter de dépendre de celle de Node et d'avoir deux procédés un en Web et l'autre en Node.
 
-### `utile.mjs`
+### `util.mjs`
 Quelques fonctions générales qu'il fallait bien mettre quelque part.
 
 ### `webcrypto.mjs`
@@ -1015,20 +1053,37 @@ Données :
 ### `operations.mjs`
 Toutes les opérations de l'API figurant ci-avant dans ce document (qui héritent de Operation décrite dans `modele.mjs`).
 
-## `Cache` : cache des objets majeurs `tribus comptas avatars groupes`
+## `Cache` : cache des objets majeurs `espaces tribus comptas avatars groupes`
+
+Cet objet gére une mémoire cache des derniers documents demandés dans leur version la plus récente.
+
+Le test pour savoir si la version détenue est la dernière s'effectue dans une transaction et permet de ne pas lire le document de la table ou de la collection si sa version n'est pas plus récente ce qui évite des lectures coûteuses inutiles (et coûteuses monaiterement en Firestore).
+
+Cache gère aussi une mémoire cache de `checkpoint` le document de suivi du GC.
+
+En stockant les document `espaces`, `Cache` fournit également le code de l'organisation d'un espace connu par son ns (son id).
 
 ### `static getRow (transaction, nom, id)`
 Obtient le row de la cache ou va le chercher.
 - Si le row actuellement en cache est le plus récent on a évité une lecture effective et la méthode s'est limité à un filtre sur index qui ne coûte rien en FireStore et pas grand chose en SQL.
 - Si le row n'était pas en cache ou que la version lue est plus récente IL Y EST MIS:
-  - certes la transaction _peut_ échouer, mais au pire on a lu une version,  pas forcément la dernière, mais plus récente.
+  - certes la transaction _peut_ échouer, mais au pire on a lu une version, pas forcément la dernière, mais plus récente.
 
 ### `static update (newRows, delRowPaths)`
 Utilisée en fin de transaction pour enrichir la cache APRES le commit de la transaction avec tous les rows créés, mis à jour ou accédés (en ayant obtenu la _dernière_ version).
 
+### `static async getCheckpoint ()`
+Retourne le dernier checkpoint enregistré parle GC.
+
+### `async setCheckpoint (obj)`
+Enregistre en base et dans Cache le dernier objet de checkpoint défini par le GC.
+
+### `async org (id)`
+Retourne le code de l'organisation pour une id donnée (un ns).
+
 ## La classe `GenDoc`
-### Fonction `compile (row, nom) -> Objet`
-Cette fonction aurait pu être déclarée static de GenDoc et a été écrite comme fonction pour raccourcir le texte d'appel très fréquente.
+### Fonction `compile (row) -> Objet`
+Cette fonction aurait pu être déclarée static de `GenDoc` et a été écrite comme fonction pour raccourcir le texte d'appel très fréquent.
 
 Chaque **row** d'une table SQL ou **document** Firestore apparaît sous deux formes :
 - **row** : c'est l'objet Javascript directement stocké en tant que row d'une table SQL ou document Firestore.
@@ -1048,23 +1103,19 @@ Réciproquement depuis un objet `a` par exemple de classe `Avatars`, `a.toRow()`
 
 ### Liste restrictive des attributs d'un row
 Cette liste est fermée : pour chaque classe la liste exhaustive est donnée.
-- `nom` : nom symbolique de la classe dont est issue le row ('avatar', 'groupe', ...).
+- `_nom` : nom symbolique de la classe dont est issue le row ('avatar', 'groupe', ...).
 - `id` : l'id principale (et unique pour les objets majeurs).
 - `ids` : l'id secondaire pour les `Notes Transferts Sponsorings Chats Membres`.
 - `v` : sauf Gcvols. Version de l'objet.
-- `iv` : sauf Gcvols. Fusion de l'id et de la version : 10 premiers chiffres de l'id et 6 derniers chiffres de la version.
 - `vcv` : pour Avatars Chats Membres : version de la carte de visite.
-- `iv` : pour Avatars Chats Membres : 10 premiers chiffres de l'id et 6 derniers chiffres de la version de la carte de visite.
 - `dlv`: pour Versions Transferts Sponsorings Membres : date limite de validité (`aaaammjj`). A partir de cette date, le document n'est plus _valide_, il est sémantiquement _disparu_. En compilé l'attribut `_zombi` vaut `true`.
 - `hps1` : sur Comptas, hash de la phrase secrète raccourcie.
 - `dfh` : sur Groupes date de fin d'hébergement.
 - `hpc` : sur Avatars, hash de la phrase de contact (pseudo plus ou moins temporaire).
 - `_data_` : sérialisation de tous les attributs, dont ceux ci-dessus.
 
-En forme compilé, `_data_` n'est pas présent mais à la place tous les attributs dela classe sont présents.
-- quand _data n'existe pas ou est null dans le format row, l'attribut _zombi de la classe correspondante vaut true.
-
-Les attributs `iv` et `ivc` sont calculés par la méthode toRow() depuis l'id de l'objet et la version (`v`) de l'objet ou de la carte de visite (`vcv`).
+En forme compilé la propriété `_data_` n'est pas elle-même présente mais à la place tous les attributs de la classe sont présents.
+- quand _data_ n'existe pas ou est null dans le format row, l'attribut _zombi de la classe correspondante vaut true.
 
 ### Méthodes statiques _publiques_ de `GenDoc`
 Elles offrent les accès,
@@ -1075,16 +1126,31 @@ Chaque méthode _publique_ invoque l'une des deux méthodes _privées_ correspon
 
 Des méthodes _privées_ utilitaires existent pour chacun des deux modes.
 
-`static async get (transaction, nom, id, v, ids)`
-- retourne le row de nom donné, pour cette id (et ids le cas échéant pour un sous-document) si sa version est postérieure à v.
+`static async getV (transaction, nom, id, v)`
+- pour les collections _majeures_ retourne le row de nom donné, pour cette id si sa version est postérieure à v.
+
+`static async get (transaction, nom, id, ids)`
+- pour les sous-collections, retourne le row de nom donné pour cette id et cette ids sans considérer sa version (donc la plus récente).
 
 `static async getAvatarVCV (transaction, id, vcv)`
-- retourne le row de l'avatar d'id donnée si la version de sa carte de visite est postérieure à vcv.
+- retourne l'avatar compilé d'id donnée si la version de sa carte de visite est postérieure à vcv.
 
 `static async getChatVCV (transaction, id, ids, vcv)`
-- retourne le chat si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
+- retourne le chat compilé si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
 
-`static async coll (transaction, nom, v)`
+`static async getMembreVCV (transaction, id, ids, vcv)`
+- retourne le membre compilé si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
+
+`static async getVersionsDlv (dlvmin, dlvmax)`
+- retourne **l'array des id** des `versions` dont la dlv est entre min et max incluses. 
+
+`static async getMembresDlv (dlvmax)`
+- retourne **l'array des id** des `membres` dont la dlv est inférieure ou égale à dlvmax.
+
+`static async getGroupesDfh (dfh)`
+- retourne l'array des id des `groupes` dont la fin d'hébergement est inférieure ou égale à dfh
+
+`static async coll (transaction, nom)`
 - retourne tous les rows de la collection de nom donné, tous espaces confondus.
 
 `static async collNs (transaction, nom, ns)`
@@ -1092,6 +1158,12 @@ Des méthodes _privées_ utilitaires existent pour chacun des deux modes.
 
 `static async scoll (transaction, nom, id, v)`
 - retourne tous les rows de la sous-collection de nom donné (`notes transferts membres sponsorings chats`) de version postérieure à v.
+
+`static async delScoll (nom, id)`
+- purge, hors transaction, tous les documents de la sous-collection de nom et d'id donné.
+
+`static async delAvGr (id)`
+- purge, hors transaction, le groupe ou l'avatar d'id donné.
 
 `static async getComptaHps1 (transaction, hps1)`
 - retourne le row `comptas` dont l'attribut hps1 est celui donné en argument (accès par le hash de la phrase secrète raccourcie).
@@ -1102,6 +1174,12 @@ Des méthodes _privées_ utilitaires existent pour chacun des deux modes.
 `static async getSponsoringIds (transaction, ids)`
 - retourne le row `sponsorings` dont l'attribut ids est celui donné en argument (accès par le hash de la phrase de sponsorings raccourcie).
 
+`static async getGcvols (ns)`
+- retourne tous les rows gcvols de l'espace ns donné (pour traitement à la fin de la phase de connexion du Comptable de l'espace).
+
+`static async setVdlv (id, dlv)`
+- force la dlv, hors transaction et sans changer la version v, du document `versions` d'id donné (utilisé par le GC).
+
 ## Classe `Operation`
 Le déclenchement d'une opération `MonOp` sur réception d'une requête `.../op/MonOp`,
 - créé un objet `MonOp` héritant de `Operation`,
@@ -1109,8 +1187,12 @@ Le déclenchement d'une opération `MonOp` sur réception d'une requête `.../op
   - sa méthode `phase1()` qui s'exécute hors de toute transaction, typiquement pour des contrôles d'argments,
   - sa méthode `phase2()` qui s'exécute dans le contexte d'une unique transaction.
 
+Dans une transaction Firestore aucune lecture n'est autorisée dès qu'une mise à jour a été effectuée. Les mises à jour sont de ce fait _enregistrées et mises en attente_ au cours de la phase 2 et ne seront effectivement faites qu'après la phase 2.
+
+En conséquence, les opérations doivent prendre en compte que la modification d'un document n'est jamais perceptible dans la même transction par une lecture : le cas échéant si nécessaire stocker en mémoire de l'objet opération les mises à jour si elles participent de la logique de l'opération.
+
 ### Authentification avant `phase1()`
-Chaque classe Operation spécifie un attribut authMode qui déclare comment interpréter l'attribut token reçu dans l'objet args (argments sérialisés reçu dans le body de la requête ou queryString de l'URL). Cet objet est disponible dans `this.args` :
+Chaque classe Operation spécifie un attribut authMode qui déclare comment interpréter l'attribut `token` reçu dans l'objet `args` (argments sérialisés reçu dans le body de la requête ou queryString de l'URL). Cet objet est disponible dans `this.args` :
 - `authMode === 3` : SANS TOKEN, pings et accès non authentifiés (recherche phrase de sponsoring).
 - `authMode === 2` : AVEC TOKEN, créations de compte. Elles ne sont pas encore enregistrées, elles vont justement enregistrer leur authentification.
 - `authMode === 1` : AVEC TOKEN, première connexion à un compte : `this.rowComptas` et `this.compta` sont disponibles.
@@ -1133,60 +1215,166 @@ Chaque classe Operation spécifie un attribut authMode qui déclare comment inte
 `delete (row) `
 - Inscrit row dans les rows à détruire en phase finale d'écritue, juste après la phase 2.
 
-### Méthodes de gestion du checkpoint
-`static async getCkpt (transaction, ns)`
-- retourne l'objet Checkpoint de l'esppace ou nulll s'il n'existe pas.
-- transaction est l'objet this.transaction d'iune opération.
-
-`static async setCkpt (transaction, ns, obj, insert)`
-- enregistre l'objet obj comme checkpoint de l'espace.
-
 ### Méthodes `async` de lecture
 Selon la méthode,
 - retourne UN row (ou null) ou un array de rows (possiblement vide).
-- quand le dernier paramètre assert est true, au lieu de retourner null, lève une exception A_SRV (assertion).
+- quand le dernier paramètre `assert` est true, au lieu de retourner null, lève une exception A_SRV (assertion).
 
-    async getAllRowsEspace ()
-    async getRowEspace (id, assert)   // de Cache
-    async getAllRowsTribu ()
-    async getRowTribu (id, assert)    // de Cache
-    async getRowTribu2 (id, assert)   // de Cache
-    async getRowCompta (id, assert)   // de Cache
-    async getRowVersion (id, assert)  // de Cache
-    async getRowAvatar (id, assert)   // de Cache
-    async getRowGroupe (id, assert)   // de Cache
-    async getAllRowsSecret(id, v)
-    async getRowSecret (id, ids, v, assert)
-    async getAllRowsChat(id, v)
-    async getRowChat (id, ids, v, assert)
-    async getAllRowsSponsoring(id, v)
-    async getRowSponsoring (id, ids, v, assert)
-    async getAllRowsMembre(id, v)
-    async getRowMembre (id, ids, v, assert)
+async getAllRowsEspace ()
+
+async getRowEspace (id, assert)
+- de Cache
+
+async getAllRowsTribu ()
+
+async getRowTribu (id, assert)
+- de Cache
+
+async getRowSynthese (id, assert)
+- de Cache
+
+async getRowCompta (id, assert)
+- de Cache
+
+async getRowVersion (id, assert, nonZombi)
+- de Cache.
+- génère une assert si le rowVersion est zombi et l'argument `nonZombi` à true.
+
+async getRowAvatar (id, assert)
+- de Cache
+
+async getRowGroupe (id, assert)
+- de Cache
+
+async getAllRowsNote(id, v)
+
+async getRowNote (id, ids, v, assert)
+
+async getAllRowsChat(id, v)
+
+async getRowChat (id, ids, v, assert)
+
+async getAllRowsSponsoring(id, v)
+
+async getRowSponsoring (id, ids, v, assert)
+
+async getAllRowsMembre(id, v)
+
+async getRowMembre (id, ids, v, assert)
+
+async setFpurge (idag, lidf) 
+- créé, hors transaction, un document `Fpurge` pour un avatar / groupe idag et une liste éventuelle restrictive de fichiers.
+- Retourne l'id générée
+
+async unsetFpurge (id)
+- supprime, hors transaction, un document `fpurges`.
+
+async listeFpurges ()
+- retourne une array des rows `fpurges` existants.
+
+async listeTransfertsDlv (dlv)
+- retourne une array des couples [id, ids] des documents `transferts` ayant une dlv inférieure ou égale à celle passée en argument.
+
+async purgeTransferts (id, ids)
+- purge hors transaction le document transfert.
+
+async purgeDlv (nom, dlv)
+- purge hors transaction les sponsorings ou versions (selon le nom en argument) ayant une dlv inférieure ou égale à dlv.
 
 ### Méthodes invoquées depuis plus d'une opération
-`async majVolumeGr (idg, dv1, dv2)`
+`async majVolumeGr (idg, dv1, dv2, simu, assert)`
 - Met à jour les volumes du groupe.
 - Refuse si le volume est en expansion et qu'il dépasse le quota.
-- L'objet version du groupe est dans this.vgroupe (l'a lu si this.vgroupe est null).
-- Son changement de version et update a été fait.
-- Retourne cette version.
+- si l'objet `versions` du groupe n'existe pas, une exception est levée (par une assert).
+- Son changement de version et update est fait SAUF si simu est true.
+- Retourne la version du document `versions`.
 
-`async majCompteursCompta (idc, dv1, dv2, vt, ex, noupd)`
+`async majCompteursCompta (idc, dv1, dv2, vt, ex, assert)`
 - Si `ex` lève une exception en cas de dépassement de quota
-- Si `noupd`, n'effectue pas la mise à jour "this.update(compta.toRow())" et le laisse faire à l'appelant.
+- si l'objet `comptas` n'existe pas, une exception est levée (par une assert).
 - Retourne `compta` ou null s'il n'y avait rien à faire.
 
-`async majTribu12 (tribu2, exq)`
--  Répercussion de tribu2 sur son tribu associé, à l'occasion de :
-  - acceptation d'un sponsoring
-  - disparition d'un compte
-  - changement de quota d'un compte
-  - changement de tribu d'un compte
-  - notification de niveau compte
-- Actions :
-  - met à jour la version de tribu2.
-  - update tribu et tribu2.
-  - si exq, lève une exception en cas de dépassement de quotas.
-- Retour : `[rowtribu, rowTribu2]` pour transmission éventuelle en résultat.
+`async MajSynthese (tribu, noupd)`
+- Met à jour le document syntheses de l'espace suite à la mise à jour d'une tribu.
+- si noupd, le this.update de la synthèse n'est pas effectuée car il y en a une autre à effectuer ensuite.
+
+# Annexe : la configuration dans `config.mjs`
+
+`port: 8443`  
+- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé et c'est la variable process.env.PORT qui le donne.
+
+`origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
+- Liste des origines autorisées. Si la liste est vide, l'origine n'est pas contrôlée.
+
+`Firestore: false`  
+- si false le mode SQL est activé, sinon c'est le mode Firestore.
+
+`fscredentials: { apiKey: 'AI...', authDomain: '...', }`  
+- A récupérer de la page d'administration de Firebase pour le projet : c'est l'objet autorisant des accès Web à Firebase. Utile seulement si Firestore est true.
+
+`sql: './sqlite/test1.db3'  `
+- Path de la base sqlite en mode SQL.
+
+`apitk: 'VldNo2aLLvXRm0Q'  `
+- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration de déploiement (quasar.config.js de l'aplication UI.
+
+Interprétation des URLs:   
+- `prefixop: '/op'`
+- `prefixapp: '/app'`
+- `pathapp: './app'`
+
+`pathfavicon: './config/favicon.ico'`
+-Path du fichier favicon.
+
+Path des certificats: pas utilisé en GAE.
+- `pathcert: './config/fullchain.pem'`
+- `pathkey: './config/privkey.pem'`
+
+`admin:  ['tyn9fE7zr...=']`
+- Hash du PBKFD de la phrase secrète de l'administrateur technique.
+
+`ttlsessionMin: 60`
+- durée de vie en minutes d'une session sans activité (mode SQL seulement).
+
+`storageprovider: 'fsa'`
+- code du provider de storage gérant le stockage des fichiers.
+- il y a 3 types de providers implémentés:
+  - `fs` : sur File-system local (pour les tests en pratique),
+  - `s3` : interface S3 de AWS (dont l'implémentation minio),
+  - `gc` : interface Google Colud storage
+- le code 'fsa' doit correspondre à :
+  - une implémentation fs,
+  - une entrée de configuration `fsaconfig` dans la config.
+
+`fsaconfig: { rootpath: ..., rooturl: ... }`
+- configuration file-sytem:
+  - `rootpath: '../storage'`
+    - localisation du folder hébergeant les fichiers.
+  - `rooturl: 'https://test.sportes.fr:8443'`
+    - l'URL du serveur vue d'une session UI: en file-system c'est le serveur qui gère le PUT et le GET des fichiers.
+
+`s3config: { ... }`
+
+    s3config: {
+      s3 : {
+        credentials: {
+          accessKeyId: 'access-asocial',
+          secretAccessKey: 'secret-asocial'
+        },
+        endpoint: 'http://localhost:9000',
+        region: 'us-east-1',
+        forcePathStyle: true,
+        signatureVersion: 'v4'
+      },
+      bucket: 'asocial'
+    }
+
+- `s3 : { ... }`: données par le provider à la création du storage.
+- `bucket: 'asocial'` : bucket réservé à l'application.
+
+`gcconfig: { ... }`
+
+    gcconfig: { 
+      ... 
+    }
 
