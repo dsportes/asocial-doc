@@ -224,10 +224,10 @@ Assertion sur l'existence du compte sponsor.
 
 ## Opérations authentifiées de création de compte et connexion
 **Remarques:**
-- le compte _Administrateur_ n'est pas vraiement un compte mais simplement une autorisation d'applel des opérations qui le concernent lui seul. Lehash de sa phrase secrète est enregistrée dans la configuration du serveur.
+- le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'applel des opérations qui le concernent lui seul. Lehash de sa phrase secrète est enregistrée dans la configuration du serveur.
 - le compte _Comptable_ de chaque espace est créé par l'administrateur à la création de l'espace. Ce compte est normal. Sa phrase secrète a été donnée par l'administrateur et le comptable est invité à la changer au plus tôt.
 - les autres comptes sont créés par _acceptation d'un sponsoring_ qui fixe la phrase secrète du compte qui se créé : après cette opération la session du nouveau compte est normalement active.
-- les deux opérations suivantes sont _autnentifiées_ et transmettent les données d'authenfication par le _token_ passé en argument porteur du has de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
+- les deux opérations suivantes sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du has de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
 
 ### `AcceptationSponsoring` : création du compte du _sponsorisé_
 POST:
@@ -240,16 +240,16 @@ POST:
 - `rowChatI` : row chat _interne_ pour le compte en création donnant le message de remerciement au sponsor.
 - `rowChatE` : row chat _externe_ pour le sponsor avec le même message. La version est obtenue par le serveur.
 - `ardx` : texte de l'ardoise du sponsoring à mettre à jour (avec statut 2 accepté), copie du texte du chat échangé.
-- `mbtrid` : id de son élément `mbtr` dans tribu2. Cet id est le hash de la clé `rnd` du membre.
-- `mbtre` : élément de la map `mbtr` dans tribu2 associé au compte créé.
-- `quotas` : `[v1, v2]` quotas attribués par le sponsor.
+- `act`: élément de la map act de sa tribu
+- **SI quotas à prélever** sur le COMPTE du sponsor,
+- `it` : index de ce compte dans la tribu
+- `q1 q2` : quotas attribués par le sponsor.
 
 Retour: rows permettant d'initialiser la session avec le nouveau compte qui se trouvera ainsi connecté.
 - `rowTribu`
-- `rowTribu2`
 - `rowChat` : le chat _interne_, celui concernant le compte.
 - `credentials` : données d'authentification permettant à la session d'accéder au serveur de données Firestore.
-- `rowEspace` : row de l'espace (informations générales / statistques de l'espace et présence de la notification générale éventuelle.
+- `rowEspace` : row de l'espace, informations générales / statistiques de l'espace et présence de la notification générale éventuelle.
 
 Exceptions:
 - `F_SRV, 8` : il n'y a pas de sponsoring ayant ids comme hash de phrase de connexion.
@@ -279,6 +279,22 @@ Retour, pour _administrateur_:
 
 ## Opérations authentifiées pour un compte APRES sa connexion
 Ces opérations permettent à la session cliente de récupérer toutes les données du compte afin d'initialiser son état interne.
+
+### `GetEspace` : get de l'espace du compte de la session
+POST:
+- `token` : éléments d'authentification du compte.
+- `ns` : id de l'espace.
+
+Retour:
+- `rowEspace`
+
+### `GetSynthese` : retourne la synthèse de l'espace
+POST:
+- `token` : éléments d'authentification du compte.
+- `ns` : id de l'espace.
+
+Retour:
+- `rowSynthse`
 
 ### `SetStats` : déclaration des statistiques de l'espace par son Comptable
 A sa connexion, le **comptable** agrège les compteurs statistiques de **toutes les tribus de l'espace** et les soumet au serveur pour stockage dans le document de l'espace.
