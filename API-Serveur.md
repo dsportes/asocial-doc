@@ -1315,36 +1315,17 @@ async purgeDlv (nom, dlv)
 - si noupd, le this.update de la synthèse n'est pas effectuée car il y en a une autre à effectuer ensuite.
 
 # Annexe : la configuration dans `config.mjs`
+`rooturl: 'https://test.sportes.fr:8443'`
+- L'URL d'appel du serveur. Est utilisé pour faire des liens d'upload / download de fichiers
 
 `port: 8443`  
-- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé et c'est la variable process.env.PORT qui le donne.
+- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable process.env.PORT qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
 
 `origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
 - Liste des origines autorisées. Si la liste est vide, l'origine n'est pas contrôlée.
 
-`Firestore: false`  
-- si false le mode SQL est activé, sinon c'est le mode Firestore.
-
-`fscredentials: { apiKey: 'AI...', authDomain: '...', }`  
-- A récupérer de la page d'administration de Firebase pour le projet : c'est l'objet autorisant des accès Web à Firebase. Utile seulement si Firestore est true.
-
-`sql: './sqlite/test1.db3'  `
-- Path de la base sqlite en mode SQL.
-
-`apitk: 'VldNo2aLLvXRm0Q'  `
-- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration de déploiement (quasar.config.js de l'aplication UI.
-
-Interprétation des URLs:   
-- `prefixop: '/op'`
-- `prefixapp: '/app'`
-- `pathapp: './app'`
-
-`pathfavicon: './config/favicon.ico'`
--Path du fichier favicon.
-
-Path des certificats: pas utilisé en GAE.
-- `pathcert: './config/fullchain.pem'`
-- `pathkey: './config/privkey.pem'`
+`projectId: 'asocial-test1'`
+- requis en usage Firestore / Google Cloud storage: ne gêne pas d'en mettre un dans les autres cas.
 
 `admin:  ['tyn9fE7zr...=']`
 - Hash du PBKFD de la phrase secrète de l'administrateur technique.
@@ -1352,47 +1333,63 @@ Path des certificats: pas utilisé en GAE.
 `ttlsessionMin: 60`
 - durée de vie en minutes d'une session sans activité (mode SQL seulement).
 
-`storageprovider: 'fsa'`
+`apitk: 'VldNo2aLLvXRm0Q'  `
+- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration de déploiement (`quasar.config.js` de l'aplication UI.
+
+Interprétation des URLs:   
+- `prefixop: '/op'` : il n'y a pas de raisons de le changer.
+- `prefixapp: '/app'` : commenter la ligne si le serveur ne doit pas servir les URLs statiques de l'application UI.
+
+`pathapp: './app'`
+- si le serveur sert aussi les pages de l'application UI, folder ou cette application est distribuée.
+
+`pathsql: './sqlite/test1.db3'`
+- si le mode est SQL, path de l'emplecement de la base Sqlite.
+
+`pathlogs: './logs'`
+- path ou ranger les logs, sauf en déploiement GAE.
+
+`favicon: 'favicon.ico'`
+- si la favicon n'est pas celle par défaut, nom de son fichier dans le folder de configuration. Sinon commenter la ligne.
+
+`pathconfig: './config'`
+- Le répertoire de configuration doit contenir jusqu'à 5 fichiers:
+  - le certificat SSL : `fulchain.pem privkey.pem`. Sauf en déploiement GAE et _passenger_.
+  - `service_acount.json` : indispensable pour Firestore et provider de storage `gc`.
+  - `firebase_config.json` : indispensable pour Firestore.
+  - `s3_config.json` : indispensable si le provider de storage est `s3`.
+  - `favicon.ico` : seulement si favicon est spécifié.
+
+`firestore: false`  
+- si `false` le mode SQL est activé, sinon c'est le mode Firestore.
+
+`gae: false`
+- true pour un déploiement Google App Engine.
+
+`emulator: false`
+- `false` si l'émulateur Firestore n'est pas utilisé (accès à la base réelle). Si `true` les deux entrées suivantes sont requises:
+  - `firestore_emulator: 'localhost:8080'`
+  - `storage_emulator: 'http://127.0.0.1:9199'` - 'http://...' est REQUIS.
+
+`storageprovider: 'fsb'`
 - code du provider de storage gérant le stockage des fichiers.
 - il y a 3 types de providers implémentés:
   - `fs` : sur File-system local (pour les tests en pratique),
   - `s3` : interface S3 de AWS (dont l'implémentation minio),
   - `gc` : interface Google Colud storage
-- le code 'fsa' doit correspondre à :
-  - une implémentation fs,
-  - une entrée de configuration `fsaconfig` dans la config.
+- le code `fsb` correspond à :
+  - une implémentation `fs`,
+  - une entrée de configuration `fsbconfig` dans ce fichier.
 
-`fsaconfig: { rootpath: ..., rooturl: ... }`
+`fsaconfig: { rootpath: './wwwb' }`
 - configuration file-sytem:
-  - `rootpath: '../storage'`
-    - localisation du folder hébergeant les fichiers.
-  - `rooturl: 'https://test.sportes.fr:8443'`
-    - l'URL du serveur vue d'une session UI: en file-system c'est le serveur qui gère le PUT et le GET des fichiers.
+  - `rootpath` : localisation du folder hébergeant les fichiers.
 
-`s3config: { ... }`
+`s3config: { bucket: 'asocial' }`
+- pour un provider de stockage `s3`, nom du bucket.
 
-    s3config: {
-      s3 : {
-        credentials: {
-          accessKeyId: 'access-asocial',
-          secretAccessKey: 'secret-asocial'
-        },
-        endpoint: 'http://localhost:9000',
-        region: 'us-east-1',
-        forcePathStyle: true,
-        signatureVersion: 'v4'
-      },
-      bucket: 'asocial'
-    }
-
-- `s3 : { ... }`: données par le provider à la création du storage.
-- `bucket: 'asocial'` : bucket réservé à l'application.
-
-`gcconfig: { ... }`
-
-    gcconfig: { 
-      ... 
-    }
+`gcconfig: { bucket: 'asocial-test1.appspot.com' }`
+- pour un provider de stockage `gc`, nom du bucket. Ce nom est celui utilisé par défaut par Firebase ce qui facilite les tests.
 
 # Développement / déploiement : remarques
 
