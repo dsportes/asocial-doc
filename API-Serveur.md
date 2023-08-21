@@ -1316,13 +1316,13 @@ async purgeDlv (nom, dlv)
 
 # Annexe : la configuration dans `config.mjs`
 `rooturl: 'https://test.sportes.fr:8443'`
-- L'URL d'appel du serveur. Est utilisé pour faire des liens d'upload / download de fichiers
+- L'URL d'appel du serveur. Est utilisée pour faire des liens d'upload / download de fichiers du provider de storage `fs` (et des autres en test / simulation).
 
 `port: 8443`  
-- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable process.env.PORT qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
+- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable `process.env.PORT` qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
 
 `origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
-- Liste des origines autorisées. Si la liste est vide, l'origine n'est pas contrôlée.
+- Liste des origines autorisées. Si l'application UI est distribuée par le même serveur (déploiement GAE et mono serveur), la liste peut être vide et est remplie avec la combinaison `rooturl` et `port` (ou nod.ENV.port).
 
 `projectId: 'asocial-test1'`
 - requis en usage Firestore / Google Cloud storage: ne gêne pas d'en mettre un dans les autres cas.
@@ -1342,6 +1342,12 @@ Interprétation des URLs:
 
 `pathapp: './app'`
 - si le serveur sert aussi les pages de l'application UI, folder ou cette application est distribuée.
+
+`prefixwww: '/www'`
+- si le serveur sert aussi les pages statiques Web, préfixe des URLs correspondantes.
+
+`pathwww: './www'`
+- si le serveur sert aussi les pages statiques Web, folder ou ces pages résident.
 
 `pathsql: './sqlite/test1.db3'`
 - si le mode est SQL, path de l'emplecement de la base Sqlite.
@@ -1381,7 +1387,7 @@ Interprétation des URLs:
   - une implémentation `fs`,
   - une entrée de configuration `fsbconfig` dans ce fichier.
 
-`fsaconfig: { rootpath: './wwwb' }`
+`fsconfig: { rootpath: './storage' }`
 - configuration file-sytem:
   - `rootpath` : localisation du folder hébergeant les fichiers.
 
@@ -1717,10 +1723,25 @@ Le serveur se lance dans `asocial/run` par `node app.js`
 
 ### Déploiement multi serveurs
 Les trois composantes,
-- applications UI,
-- applications serveur node,
+- instances d'application UI,
+- instances d'applications serveur node,
 - espace statique www,
 
 sont gérées / déployées séparément.
 
-Un server nginx gère autant de serveurs virtuels qu'il y a d'application UI. Chacun est buildé avec un paramétrage spéfique: en particulier dans quasar.config.js / build la variable 
+Un server `nginx` gère autant de serveurs virtuels qu'il y a d'application UI:
+- chacune est buildée avec un paramétrage spécifique;
+- a minima dans `quasar.config.js / build` la variable `SRV` donne l'URL de **SON** serveur.
+
+Il en résulte autant de builds et donc de déploiements à effectuer pour les applications UI.
+
+Il faut également builder chaque instance d'application serveur:
+- son PORT d'écoute (`config.mjs / PORT`) est différent. 
+- `rooturl` _peut_ être limité au _host name_ si elle n'est pas utilisée par le provider de storage configuré.
+- `origins` doit être configuré pour n'accepter les requêtes QUE de l'instance d'application UI spécifiée.
+
+Il y a autant de serveurs node à lancer qu'il y a d'instances de serveurs définies.
+
+Le déploiement demande en conséquence un script spécifique pour enchaîner sans risque d'erreurs les altérations de `config.mjs`, les builds (UI et serveur) et les recopies dans les folders de déploiement. 
+
+Il faut aussi scripter les envois ftp aux bonnes localisations sur le(s) site(s) de production.
