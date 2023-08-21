@@ -1646,25 +1646,81 @@ Elles sont générées par `src/seveur.mjs` en fonction de `src/config.mjs` : el
 - GOOGLE_CLOUD_PROJECT="asocial-test1"
 - GOOGLE_APPLICATION_CREDENTIALS="./config.service_account.json"
 
-## Déploiment et `src/config.mjs`
-git met en place l'environnement de DEV : le fichier `src/config.mjs` est générique, d'ailleurs en fait celui de DEV et doit être adapté **à chaque site de déploiement**.
+# Déploiments
+Il existe deux déploiements _simples_:
+- **Google App Engine** (GAE): un répertoire de déploiement est préparé et la commande `gcloud app deploy` effectue le déploiement sur le projet correspondant.
+- **Mono serveur node** (MSN): un répertoire de déploiement est préparé puis est transféré sur le site récepteur par ftp typiquement.
 
-La commande `npm run build` créé dans `./dist` les fichiers à déployer.
+Il est aussi possible d'avoir des **déploiements multi serveurs** pour l'application UI et des serveurs nodejs multiples.
 
-Pour chaque déploiement à effectuer:
-- utiliser un folder spécifique.
-- y recopier les fichiers du folder `dist` généré par le build du serveur.
-- y recopier, à la localisation prévue (typiquement `./app`), les fichiers du folder `dist` généré par le build de l'application UI.
-- dans le folder `./config` (en général), copier les fichiers d'authenfication `service_account.json firebase_config.json s3_config.json` et `fullchain.pem privkey.pem` (sauf App Engine).
+## Déploiements simples: processus commun
+Il est bien entendu possible de déployer sur plusieurs projets GAE, chacun ayant alors son répertoire de déploiement dénomé ci-après %DEPL%.
 
-En conséquence il faut établir dans un folder spécifique de chaque type déploiement:
-- les fichiers `config.mjs` et les 5 du folder `./config` correspondant à ce déploiement,
-- exécuter un build pour le déploiement et y recopier les fichiers.
+**L'application UI %APP% doit être buildée:**
+- ajustements éventuels de `quasar.config.js`, en particulier dans `build`:
+  - définir la variable SRV: en test elle a une valeur pour que l'application générée par quasar dev pointe vers le serveur de test. En GAE il suffit de commenter sa ligne.
+  - changer la valeur de `BUILD` pour la voir apparaître à l'écran pour contrôle de la bonne évolution de version.
+- lancer la commande `npm run build:pwa` (ou `quasar build -m pwa`): ceci créé le folder `/dist/pwa` avec l'application compactée.
 
-L'application UI est égelement configurable selon le déploiement choisi:
-- `src/app/config.mjs` et `quasar.config.mjs` dépendent du déploiement,
-- son build `quasar build -m pwa` est donc également spécifique du site déployé, le résultat étant à recopier dans le folder spécifique du déploiement
+**L'application upload %UPLOAD% doit avoir été buildée.**
+- lire son `README.md`
 
-L'ensemble peut être scripté.
+### Créer / ajuster le folder %DEPL%
+Sa structure est la suivante:
+- `/config` : reçoit les fichiers de configuration.
+- `/www` : reçoit les fichiers de documentation de download de l'application upload.
+  - le fichier `index.html` est une redirection vers `/www/home.html`, la _vraie_ page d'entrée. (source: `%SRV%/www/index.html`)
+  - `/www/upload` `/www/upload.exe` sont des liens symboliques vers `%UPLOAD%/dist/upload` et `%UPLOAD%/dist/upload.exe` 
+  - les autres fichiers proviennent de %DOC% et y ont été copiés par un script local de %DOC%.
+- `/app` : lien sybolique vers la distribution de l'application UI (%APP%/dist/pwa).
 
-Le déploiement effectif s'effectue différemment selon App Engine ou un site entièrement géré.
+### Déploiement _Google App Engine_ (GAE)
+C'est App Engine qui build l'application.
+
+Le fichier src/config.mjs est à adapter pour le déploiement GAE. En pratique, un seul flag en tête true/false permet de le passer du mode développement au mode GAE.
+
+Le script depl.sh :
+- recopie les fichiers de configuration service_account.json et firebase_config.json dans %DEPL%/config
+- recopie www/index.html dans %DEPL%/index.html
+- recopie le folder src dans %DEPL%/src
+- recopie les deux fichiers package.json app.yaml dans %DEPL%
+
+Ouvrir un terminal dans %DEPL% et frapper la commande `gcloud app deploy` : ça dure environ 2 minutes (du moins pas la première fois).
+
+Dans un autre termainal `gcloud app logs tail` permet de voir les logs de l'application quand ils vont survenir.
+
+Les logs complets s'obtienne depuis la console Google du projet (menu hamburger en haut à gauche `>>> Logs >>> Logs Explorer`).
+
+### Déploiement _mono serveur node_ (MON)
+Il faut créer / ajuster le répertoire %DEPL% comme décrit ci-avant.
+
+Il faut effecter un build de %SRV% :
+- dans `package.json` qu'il y a bien dans `"scripts"` la ligne `"build": "webpack"`
+- **avant un déploiement éventuel GAE, enlever cette ligne**.
+- commande `npn run build`
+- deux fichiers ont été créés dans dist: `app.js app.js.LICENSES.txt`
+- dans %DEPL% faire un lien symbolique vers ces deux fichiers.
+
+**Sur le Site distant** on doit trouver, hors du folder qui va recevoir le déploiement, par exemple dans le folder au-dessus:
+- `../sqlite.db3` : le fichier de la base données. Dans `%SRV%/src/config.mjs` l'entrée `pathsql: '../sqlite.db3'` doit pointer vers ce fichier;
+- `../logs` : le folder des logs. Dans `%SRV%/src/config.mjs` l'entrée `pathslogs: '../logs'` doit pointer vers ce folder.
+
+En résumé à titre d'exemple sur le site distant:
+    asocial
+      sqlite.db3
+      logs/
+      run/
+
+Il faut transférer par ftp le contenu du répertoire local %DEPL% dans le répertoire distant `asocial/run`.
+
+Le serveur se lance dans `asocial/run` par `node app.js`
+
+### Déploiement multi serveurs
+Les trois composantes,
+- applications UI,
+- applications serveur node,
+- espace statique www,
+
+sont gérées / déployées séparément.
+
+Un server nginx gère autant de serveurs virtuels qu'il y a d'application UI. Chacun est buildé avec un paramétrage spéfique: en particulier dans quasar.config.js / build la variable 
