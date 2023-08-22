@@ -59,9 +59,13 @@ C'est une page Web développée en `Quasar`, une surcouche de composants au dess
 
 Cette application supporte un _build_ par webpack qui en délivre une application Web PWA de quelques (gros) fichiers distribuables sur un site hébergeur.
 
-**L'application est à configurer avant _build_** dans deux fichiers :
-- `src/app/config.mjs` : plusieurs instances peuvent avoir la même configuration qui permet un ajustement du profilage métier.
-- `quasar.config.js` : c'est ici que l'identité du serveur à qui l'application doit s'adresser est donnée. Toutefois par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme `nginx`) cette adresse peut être laissée vierge, et dans ce cas la configuration d'une instance de l'application UI est nulle.
+**L'application est à configurer avant _build_** dans le fichier `src/app/config.mjs` :
+- plusieurs instances peuvent avoir la même configuration de la partie _profilage métier_;
+- quelques valeurs en majuscules donnent des options (`DEV DEBUG BUILD APITK`) à changer, éventuellement, entre test et déploiement;
+- `SRV` identifie le serveur à qui l'application doit s'adresser. 
+  - **en test c'est un serveur local** qui délivre une build de test de l'applicatio UI (lancé par `quasar dev`),
+  - l'application serveur est servie par un autre process / serveur, une autre URL.
+  - **en déploiement**. Par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme `nginx`) cette adresse peut être laissée vierge, et dans ce cas la configuration d'une instance de l'application UI est nulle.
 
 _Langue_
 - tous les textes lisibles par l'utilisateur sont gérés par un composant I18n qui permet de les traduire dans différentes langues que l'utilisateur peut choisir par une icône dans sa barre supérieure.
@@ -433,12 +437,12 @@ sont gérées / déployées séparément.
 
 Un server `nginx` gère autant de serveurs virtuels qu'il y a d'application UI:
 - chacune est buildée avec un paramétrage spécifique;
-- a minima dans `quasar.config.js / build` la variable `SRV` donne l'URL de **SON** serveur.
+- a minima dans `src/app/config.mjs` la variable `SRV` donne l'URL de **SON** serveur.
 
 Il en résulte autant de builds et donc de déploiements à effectuer pour les applications UI.
 
 Il faut également builder chaque instance d'application serveur:
-- son PORT d'écoute (`config.mjs / port`) est différent. 
+- son PORT d'écoute (`src/config.mjs / port`) est différent. 
 - `rooturl` _peut_ être limité au _host name_ si elle n'est pas utilisée par le provider de storage configuré.
 - `origins` doit être configuré pour n'accepter les requêtes QUE de l'instance d'application UI spécifiée.
 

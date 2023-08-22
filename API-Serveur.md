@@ -7,7 +7,7 @@ Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
   { **arg1**: v1, arg2: v2 }
 - **POST** : le body de la requête est la sérialisation de l'array `[args, apitk]` :
   - `args` : `{ arg1: v1, arg2: v2 ... }`
-  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `process.env.APITK` qui a été forcée lors du build webpack.
+  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `src/config.mjs APITK` qui a été forcée lors du build webpack.
 
 ### `args.token` : le jeton d'authentification du compte
 Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, hps1 }`:
@@ -152,9 +152,6 @@ POST:
 
 Retour: rien si OK (sinon exceptions)
 
-Règles de gestion à respecter par l'appelant
-- tous les rows passés en argument doivent être cohérents entre eux et se rapporter au nouvel espace à créer. Rien n'est vérifiable ni vérifié  par l'opération.
-
 ### `SetNotifG` : déclaration d'une notification à un espace par l'administrateur
 POST:
 - `token` : jeton d'authentification du compte de **l'administrateur**
@@ -169,6 +166,8 @@ POST:
 Retour: 
 - `rowEspace` : le row espaces mis à jour.
 
+Assertion sur l'existence du row `Espaces`.
+
 ### `SetEspaceT` : déclaration du profil de volume de l'espace par l'administrateur
 POST:
 - `token` : jeton d'authentification du compte de **l'administrateur**
@@ -176,6 +175,8 @@ POST:
 - `t` : numéro de profil de 0 à N. Liste spécifiée dans config.mjs de l'application.
 
 Retour: rien
+
+Assertion sur l'existence du row `Espaces`.
 
 ## Opérations authentifiées par un compte Comptable ou sponsor de sa tribu
 
@@ -189,12 +190,7 @@ Retour: rien
 Exceptions:
 - `F_SRV 7` : un sponsoring identifié par une même phrase (du moins son hash) existe déjà.
 
-Assertion sur l'existence du compte.
-
-Règles de gestion à respecter par l'appelant:
-- le row sponsoring doit être cohérent.
-- le compte déclarant doit être le Comptable ou un sponsor de la tribu.
-- le serveur ne peut pas vérifier ces informations.
+Assertion sur l'existence du row `Versions` du compte.
 
 ### `ProlongerSponsoring` : prolongation d'un sponsoring existant
 Change la date limite de validité du sponsoring pour une date plus lointaine. Ne fais rien si le sponsoring n'est pas _actif_ (hors limite, déjà accepté ou refusé).
@@ -205,7 +201,7 @@ POST:
 
 Retour: rien
 
-Assertion sur l'existence du sponsoring.
+Assertion sur l'existence des rows `Sponsorings` et `Versions` du compte.
 
 ## Opération NON authentifiée de REFUS de connexion par un compte
 
@@ -220,7 +216,7 @@ Retour: rien.
 Exceptions:
 - `F_SRV 8` : le sponsoring n'existe pas.
 
-Assertion sur l'existence du compte sponsor.
+Assertion sur l'existence du row Versions du compte sponsor.
 
 ## Opérations authentifiées de création de compte et connexion
 **Remarques:**
@@ -256,10 +252,12 @@ Exceptions:
 - `F_SRV, 9` : le sponsoring a déjà été accepté ou refusé ou est hors limite.
 
 Assertions:
-- existence de la tribu,
-- existence de l'avatar du compte sponsor.
+- existence du row `Tribus`,
+- existence du row `Versions` du compte sponsor.
+- existence du row `Avatars` du sponsorisé.
+- existence du row `Espaces`.
 
-### ConnexionCompte : connexion authentifiée à un compte
+### `ConnexionCompte` : connexion authentifiée à un compte
 Enregistrement d'une session et retour des données permettant à la session cliente de s'initialiser.
 
 L'administrateur utilise cette opération pour se connecter mais le retour est différent.
@@ -277,7 +275,9 @@ Retour, pour _administrateur_:
 - `admin` : `true` (permet en session de reconnaître une connexion d'administration).
 - `espaces` : array des rows de tous les espaces.
 
-## Opérations authentifiées pour un compte APRES sa connexion
+Assertions sur l'existence des rows `Comptas, Avatars, Espaces`.
+
+## Opérations authentifiées pour un compte APRÈS sa connexion
 Ces opérations permettent à la session cliente de récupérer toutes les données du compte afin d'initialiser son état interne.
 
 ### `GetEspace` : get de l'espace du compte de la session
@@ -288,30 +288,17 @@ POST:
 Retour:
 - `rowEspace`
 
+Assertion sur l'existence du row `Espaces`.
+
 ### `GetSynthese` : retourne la synthèse de l'espace
 POST:
 - `token` : éléments d'authentification du compte.
 - `ns` : id de l'espace.
 
 Retour:
-- `rowSynthse`
+- `rowSynthese`
 
-### `SetStats` : déclaration des statistiques de l'espace par son Comptable
-A sa connexion, le **comptable** agrège les compteurs statistiques de **toutes les tribus de l'espace** et les soumet au serveur pour stockage dans le document de l'espace.
-
-POST:
-- `token` : jeton d'authentification du comptable de l'espace.
-- `ns` : id de l'espace
-- `stats` : sérialisation de l'objet portant les compteurs statistiques de l'espace:
-  - `ntr` : nombre de tribus
-  - `a1 a2` : somme des quotas _attribués aux comptes_ des tribus.
-  - `q1 q2` : somme des quotas actuels des tribus
-  - `nbc` : nombre de comptes.
-  - `nbsp` : nombre de sponsors.
-  - `ncoS` : nombres de comptes ayant une notification simple.
-  - `ncoB` : nombres de comptes ayant une notification bloquante.
-
-Retour: rien
+Assertion sur l'existence du row `Syntheses`.
 
 ### `GestionAb` : gestion des abonnements
 Toutes les opérations permettent de modifier la liste des abonnements,
@@ -325,6 +312,8 @@ POST:
 - `abPlus abMoins`.
 
 Retour: rien.
+
+// TODO
 
 ### `GetAvatars` : retourne les documents avatar dont la version est postérieure à celle détenue en session
 POST:
@@ -655,7 +644,7 @@ POST:
 - `token` : éléments d'authentification du compte.
 - `rowAvatar` : row du nouvel avatar.
 - `rowVersion` : row de la version de l'avatar.
-- `kx vx`: entrée dans `mavk` (la ma liste des avatars du compte) de compta pour le nouvel avatar.
+- `kx vx`: entrée dans `mavk` (la liste des avatars du compte) de compta pour le nouvel avatar.
 
 Retour: rien.
 
@@ -1334,7 +1323,7 @@ async purgeDlv (nom, dlv)
 - durée de vie en minutes d'une session sans activité (mode SQL seulement).
 
 `apitk: 'VldNo2aLLvXRm0Q'  `
-- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration de déploiement (`quasar.config.js` de l'aplication UI.
+- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration (`src/app/config.js` de l'aplication UI).
 
 Interprétation des URLs:   
 - `prefixop: '/op'` : il n'y a pas de raisons de le changer.
