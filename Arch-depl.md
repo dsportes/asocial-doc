@@ -359,12 +359,26 @@ Il existe deux déploiements _simples_:
 
 Il est aussi possible d'avoir des **déploiements multi serveurs** pour l'application UI et des serveurs `Node.js` multiples.
 
+### APITK
+Une application _pirate_ lancée depuis un browser qui a chargé une page d'application UI _pirate_, va échouer à invoquer des opérations, son `origin` n'étant pas dans la liste des origines autorisées par le serveur.
+
+Mais supposons une application _pirate_ en node.js qui reprend correctement le protocole :
+- elle peut positionner un `header` `origin` avec la valeur attendue par le serveur,
+- elle peut se connecter et exécuter des opérations normales mais en lui transmettant de mauvais arguments (puisqu'elle est _pirate_).
+
+C'est pour ça qu'une _clé d'API_ `APITK` a été définie, et cachée autant que faire se peut: cette clé est fournie à chaque appel d'opération.
+
+Cette clé est définie au déploiement et n'est donc pas donnée aux pirates.
+
+Elle figure toutefois en runtime de l'application UI, donc est lisible quelque part en debug d'une application officielle. Encore faut-il savoir la trouver, ce qui a été rendu un peu complexe.
+
 ## Déploiements simples: processus commun
 Il est bien entendu possible de déployer sur plusieurs projets GAE, chacun ayant alors son répertoire de déploiement dénommé ci-après %DEPL%.
 
 **L'application UI %APP% doit être buildée:**
-- ajustements éventuels de `quasar.config.js`, en particulier dans `build`:
-  - définir la variable `SRV`: en test elle a une valeur pour que l'application générée par quasar dev pointe vers le serveur de test. En GAE il suffit de commenter sa ligne.
+- en général il n'y a pas à ajuster `quasar.config.js` sauf si `APITK` a changé.
+- dans src/app/config.mjs :
+  - définir la variable `SRV`: en test elle a une valeur pour que l'application générée par quasar dev pointe vers le serveur de test. **En GAE il suffit de commenter sa ligne**.
   - changer la valeur de `BUILD` pour la voir apparaître à l'écran pour contrôle de la bonne évolution de version.
 - lancer la commande `npm run build:pwa` (ou `quasar build -m pwa`): ceci créé le folder `/dist/pwa` avec l'application compactée.
 
@@ -383,7 +397,19 @@ Sa structure est la suivante:
 ### Déploiement _Google App Engine_ (GAE)
 C'est App Engine qui build l'application.
 
-Le fichier `src/config.mjs` est à adapter pour le déploiement GAE. En pratique, un seul flag en tête `true/false` permet de le passer du mode développement au mode GAE.
+**Remarques importantes**
+- le fichier `src/server.js` **DOIT** avoir une extension `.js`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server;js'`
+- dans `package.json`:
+  - `"main": "src/server.js",`
+  - `"type": "module",` est impératif.
+  - `"scripts": { "start": "node src/server.js" }` et pas de `"build": ...`.
+- dans `src/server.js`
+  - `import Database from 'better-sqlite3'` ne marche qu'en tests élémentaires mais pas passé par webpack / GAE.
+  - d'où la ligne `const Database = require('better-sqlite3')`
+
+Le fichier `src/config.mjs` est à adapter pour le déploiement GAE. En pratique, un seul flag en tête `true/false` permet de le passer du mode développement au mode GAE. A minima:
+- `rooturl: 'asocial-test1.ew.r.appspot.com',` sinon les opérations entrantes sont refoulées.
+- `origins: [ 'localhost:8343' ],` ne gêne pas, `rooturl` est ajouté à la liste des origines acceptées.
 
 Le script `depl.sh` :
 - recopie les fichiers de configuration `service_account.json` et `firebase_config.json` dans `%DEPL%/config`
@@ -391,7 +417,7 @@ Le script `depl.sh` :
 - recopie le folder `src` dans `%DEPL%/src`
 - recopie les deux fichiers `package.json app.yaml` dans `%DEPL%`.
 
-Ouvrir un terminal dans `%DEPL%` et frapper la commande `gcloud app deploy` : ça dure environ 2 minutes (pas la première fois qui beaucoup plus longue, jusqu'à 15 minutes).
+Ouvrir un terminal dans `%DEPL%` et frapper la commande `gcloud app deploy --verbosity debug` : ça dure environ 2 minutes (pas la première fois qui beaucoup plus longue, jusqu'à 15 minutes). `verbosity` est facultatif.
 
 Dans un autre terminal `gcloud app logs tail` permet de voir les logs de l'application quand ils vont survenir.
 
