@@ -398,7 +398,7 @@ Sa structure est la suivante:
 C'est App Engine qui build l'application.
 
 **Remarques importantes**
-- le fichier `src/server.js` **DOIT** avoir une extension `.js`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server;js'`
+- le fichier `src/server.js` **DOIT** avoir une extension `.js`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server.js'`
 - dans `package.json`:
   - `"main": "src/server.js",`
   - `"type": "module",` est impératif.
@@ -427,9 +427,12 @@ Les logs complets s'obtienne depuis la console Google du projet (menu hamburger 
 Il faut créer / ajuster le répertoire `%DEPL%` comme décrit ci-avant.
 
 **Il faut effectuer un build de `%SRV%` :**
-- vérifier dans `package.json` qu'il y a bien dans `"scripts"` la ligne `"build": "webpack"`
-- **avant un déploiement éventuel GAE, enlever cette ligne**.
-- commande `npn run build`
+- le fichier `src/server.mjs` **DOIT** avoir une extension `.mjs`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server.mjs'`
+- dans `package.json`:
+  - `"main": "src/server.mjs",`
+  - `"type": "module",` ne doit PAS être présent (le renommer "typeX").
+  - `"scripts": { "start": "node src/server.mjs" }` et pas de `"build": ...`.
+- commande de build `npx webpack`
 - deux fichiers ont été créés dans `dist`: `app.js app.js.LICENSES.txt`
 - dans `%DEPL%` faire un lien symbolique vers ces deux fichiers.
 
