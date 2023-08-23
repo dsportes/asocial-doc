@@ -400,12 +400,10 @@ C'est App Engine qui build l'application.
 **Remarques importantes**
 - le fichier `src/server.js` **DOIT** avoir une extension `.js`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server.js'`
 - dans `package.json`:
-  - `"main": "src/server.js",`
-  - `"type": "module",` est impératif.
+  - `"type": "module",` est **impératif**.
   - `"scripts": { "start": "node src/server.js" }` et pas de `"build": ...`.
-- dans `src/server.js`
-  - `import Database from 'better-sqlite3'` ne marche qu'en tests élémentaires mais pas passé par webpack / GAE.
-  - d'où la ligne `const Database = require('better-sqlite3')`
+
+Au pire, enlever les `"devDepencies"` de package.json selon le message d'erreur à propos de webpack émis par GAE.
 
 Le fichier `src/config.mjs` est à adapter pour le déploiement GAE. En pratique, un seul flag en tête `true/false` permet de le passer du mode développement au mode GAE. A minima:
 - `rooturl: 'asocial-test1.ew.r.appspot.com',` sinon les opérations entrantes sont refoulées.
@@ -413,7 +411,7 @@ Le fichier `src/config.mjs` est à adapter pour le déploiement GAE. En pratique
 
 Le script `depl.sh` :
 - recopie les fichiers de configuration `service_account.json` et `firebase_config.json` dans `%DEPL%/config`
-- recopie www/index.html dans %DEPL%/index.html
+- recopie www/index.html dans `%DEPL%/index.html`
 - recopie le folder `src` dans `%DEPL%/src`
 - recopie les deux fichiers `package.json app.yaml` dans `%DEPL%`.
 
@@ -427,11 +425,8 @@ Les logs complets s'obtienne depuis la console Google du projet (menu hamburger 
 Il faut créer / ajuster le répertoire `%DEPL%` comme décrit ci-avant.
 
 **Il faut effectuer un build de `%SRV%` :**
-- le fichier `src/server.mjs` **DOIT** avoir une extension `.mjs`. Les imports dans les autres modules doivent donc être `import { ctx, ... } from './server.mjs'`
 - dans `package.json`:
-  - `"main": "src/server.mjs",`
-  - `"type": "module",` ne doit PAS être présent (le renommer "typeX").
-  - `"scripts": { "start": "node src/server.mjs" }` et pas de `"build": ...`.
+  - `"type": "module",` ne doit **PAS être présent** (le renommer `"typeX"`).
 - commande de build `npx webpack`
 - deux fichiers ont été créés dans `dist`: `app.js app.js.LICENSES.txt`
 - dans `%DEPL%` faire un lien symbolique vers ces deux fichiers.
