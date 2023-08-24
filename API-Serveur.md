@@ -335,8 +335,6 @@ POST:
 - `token` : éléments d'authentification du compte.
 - `abPlus abMoins`.
 
-// TODO
-
 ### `GetAvatars` : retourne les documents avatar dont la version est postérieure à celle détenue en session
 POST:
 - `token` : éléments d'authentification du compte.
@@ -349,7 +347,7 @@ Retour:
 - `OK` : si la version de compta n'a pas changé
 - `rowAvatars`: array des rows des avatars dont la version est postérieure à celle indiquée en arguments.
 
-### GetAvatar : retourne le row avatar le plus récent
+### `GetAvatar` : retourne le row le plus récent de l'avatar 
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : id de l'avatar
@@ -359,22 +357,25 @@ Retour:
 
 Assertion sur l'existence de l'avatar.
 
-### `GetTribu` : retourne le row tribu le plus récent
+### `GetTribu` : retourne le row le plus récent de la tribu
 Et optionnellement déclare cette tribu comme _courante_, c'est à dire abonne la session à cette tribu (après détection d'un changement de tribu).
 
 POST:
 - `token`: éléments d'authentification du compte.
 - `id` : id de la tribu.
-- `tribu2` : true si retourner tribu2 aussi.
 - `setC`: si true, déclarer la tribu courante.
 
 Retour:
 - `rowtribu` : row de la tribu.
-- `rowTribu2`
 
-Assertions sur l'existence des rows tribu et tribu2.
+Assertion sur l'existence du rows `Tribus`.
 
-### GetGroupe : retourne le row groupe le plus récent 
+### `AboTribuc` : abonnement / désabonnement de la tribu courante 
+POST:
+- `token`: éléments d'authentification du compte.
+- `id` : id de la tribu. Si 0 désabonnement.
+
+### `GetGroupe` : retourne le row le plus récent du groupe 
 POST:
 - `token`: éléments d'authentification du compte.
 - `id` : id du groupe.
@@ -382,7 +383,7 @@ POST:
 Retour:
 - `rowGroupe`: row du groupe.
 
-Assertion sur l'existence du row groupe.
+Assertion sur l'existence du row `Groupes`.
 
 ### `GetGroupes` : retourne les documents groupes ayant une version plus récente que celle détenue en session
 POST:
@@ -392,16 +393,16 @@ POST:
   - _valeur_ : version détenue en session
 
 Retour:
-- `rowGroupes` : array des rows des groupes ayant une version postérieure à celle connue en session.
+- `rowGroupes` : array des rows `Groupes` ayant une version postérieure à celle connue en session.
 
-### `ChargerSecrets` : retourne les secrets de l'avatar / groupe id et de version postérieure à v
+### `ChargerNotes` : retourne les notes de l'avatar / groupe id et de version postérieure à v
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : de l'avatar ou du groupe
 - `v` : version connue en session
 
 Retour:
-- `rowSecrets` : array des rows des secrets de version postérieure à v
+- `rowNotes` : array des rows `Notes` de version postérieure à `v`.
 
 ### `ChargerChats` : retourne les chats de l'avatar id et de version postérieure à v
 POST:
@@ -410,7 +411,7 @@ POST:
 - `v` : version connue en session
 
 Retour:
-- `rowChats` : array des rows des chats de version postérieure à v
+- `rowChats` : array des rows `Chats` de version postérieure à `v`.
 
 ### `ChargerSponsorings` : retourne les sponsoring de l'avatar id et de version postérieure à v
 POST:
@@ -419,7 +420,7 @@ POST:
 - `v` : version connue en session
 
 Retour:
-- `rowSponsorings` : array des rows des sponsorings de version postérieure à v
+- `rowSponsorings` : array des rows `Sponsorings` de version postérieure à `v`.
 
 ### `ChargerMembres` : retourne les membres du groupe id et de version postérieure à v
 POST:
@@ -428,21 +429,24 @@ POST:
 - `v` : version connue en session
 
 Retour:
-- `rowMembres` : array des rows des sponsorings de version postérieure à v
+- `rowMembres` : array des rows `Membres` de version postérieure à `v`.
 
-### `ChargerGMS` : retourne le groupe id, ses membres et ses secrets, de version postérieure à v
+### `ChargerGMS` : retourne le groupe id, ses membres et ses notes, de version postérieure à v
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : du groupe
 - `v` : version connue en session
 
-Retour: quand le groupe est _zombi, les row groupe, membres, secrets NE SONT PAS significatifs.
-- `rowGroupe` : seulement si version postérieure à v. 
-- `rowMembres` : array des rows membres de version postérieure à v.
-- `rowSecrets` : array des rows des secrets de version postérieure à v.
+Retour: 
+- quand le groupe est _zombi, les row `Groupes, Membres, Notes` NE SONT PAS significatifs.
+- `rowGroupe` : seulement si version postérieure à `v`. 
+- `rowMembres` : array des rows `Membres` de version postérieure à `v`.
+- `rowSecrets` : array des rows `Notes` de version postérieure à `v`.
 - `vgroupe` : row version du groupe, possiblement _zombi.
 
-**Remarque** : Le GC PEUT avoir faire disparaître un groupe (son row `versions` est _zombi) AVANT que les listes des groupes (`lgr`) dans les rows avatars membres n'aient été mises à jour. 
+**Remarque** : 
+- Le GC PEUT avoir faire disparaître un groupe (son row `versions` est _zombi) AVANT que les listes des groupes (`lgr`) dans les rows avatars membres n'aient été mises à jour.
+- Quand le groupe est _zombi, les row groupe, membres, notes NE SONT PAS retournés.
 
 ### `ChargerTribus` : retourne les tribus de l'espace
 Pour le comptable seulement
@@ -457,18 +461,20 @@ Retour :
 - `rowTribus`: array des rows des tribus de version postérieure à v.
 - `delids` : array des ids des tribus disparues.
 
-### `ChargerASCS` : retourne l'avatar, ses secrets, chats et sponsorings, de version postérieure à v
+### `ChargerASCS` : retourne l'avatar, ses notes, chats et sponsorings, de version postérieure à v
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : de l'avatar.
 - `v` : version connue en session.
 
 Retour:
-- `rowSecrets` : arrays des rows des secrets chats sponsorings de version postérieure à v
+- `rowNotes` : arrays des rows `Notes Chats Sponsorings` de version postérieure à v
 - `rowChats` :
 - `rowSponsorings` : 
 - `rowAvatar` : seulement si de version postérieure à v.
-- `vavatar` : PEUT être _zombi. Dans ce cas les autres rows n'ont pas de signification.
+- `vavatar` : row `Versions` de l'avatar. Il PEUT être _zombi. Dans ce cas les autres rows n'ont pas de signification.
+
+Assertion sur l'existence du row `Versions` de l'avatar.
 
 ### `SignaturesEtVersions` : signatures des groupes et avatars
 Si un des avatars a changé de version, retour en `OK` `false` : la liste des avatars doit être la même que celle précédemment obtenue en session.
@@ -496,7 +502,7 @@ Retour:
     - `{ v }`: pour un avatar.
     - `{ v, vols: {v1, v2, q1, q2} }` : pour un groupe.
 
-Assertions sur les rows compta, avatars, versions.
+Assertions sur les rows `Comptas, Avatars, Versions`.
 
 ### `EnleverGroupesAvatars` : retirer pour chaque avatar de la map ses accès aux groupes listés par numéro d'invitation
 POST:
@@ -504,16 +510,12 @@ POST:
 - `mapIdNi` : map
   - _clé_ : id d'un avatar
   - _valeur_ : array des `ni` (numéros d'invitation) des groupes ciblés.
-  
-Retour: rien.
 
 ### `RetraitAccesGroupe` : retirer l'accès à un groupe pour un avatar
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : id de l'avatar.
 - `ni` : numéro d'invitation du groupe pour cet avatar.
-
-Retour: rien.
 
 ### `DisparitionMembre` : enregistrement du statut disparu d'un membre dans son groupe
 Après détection de la disparition d'un membre.
@@ -522,8 +524,6 @@ POST:
 - `token` : éléments d'authentification du compte.
 - `id` : id du groupe
 - `ids` : ids du membre
-
-Retour: rien.
 
 ## Opérations du cycle de vie HORS phase de connexion et synchronisations
 
@@ -544,25 +544,21 @@ POST:
 Retour:
 - `nbrech` : nombre de mises à jour effectuées.
 
-Assertions sur l'existence des avatars et versions.
+Assertions sur l'existence des `Avatars Versions`.
 
 ### `MemoCompte` : changer le mémo du compte
 POST:
 - `token` : éléments d'authentification du compte.
 - `memok` : texte du mémo crypté par la clé k
 
-Retour: néant.
-
-Assertion d'existence de l'avatar principal et de sa `versions`.
+Assertion d'existence du row `Avatars` de l'avatar principal et de sa `Versions`.
 
 ### `MotsclesCompte` : changer les mots clés du compte
 POST:
 - `token` : éléments d'authentification du compte.
 - `mck` : map des mots clés cryptée par la clé k.
 
-Retour: rien.
-
-Assertion d'existence de l'avatar principal et de sa `versions`.
+Assertion d'existence du row `Avatars` de l'avatar principal et de sa `Versions`.
 
 ### `ChangementPS` : changer la phrase secrète du compte
 POST:
@@ -571,13 +567,9 @@ POST:
 - `shay` : SHA du SHA de X (PBKFD de la phrase secrète).
 - `kx` : clé K cryptée par la phrase secrète
 
-Retour: rien.
-
-Assertion sur l'existence du compte (compta).
+Assertion sur l'existence du row `Comptas` du compte.
 
 ### `MajCv` : mise à jour de la carte de visite d'un avatar
-Dans l'avatar lui-même et si c'est l'avatar principal du compte dans son entrée de tribu2.
-
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : id de l'avatar dont la Cv est mise à jour
@@ -590,29 +582,27 @@ POST:
 Retour:
 - `OK` : `false` si la carte de visite a changé sur le serveur depuis la version connue en session. Il faut reboucler sur la requête jusqu'à obtenir true.
 
-Assertion sur l'existence de l'avatar de son row versions et de la tribu2.
+Assertion sur l'existence du row `Avatars` de l'avatar et de son row `Versions`.
 
 ### `GetAvatarPC` : information sur l'avatar ayant une phrase de contact donnée
 POST:
-- token : éléments d'authentification du compte.
-- hpc : hash de la phrase de contact
+- `token` : éléments d'authentification du compte.
+- `hpc` : hash de la phrase de contact
 
-Retour: 
+Retour: si trouvé,
 - `cvnapc` : `{cv, napc}` si l'avatar ayant cette phrase a été trouvée.
   - `cv` : `{v, photo, info}` crypté par la clé de l'avatar.
-  - `napc` : `[nom, rnd]` de l'avatar crypté par le PBKFD de la phrase.
+  - `napc` : `[nom, clé]` de l'avatar crypté par le PBKFD de la phrase.
 
 ### `ChangementPC` : changement de la phrase de contact d'un avatar
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : de l'avatar.
 - `hpc` : hash de la phrase de contact (SUPPRESSION si null).
-- `napc` : [nom, rnd] de l'avatar crypté par le PBKFD de la phrase.
+- `napc` : `[nom, clé]` de l'avatar crypté par le PBKFD de la phrase.
 - `pck` : phrase de contact cryptée par la clé K du compte.
 
-Retour: rien.
-
-Assertion sur l'existence de l'avatar et de sa `versions`.
+Assertion sur l'existence du row `Avatars` de l'avatar et de sa `Versions`.
 
 ### `NouveauChat` : création d'un nouveau Chat
 POST:
@@ -631,7 +621,7 @@ Retour:
   2 : le chat était déjà créé, retour de chatI avec le contenu qui existait
 - `rowChat` : row du chat I créé (sauf st = 0).
 
-Assertions sur l'existence de l'avatar I, sa `versions`, et le cas échéant la `versions` de l'avatar E (quand il existe).
+Assertions sur l'existence du row `Avatars` de l'avatar I, sa `Versions`, et le cas échéant la `Versions` de l'avatar E (quand il existe).
 
 ### `MajChat` : mise à jour d'un Chat
 POST:
@@ -649,7 +639,7 @@ Retour:
   2 : le chat existant a un contenu plus récent que celui sur lequel était basé `contc`. Retour de chatI.
 - `rowChat` : row du chat I.
 
-Assertions sur l'existence de l'avatar I, sa `versions`, et le cas échéant la `versions` de l'avatar E (quand il existe).
+Assertions sur l'existence du row `Avatars` de l'avatar I, sa `Versions`, et le cas échéant la `Versions` de l'avatar E (quand il existe).
 
 ### `MajMotsclesChat` : changer les mots clés d'un chat
 POST:
@@ -657,9 +647,7 @@ POST:
 - `mc` : u8 des mots clés
 - `id ids` : id du chat
 
-Retour: rien.
-
-Assertions sur le chat et la `versions` de l'avatar id.
+Assertions sur le row `Chats` et la `Versions` de l'avatar id.
 
 ### `NouvelAvatar` : création d'un nouvel avatar 
 POST:
@@ -668,9 +656,7 @@ POST:
 - `rowVersion` : row de la version de l'avatar.
 - `kx vx`: entrée dans `mavk` (la liste des avatars du compte) de compta pour le nouvel avatar.
 
-Retour: rien.
-
-Assertion sur l'existence du compte.
+Assertion sur l'existence du row `Comptas`.
 
 ### `MajMavkAvatar` : mise à jour de la liste des avatars d'un compte
 POST:
@@ -678,101 +664,77 @@ POST:
 - `lp` : liste _plus_, array des entrées `[kx, vx]` à ajouter dans la liste (`mavk`) du compte.
 - `lm` : liste _moins_ des entrées `[kx]` à enlever.
 
-Retour: rien.
-
-Assertion sur l'existence du compte.
+Assertion sur l'existence du row Comptas.
 
 ### `NouvelleTribu` : création d'une nouvelle tribu par le comptable
 POST: 
 - `token` : éléments d'authentification du comptable.
 - `rowTribu` : row de la nouvelle tribu.
-- `rowTribu2` : row de la nouvelle tribu2.
+- `atrItem` : item à insérer dans le row Comptas du comptable en dernière position.
 
-Retour: rien.
+Assertion sur l'existence du row `Comptas` du comptable.
 
-### `SetAttributTribu` : déclaration d'un attribut d'une tribu
-Les deux attributs possibles sont :
-- `infok` : commentaire privé du comptable crypté par la clé K du comptable.
-- `notif` : notification de la tribu (cryptée par la clé de la tribu).
+### `SetNotifT` : notification de la tribu
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id de la tribu
+- `notif` : notification cryptée par la clé de la tribu.
+
+Assertion sur l'existence du row `Tribus` de la tribu.
+
+### `SetNotifC` : notification d'un compte d'une tribu
+POST:
+- `token` : éléments d'authentification du compte.
+- `id` : id de la tribu
+- `idc` : id du compte
+- `notif` : notification du compte cryptée par la clé de la tribu
+- `stn` : 0: aucune 1:simple 2:bloquante
+
+Assertion sur l'existence du row `Tribus` de la tribu et `Comptas` du compte.
+
+### `SetAtrItemComptable` : Set des quotas OU de l'info d'une tribu
+TODO : Vérifier pourquoi idc ? L'id du Comptable est déduite du ns courant ? Peut-être juste pour éviter à avoir à calculer l'ID du comptable d'un ns sur le serveur (la méthode étant sur le client).
 
 POST:
 - `token` : éléments d'authentification du compte.
 - `id` : id de la tribu
-- `attr` : nom de l'attribut `infok` ou `notif`.
-- `val` : nouvelle valeur de l'attribut.
+- `idc` : id du comptable
+- `atrItem` : élément de `atr` `{clet, info, q1, q2}` cryptés par sa clé K.
+- `quotas` : `[q1, q2]` si changement des quotas, sinon null
 
-Retour: rien.
+Assertion sur l'existence des rows `Comptas` du comptable et `Tribus` de la tribu.
 
-Assertion sur l'existence de la tribu.
-
-### `SetQuotasTribu` : déclaration des quotas d'une tribu par le comptable
+### `SetSponsor` : déclare la qualité de sponsor d'un compte dans une tribu
 POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de la tribu
-- `q1 q2` : quotas de volume V1 et V2.
+- `token` : éléments d'authentification du sponsor.
+- `idc` : id du compte sponsorisé ou non
+- `idt` : id de sa tribu.
+- `nasp` : [nom, clé] du compte crypté par la cle de la tribu.
 
-Retour: rien.
+Assertion sur l'existence des rows `Comptas` du compte et `Tribus` de la tribu.
 
-Assertion sur l'existence de la tribu.
-
-### `SetAttributTribu2` : déclaration d'un attribut d'une entrée de tribu2 QUI IMPACTE tribu
-Ne concerne pas la _carte de visite_ gérée par ailleurs. Pour l'instant :
-- `sp` : si `true` / présent, c'est un sponsor.
-
- POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de la tribu
-- `hrnd`: clé de l'élément du compte dans la map des comptes de tribu2 (`mbtr`).
-- `attr` : nom de l'attribut (`sp`).
-- `val` : valeur de l'attribut.
-
-Retour: rien.
-
-Assertion sur l'existence de la tribu et de tribu2.
-
-### `SetQuotasCompte` : déclaration des quotas d'un compte par un sponsor de sa tribu
+### `SetQuotas` : déclaration des quotas d'un compte par un sponsor de sa tribu
 POST:
 - `token` : éléments d'authentification du sponsor.
 - `idc` : id du compte sponsorisé.
-- `id` : id de sa tribu.
-- `hrnd` : clé de son entrée dans la map des membres de la tribu (mbtr de tribu2).
+- `idt` : id de sa tribu.
 - `q1 q2` : ses nouveaux quotas de volume V1 et V2.
 
-Retour: rien.
-
-Assertion sur l'existence de la tribu et de tribu2.
-
-### `SetNotifC` : notification d'un compte par un sponsor ou le Comptable
-Inscription dans tribu2 de la notification et recalcul de la synthèse dans tribu.
-
-POST:
-- `token` : éléments d'authentification du comptable ou du sponsor.
-- `id` : id de la tribu
-- `hrnd` : clé de son entrée dans la map des membres de la tribu (mbtr de tribu2).
-- `notif`: notification du compte.
-- `ntfb` : `true` si la notification est _bloquante_.
-
-Retour: rien.
-
-Assertion sur l'existence de la tribu et de tribu2.
+Assertion sur l'existence des rows `Comptas` du compte et `Tribus` de la tribu.
 
 ### `SetDhvuCompta` : enregistrement de la date-heure de _vue_ des notifications dans une session
 POST: 
 - `token` : éléments d'authentification du compte.
 - `dhvu` : date-heure cryptée par la clé K.
 
-Retour: rien.
-
-Assertion sur l'existence du compte.
+Assertion sur l'existence du row `Comptas` du compte.
 
 ### `MajNctkCompta` : mise à jour de la tribu d'un compte 
 POST: 
 - `token` : éléments d'authentification du compte.
-- `nctk` : `[nom, rnd]` de la la tribu du compte crypté par la clé K du compte.
+- `nctk` : `[nom, cle]` de la la tribu du compte crypté par la clé K du compte.
 
-Retour: rien.
-
-Assertion sur l'existence du compte.
+Assertion sur l'existence du row `Comptas` du compte.
 
 ### `GetCompteursCompta` : retourne les "compteurs" d'un compte
 POST:
@@ -780,29 +742,33 @@ POST:
 - `id` : id du compte dont les compteurs sont à retourner.
 
 Retour:
-- `compteurs` : objet `compteurs` enregistré dans `compta`.
+- `compteurs` : objet `compteurs` enregistré dans `Comptas`.
 
-Assertion sur l'existence du compte.
+Assertion sur l'existence du row `Comptas` du compte.
 
 ### `ChangerTribu` : changer un compte de tribu par le Comptable
 POST:
 - `token` : éléments d'authentification du comptable.
 - `id` : id du compte qui change de tribu.
-- `trIdav` : id de la tribu quittée
-- `trIdap` : id de la tribu intégrée
-- `hrnd` : clé de son entrée dans la map des membres de la tribu (`mbtr` de tribu2).
-- `mbtr` : entrée mbtr dans sa nouvelle tribu.
-- _Données concernant `compta` :_
-  - `nctk` : `[nom, clé]` de la tribu crypté par la clé de la carte de visite de l'avatar principal du compte.
-  - `nctkc` : `[nom, clé]` de la tribu crypté par la clé K **du Comptable**: 
-  - `napt` : `[nom, clé]` de l'avatar principal du compte crypté par la clé de la tribu.
+- `idtAv` : id de la tribu quittée
+- `idtAp` : id de la tribu intégrée
+- `idT` : id court du compte crypté par la clé de la nouvelle tribu.
+- `nasp` : si sponsor `[nom, cle]` crypté par la cle de la nouvelle tribu.
+- `stn` : statut de la notification 0, 1 2 recopiée de l'ancienne tribu.
+- `notif``: notification de niveau compte cryptée par la clé de la nouvelle tribu, recopiée de l'ancienne tribu.
 
-Retour: rien.
+Relatif à `Comptas`:
+- `cletX` : clé de la tribu cryptée par la clé K du comptable.
+- `cletK` : clé de la tribu cryptée par la clé K du compte : 
+  - si cette clé a une longueur de 256, elle est cryptée par la clé publique RSA du compte (en cas de changement de tribu forcé par le comptable).
 
-Assertions sur l'existence du compte et de ses tribus _avant_ et _après_.
+Retour:
+- `rowTribu` row de la nouvelle `Tribus`
+
+Assertions sur l'existence du row `Comptas` compte et de ses `Tribus` _avant_ et _après_.
 
 ## Opérations authentifiées sur la gestion des groupes
-
+// TODO
 ### `MajCvGr` : déclaration de la carte de visite d'un groupe
 POST:
 - `token` : éléments d'authentification du compte.
