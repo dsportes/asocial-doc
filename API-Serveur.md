@@ -7,7 +7,7 @@ Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
   { **arg1**: v1, arg2: v2 }
 - **POST** : le body de la requête est la sérialisation de l'array `[args, apitk]` :
   - `args` : `{ arg1: v1, arg2: v2 ... }`
-  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `src/config.mjs APITK` qui a été forcée lors du build webpack.
+  - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `quasar.config.js / build / env / APITK` qui a été forcée lors du build webpack de l'application UI.
 
 ### `args.token` : le jeton d'authentification du compte
 Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, hps1 }`:
@@ -34,24 +34,54 @@ L'extrait consiste à prendre certains bytes du début de la représentation en 
 
 #### Retour OK d'un GET
 - requête `/fs` : retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL.
-- requêtes `/op/yo` et `op/yoyo` : texte.
+- requêtes `/op/yo` et `op/yoyo` : texte. 
+  - `yo` est traitée _avant_ contrôle de l'origine et retourne `yo`.
+  - `yoyo` est traitée _après__ contrôle de l'origine et retourne `yoyo`.
 - autres requêtes : `arrayBuffer` (binaire).
 
 #### Retour OK d'un POST
-Le terme binaire est désérialisé, on en obtient une map dont les éléments sont :
+Le résultat binaire est désérialisé, on en obtient une map dont les éléments sont :
 - de manière générique :
-  - `dh` : le getTime de l'exécution de la transaction,
-  - `sessionId` : la valeur de sessionId passée dans le token en argument ou 666
+  - `dh` : le `getTime` de l'exécution de la transaction,
+  - `sessionId` : la valeur de `sessionId` passée dans le token en argument ou 666
   - les autres termes sont spécifiques du _retour_ de chaque opération.
 
-## Opérations SANS authentification
-### `fs` : mode du serveur
-En fait N'EST PAS une opération.
+### Synthèse des URLs traitées
+OPTIONS `/*`
+- toutes les URLs sont concernées. Ne retourne rien mais est systématiquement invoquée par les browsers pour tester les accès cross-origin.
 
-GET - pas d'arguments `../fs`
+GET `/fs`
+- Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL. Ceci évite dans le code de l'application d'avoir à configurer si la synchronisation est de type SQL (par WebSoket) ou Firestore, la découverte se faisant en runtime.
 
-Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL. Ceci évite dans le code de l'application d'avoir à configurer si la synchronisation est de type SQL (par WebSoket) ou Firestore, la découverte se faisant en runtime.
+GET `/favicon.ico`
+- retourne la favicon, standard de l'application ou spécifiée en configuration.
 
+GET `/robots.txt`
+- retourne `'User-agent: *\nDisallow: /\n'`
+
+GET `/ping`
+- retourne en string la date et l'heure UTC.
+
+GET `/`
+- en déploiement mono-serveur et GAE, redirige vers `/app/index.html`
+
+GET `/app/...`
+- en déploiement mono-serveur et GAE, ce sont les URLs de l'application UI.
+
+GET `/www/...`
+- en déploiement mono-serveur et GAE, ce sont les URLs du site Web statique.
+- pour des raisons de relativité d'URLs, `/www` renvoie sur `/www/index.html` qui est une redirection vers `/www/homme.html`, la véritable entrée du site statique.
+
+GET `/storage/...`
+- utilisé pour télécharger un fichier quand le provider de storage est `fs` ou `gc` en mode simulé. Retourne le fichier crypté en binaire `application/octet-stream`.
+
+PUT `/storage/...`
+- utilisé pour uploader un fichier quand le provider de storage est `fs` ou `gc` en mode simulé. Le fichier est crypté en binaire `application/octet-stream` dans le `body` de la requête.
+
+POST `/op/...`
+- les `opérations` de l'application détaillées ci-après.
+
+## Opérations `/op/...` SANS authentification
 ### `yo` : ping du serveur
 GET - pas d'arguments `../op/yo`
 
@@ -90,21 +120,21 @@ Retour :
 
 Exception: si la base n'est pas accessible.
 
-### `GetPub` : retoune la clé publique d'un avatar
+### `GetPub` : retourne la clé publique d'un avatar
 POST:
 - `id` : id de l'avatar
 
 Retour:
-- `pub` : clé publique de l'avatar ou null si l'avatar n'existe pas
+- `pub` : clé publique de l'avatar ou `null` si l'avatar n'existe pas
 
-### `ChercherSponsoring` : recherche sponsoring par le hash de sa phrase de contact
+### `ChercherSponsoring` : recherche un sponsoring par le hash de sa phrase de contact
 POST:
 - `ids` : hash de la phrase de contact.
 
 Retour:
 - `rowSponsoring` : le row s'il existe
 
-### ExistePhrase : cherche le hash d'une phrase et détermine son existence
+### `ExistePhrase` : cherche le hash d'une phrase et détermine son existence
 POST:
 - `ids` : hash de la phrase de contact / de connexion.
 - `t` :
@@ -120,7 +150,7 @@ Retour:
 ### Documents: les formats _row_ et _compilé_
 Que ce soit en SQL ou en Firestore, l'insertion ou la mise à jour d'un document se fait depuis un _objet Javascript_ ou chaque attribut correspond à une propriété de l'objet. 
 
-Par exemple un document tribus pour mise à jour en SQL ou Firestore est celui-ci : 
+Par exemple un document `tribus` pour mise à jour en SQL ou Firestore est celui-ci : 
 
     { id: 3200...00, v: 4, _data_: (Uint8Array) }
 
@@ -150,7 +180,9 @@ POST:
 - `rowVersion`: row de la version de l'avatar (avec sa dlv)
 - `hps1` : hps1 de la phrase secrète
 
-Retour: rien si OK (sinon exceptions)
+Exceptions: 
+- F_SRV 12 : phrase secrète semblable déjà trouvée.
+- F_SRV 3 : Espace déjà créé.
 
 ### `SetNotifG` : déclaration d'une notification à un espace par l'administrateur
 POST:
@@ -174,8 +206,6 @@ POST:
 - `ns` : id de l'espace notifié.
 - `t` : numéro de profil de 0 à N. Liste spécifiée dans config.mjs de l'application.
 
-Retour: rien
-
 Assertion sur l'existence du row `Espaces`.
 
 ## Opérations authentifiées par un compte Comptable ou sponsor de sa tribu
@@ -185,9 +215,7 @@ POST:
 - `token` : éléments d'authentification du comptable / compte sponsor de sa tribu.
 - `rowSponsoring` : row Sponsoring, SANS la version (qui est calculée par le serveur).
 
-Retour: rien
-
-Exceptions:
+Exception:
 - `F_SRV 7` : un sponsoring identifié par une même phrase (du moins son hash) existe déjà.
 
 Assertion sur l'existence du row `Versions` du compte.
@@ -199,9 +227,7 @@ POST:
 - `id ids` : identifiant du sponsoring.
 - `dlv` : nouvelle date limite de validité `aaaammjj`ou 0 pour une  annulation.
 
-Retour: rien
-
-Assertion sur l'existence des rows `Sponsorings` et `Versions` du compte.
+Assertions sur l'existence des rows `Sponsorings` et `Versions` du compte.
 
 ## Opération NON authentifiée de REFUS de connexion par un compte
 
@@ -211,19 +237,17 @@ POST:
 - `ids` : identifiant du sponsoring, hash de la phrase de contact.
 - `ardx` : justification / remerciement du _sponsorisé à stocker dans le sponsoring.
 
-Retour: rien.
-
 Exceptions:
 - `F_SRV 8` : le sponsoring n'existe pas.
 
-Assertion sur l'existence du row Versions du compte sponsor.
+Assertion sur l'existence du row `Versions` du compte sponsor.
 
 ## Opérations authentifiées de création de compte et connexion
 **Remarques:**
-- le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'applel des opérations qui le concernent lui seul. Lehash de sa phrase secrète est enregistrée dans la configuration du serveur.
+- le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'appel des opérations qui le concernent lui seul. Le hash de sa phrase secrète est enregistrée dans la configuration du serveur.
 - le compte _Comptable_ de chaque espace est créé par l'administrateur à la création de l'espace. Ce compte est normal. Sa phrase secrète a été donnée par l'administrateur et le comptable est invité à la changer au plus tôt.
 - les autres comptes sont créés par _acceptation d'un sponsoring_ qui fixe la phrase secrète du compte qui se créé : après cette opération la session du nouveau compte est normalement active.
-- les deux opérations suivantes sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du has de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
+- les deux opérations suivantes sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du hash de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
 
 ### `AcceptationSponsoring` : création du compte du _sponsorisé_
 POST:
@@ -310,8 +334,6 @@ Cette opération permet de mettre à jour la liste des abonnements de la session
 POST:
 - `token` : éléments d'authentification du compte.
 - `abPlus abMoins`.
-
-Retour: rien.
 
 // TODO
 

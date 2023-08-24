@@ -7,7 +7,7 @@ L'application est une application Web, plus précisément une _PWA Progressive W
 
 Quatre grands composants contribuent à ce service :
 - **un serveur joignable sur Internet** par exemple sur l'URL https://asocial.demo.net : dépôt git `asocial-srv`
-- **une application UI d'interface utilisateur s'exécutant dans un navigateur** qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app): dépôt git `asocial-app`
+- **une application UI d'interface utilisateur s'exécutant dans un navigateur** qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app/index.html): dépôt git `asocial-app`
 - **un site Web statique** principalement documentaire accessible depuis le navigateur à l'URL https://asocial.demo.net/www. Dépôt gir `asocial-doc`.
 - **un programme utilitaire de chargement local de fichiers** dans un répertoire local pouvant être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (`upload.exe` pour la version Windows). Une fois téléchargé et lancé sur le poste où s'exécute le navigateur accédant à l'application, cet utilitaire permet de récupérer dans un répertoire local au poste les notes et leurs fichiers de la sélection opérée par l'utilisateur. L'utilitaire est facultatif, n'est utile que pour cette seule opération de transfert local et peut être arrêté quand cette opération est terminée. Dépôt git `upload`.
 
@@ -21,25 +21,25 @@ C'est un serveur Web en technologie `node.js`, écrite 100% en Javascript.
 Il reçoit les requêtes entrantes sur une URL fixée par l'administrateur technique. 
 
 Les requêtes, 
-- d'obtention de l'application UI / ou /app,
-- d'accès au site Web /www/...
-- et quelques requêtes techniques (/ping ...) 
+- d'obtention de l'application UI `/` ou `/app/index.html`,
+- d'accès au site Web `/www/...`
+- et quelques requêtes techniques (`/ping` ...) 
 
-sont acceptées librement : appel direct par une URL dans un navigateur ou curl ou une page chargée depuis n'importe quel site.
+sont acceptées librement : appel direct par une URL depuis la barre d'adresse d'un navigateur (ou `curl`) ou depuis une page chargée depuis n'importe quel site.
 
-En revanche les requêtes de l'application UI ne sont acceptées QUE si la page de cette application a été chargée depuis une des URLs acceptées par la configuration du serveur. Ce contrôle de _l'origine_ de l'application UI est capital : il protège le serveur d'un accès depuis une application UI _pirate_, non distribuée par le site officiel et bien identifié de distribution de l'application UI.
+En revanche les requêtes de l'application UI ne sont acceptées QUE si la page de cette application a été chargée depuis une des URLs acceptées par la configuration du serveur. Ce contrôle de _l'origine_ de l'application UI protège le serveur d'un accès depuis une application UI _pirate_, non distribuée par le site bien identifié de distribution de l'application UI.
 
 **Selon sa configuration, le serveur accède à une _base de données_** d'une des deux technologies suivantes:
 - **SQL** : c'est une base de volume modeste stockant les informations sur les comptes et les textes de leur notes. La technologie `sqlite` a été utilisée mais une extension à d'autres produits serait développable à coût minime. L'administrateur technique du site met en place le backup en continu de cette base sur un site distant et sa reprise après sinistre en un temps limité.
 - **Firestore** : cette base orientée _document_ NOSQL, est hébergée sur des sites multiples sécurisés et administrés par Google qui en assure la haute disponibilité à coût supportable.
 
 **Selon sa configuration, le serveur accède à un _storage_** des fichiers attachés aux notes d'une des technologies suivantes:
-- `fs` : **File-system**. Stockage dans un répertoire local proche du serveur. Utilisation en pratique limité aux tests.
+- `fs` : **File-system**. Stockage dans un répertoire local du serveur. Utilisation en pratique limitée aux tests.
 - `gc` : **Google Cloud Storage**. Le stockage redondant est assuré par Google sur des sites externes spécialisés.
-- `s3` : **Amazon S3**. S3 est le nom du protocole et plusieurs fournisseurs (en plus de Amazon) proposent ce type de services. Il existe même une application `minio` qui permet de mettre en œuvre son propre stockage sur le(s) serveur(s) de son choix.
+- `s3` : **Amazon S3**. S3 est le nom du protocole et plusieurs fournisseurs (en plus de Amazon) proposent ce type de services. Il existe une application `minio` qui permet de mettre en œuvre son propre stockage sur le(s) serveur(s) de son choix.
 
 Selon le choix de l'administrateur technique, le déploiement du ou des instances de serveurs peut s'effectuer:
-- **sur un serveur classique**, par exemple une VM hébergée chez un hébergeur, avec l'usage d'un frontal de type nginx qui n'est indispensable que quand il y a plusieurs instances de serveurs et d'application UI à configurer et déployer.
+- **sur un serveur classique**, par exemple une VM hébergée (voire plusieurs)chez un hébergeur, avec l'usage éventuel d'un frontal de type `nginx` qui n'est indispensable que quand il y a plusieurs instances de serveurs et d'application UI à configurer et déployer.
 - sur **Google App Engine (GAE)**. Dans ce cas la base de données est Firestore et logiquement le provider de storage est `gc` (plutôt que `s3`).
 
 Les coûts, la sécurité et la charge d'administration diffèrent fortement d'une option à l'autre.
@@ -61,23 +61,23 @@ Cette application supporte un _build_ par webpack qui en délivre une applicatio
 
 **L'application est à configurer avant _build_** dans le fichier `src/app/config.mjs` :
 - plusieurs instances peuvent avoir la même configuration de la partie _profilage métier_;
-- quelques valeurs en majuscules donnent des options (`DEV DEBUG BUILD APITK`) à changer, éventuellement, entre test et déploiement;
+- quelques valeurs en majuscules donnent des options (`DEV DEBUG BUILD`) à changer, éventuellement, entre test et déploiement;
 - `SRV` identifie le serveur à qui l'application doit s'adresser. 
-  - **en test c'est un serveur local** qui délivre une build de test de l'applicatio UI (lancé par `quasar dev`),
+  - **en test c'est un serveur local** qui délivre une build de test de l'application UI (lancé par `quasar dev`),
   - l'application serveur est servie par un autre process / serveur, une autre URL.
-  - **en déploiement**. Par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme `nginx`) cette adresse peut être laissée vierge, et dans ce cas la configuration d'une instance de l'application UI est nulle.
+  - **en déploiement**. Par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme `nginx`) cette adresse peut être laissée vierge et est obtenue en runtime de `window.location`: dans ce cas la configuration d'une instance de l'application UI est nulle.
 
 _Langue_
-- tous les textes lisibles par l'utilisateur sont gérés par un composant I18n qui permet de les traduire dans différentes langues que l'utilisateur peut choisir par une icône dans sa barre supérieure.
-- la traduction a été testée en français et en anglais: toutefois les 1500 textes utilisés sont écrits en français et restent à traduire en angalis, voire d'autres langues. Ces _dictionnaires_ font partie du source de l'application (ils ne sont pas externes).
+- tous les textes lisibles par l'utilisateur sont gérés par un composant `I18n` qui permet de les traduire dans différentes langues que l'utilisateur peut choisir par une icône dans sa barre supérieure.
+- la traduction a été testée en français et en anglais: toutefois les 1500 textes utilisés sont écrits en français et restent à traduire en anglais, voire d'autres langues. Ces _dictionnaires_ font partie du source de l'application (ils ne sont pas externes) mais sont dans des fichiers bien distincts.
 - les panels d'aide en ligne font également partie du source de l'application ce qui permet de les utiliser en mode _avion_, déconnecté d'Internet. Ils sont aussi traduisibles en une autre langue que le français.
 
 ## Site Web documentaire
 Il est géré dans `asocial-doc`.
 
 Les _pages_ sont,
-- écrites directement en HTML,
-- écrites en MD et un script les traduits en HTML.
+- soit écrites directement en HTML,
+- soit écrites en MD et un script les traduits en HTML.
 
 Un script de _déploiement_ permet de générer le folder à déployer avec les pages en HTML (plutôt qu'en MD) et les images utilisées sans déployer les quelques fichiers techniques de script ou les sources MD des pages générées.
 
@@ -85,14 +85,57 @@ _Langue_
 - les pages sont nativement écrites en français.
 - au fil du temps elles seront traduites en anglais, voire en d'autres langues.
 
-## L'utilitaire upload
-Cet utilitaire est un micro serveur Web qui reçoir en entrée des fichiers et en copie le contenu dans un folder local au choix de l'utilisateur. 
+## L'utilitaire `upload`
+C'est un micro serveur Web qui reçoit en entrée des fichiers et en copie le contenu dans un folder local au choix de l'utilisateur. 
 
-Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes et leurs fichiers sélectionnées par l'utilisateur, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait donc appel au micro-serveur Web upload.
+Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes et leurs fichiers sélectionnées par l'utilisateur, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait donc appel au micro-serveur Web `upload`.
 
-Le source consiste en moins de 100 lignes de code écrite en node.js / Javascript.
+Le source consiste en moins de 100 lignes de code écrite en `node.js` / Javascript.
 
-Un _build_ permet de récupérer deux exécutables, un pour Linux, l'autre Windows, autonomes: ils embarquent un ru-time node.js qui dispense l'utilisateur d'une installation un peu technique.
+Un _build_ permet de récupérer deux exécutables, un pour Linux, l'autre Windows, autonomes: ils embarquent un runtime `node.js` qui dispense l'utilisateur d'une installation un peu technique de `node.js`.
+
+## _ES6_ versus _CommonJs_
+Ces deux systèmes de gestion de modules co-existent avec une certaine difficulté:
+- **ES6** est désormais le standard: les modules ne présentant que la forme `require()` de CommonJs se raréfient mais existent encore.
+- **CommonJs** était le système de gestion de modules de Node.js avant la normalisation ES6.
+
+**L'application a été centrée sur ES6** avec quelques contorsions vis à vis des modules étant resté en CommonJs sans offrir d'importation ES6.
+
+### Application UI
+Un seul module est concerné: `pako`.
+
+Un seul source `src/boot/appconfig.js` effectue à l'initialisation de l'application un `require('pako')` et met le résultat à disposition du module `src/app/util.mjs`.
+
+Hormis cette ligne, les autres scripts de l'application sont ES6 (`.mjs`).
+
+### Application Serveur
+Le fichier de démarrage `src/server.js` est un module ES6, malgré son extension `.js`:
+- le déploiement GAE **exige** que ce soit un `.js` et que `package.json` ait une directive `"type": "module"`.
+- pour un déploiement hors GAE, un build `webpack` est requis et cette dernière directive **DOIT** être enlevée ou renommée `"typeX"`.
+
+Le module `src/loadreq.js` porte aussi une extension `.js` et concentre les 4 appels `require()` des modules réfractaires à ES6.
+- de facto ce module est ES6 mais peut effectuer des appels `require()`.
+- il exporte en ES6 les 4 points d'accès aux modules rétifs à ES6.
+
+    import { createRequire } from 'module'
+    const require = createRequire(import.meta.url)
+
+    const prompt = require('prompt-sync')({ sigint: true })
+    const Firestore = require('@google-cloud/firestore').Firestore
+    const Storage = require('@google-cloud/storage').Storage
+    const {LoggingWinston} = require('@google-cloud/logging-winston')
+
+    export default { prompt, Firestore, Storage, LoggingWinston }
+
+Tous les autres modules de l'application (sauf `loadreq` donc) sont entièrement ES6.
+
+_Remarques pour le build du serveur pour déploiement hors GAE_
+- webpack accepte que `loadreq` ait une extension `.js` ce qui évite de la changer quand on passe du déploiement GAE à celui par webpack.
+- webpack n'accepte PAS d'avoir un `"type": "module"` dans `package.json`
+- webpack demande que son `webpack.config.cjs` soit un `.cjs` et utilise donc le mode `require()` plutôt que import (les lignes pour ES6 sont commentées).
+- il a fallu une spécifique dans la configuration de webpack pour que `better-sqlite3` fonctionne après build par webpack.
+
+    externals: { 'better-sqlite3': 'commonjs better-sqlite3' }
 
 # Développement / déploiement
 
