@@ -1,69 +1,59 @@
 @@Index général de la documentation - [index](./index.md)
 
 # Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique
-Des organisations / associations / rencontres informelles de personnes, bien différentes peuvent décider d'avoir un **réseau A-social** pour leurs besoins. 
+Des organisations / associations / rencontres informelles de personnes, peuvent décider d'avoir leur propre **réseau A-social**. 
 
 Ci-après quelques réflexions sur leurs profils types et les approches qu'elles peuvent avoir sur la maîtrise des ressources consommées par les comptes.
 
 ### Organisation payant l'hébergement pour ses adhérents
-L'accès à l'application est un service de l'organisation, gratuit pour ses adhérents (du moins invisiblement inclus dans leur adhésion, ou les crédits de sponsoring dont elle bénéficie).
+L'accès à l'application est un service de l'organisation, gratuit pour ses adhérents, du moins invisiblement inclus dans leur adhésion, ou les crédits de sponsoring dont elle bénéficie.
 - L'organisation connaît ses adhérents et leurs rôles : elle propose des quotas conformes aux exigences des rôles tenus, aux statuts (salariés, ...).
-- L'organisation fait le rapprochement entre chaque adhérent et le nom de l'avatar principal de son compte dans l'application. Mais elle ne peut pas le faire avec les autres avatars du compte, les groupes auxquels il participe, ni les contacts qu'ils forment avec les autres avatars, ni les secrets qu'il écrit et lit.
-- **Questions :**
-  - (1) si un adhérent quitte l'organisation, comment lui retirer son accès -sous quel délai- (et de facto récupérer ses ressources) ?
-  - (2) si des personnes rapportent l'usage par un compte du réseau pour des fins étrangères à l'objet de l'organisation, voire opposées à cet objet, comment lui retirer son accès ? Cette question lève le sujet du contrôle éthique sur l'usage de l'application.
+- L'organisation fait le rapprochement entre chaque adhérent et le nom de l'avatar principal de son compte dans l'application. Mais elle ne peut pas le faire avec les autres avatars du compte, les groupes auxquels il participe.
+- **Sujets à traiter:**
+  - (1) si un adhérent quitte l'organisation, il faut souvent lui retirer son accès -sous quel délai- et de facto récupérer ses ressources.
+  - (2) si des personnes rapportent l'usage par un compte du réseau pour des fins étrangères à l'objet de l'organisation, voire opposées à cet objet, comment lui retirer son accès.
 
 ### Organisation par _cotisation_
-L'organisation, qu'elle soit à but lucratif ou non, a opté pour laisser chaque adhérent choisir son niveau de quotas et corrélativement en payer l'usage.
+L'organisation, formelle ou informelle, qu'elle soit à but lucratif ou non, a opté pour laisser chaque adhérent choisir son niveau de quotas et corrélativement en payer l'usage.
 - chaque titulaire choisit les niveaux de quotas qui lui semble correspondre à son besoin,
-- il paye un abonnement pour contribuer à supporter le coût global d'hébergement.
-- **Questions :**
-  - (1) si un abonné ne paye plus son abonnement, comment lui retirer son accès -sous quel délai- (et de facto récupérer ses ressources) ?
-  - (2) si des comptes rapportent des propos _inappropriés_ vis à vis de la charte éthique de l'organisation dans les secrets partagés, voire non conformes à la loi, comment lui retirer son accès ?
+- il paye régulièrement pour contribuer à supporter le coût global d'hébergement.
+- **Sujets à traiter:**
+  - (1) si un compte ne paye plus son abonnement, comment lui retirer son accès -sous quel délai- (et de facto récupérer ses ressources).
+  - (2) si des comptes rapportent des propos _inappropriés_ vis à vis de la charte éthique de l'organisation dans les notes partagées dans des groupes, voire non conformes à la loi, faut-il pouvoir lui retirer son accès ?
 
-> Les virements des abonnements _pouvant_ être obscurs ou passer par un intermédiaire, il peut être quasi impossible de corréler (avec des moyens légaux) une personne physique ou morale à une ligne comptable. Dans ce type d'organisation **les comptes peuvent être totalement anonymes** ... ce qui n'empêche pas de devoir pouvoir les bloquer, ni qu'ils n'aient pas à respecter la charte éthique s'il y en a une.
+> Le modèle de _paiement de cotisation_ peut tout à fait être sans but lucratif et proposé par des associations désireuses de permettre à chacun de disposer d'espaces privés et sécurisés pour noter leurs pensées ... Ce n'est pas, _a priori_ un modèle marchand (mais ça peut aussi l'être).
 
-> Le modèle de _paiement de cotisation_ peut tout à fait être sans but lucratif et proposé par des associations désireuses de permettre à chacun de disposer d'espaces privés et sécurisés pour noter ses pensées, échanger avec des contacts des propos privés. Ce n'est en rien, _a priori_ un modèle marchand (mais ça peut aussi l'être).
+### Contrôle éthique ou non
+Si l'usage de comptes _autonomes_ impose bien à ceux-ci de payer leur abonnement, il ne donne pas les moyens d'exercer un contrôle _éthique_.
 
-> Il reste donc que dans certains cas, une organisation peut devoir mettre fin à l'activité d'un compte, ne serait-ce que pour répondre à une injonction judiciaire sans devoir détruire tous les comptes et cela même sans considérer les pressions _physiques_, légales ... ou non.
+> Si une organisation veut conserver un contrôle _éthique_ sur les notes partagées dans les groupes de ses adhérents, il suffit qu'elle interdise les comptes _autonomes_: elle pourra faire usage du blocage. Encore faut-il pouvoir établi une corrélation entre un compte et les écrits d'un de ses avatars, ce qui est abordé ci-dessous.
 
-### Contrôle éthique ... ou non
-Ce sujet ne concerne que les organisations ayant un objet social / politique : ses membres utilisent l'application pour les servir.
+### Un compte peut-il devenir _préjudiciable_ aux autres ?
+L'organisation, voire la justice, est-elle fondée à qualifier un compte _d'indésirable_ et en obtenir la clôture ?
 
-Aucun contrôle éthique n'est envisageable vis à vis des secrets personnels : il n'y a que le compte qui peut y accéder, on ne voit pas pourquoi il se dénoncerait de lui-même de textes illisibles par d'autres.
+Corréler un compte et les notes de ses avatars n'est pas possible. Le sponsor du compte connaît le nom / pseudo du compte qu'il a sponsorisé mais ce dernier a pu créer des avatars secondaires connus de lui seul:
+- personne ne peut en avoir connaissance des notes personnelles de ses avatars: elles ne peuvent donc causer aucun préjudice à qui que ce soit.
+- les notes qu'un de ses avatars écrit ne peuvent pas être reliées à son compte. Si elles _déplaisent_ dans le groupe, 
+  - son avatar peut s'en faire exclure s'il n'est pas animateur,
+  - si son avatar est animateur, les autres membres peuvent _l'isoler_:
+    - créer un autre groupe,
+    - récupérer les notes du premier,
+    - ne pas inviter _l'intrus_ dans le nouveau groupe. 
 
-Concernant des secrets partagés entre deux contacts, si des écrits sont jugés inappropriés pour l'un des deux,
-- il renonce aux secrets du contact,
-- il supprime les secrets qui le dérange.
+En résumé, tout groupe peut s'isoler d'un membre jugé indésirable, qui finira seul dans des groupes dont il est l'unique participant avec une capacité de nuisance publique nulle.
 
-L'autre compte est ramené à gérer des secrets personnels.
+### Protection des libertés individuelles
+Le titulaire d'un comptes, ou un groupe de titulaires, peut se mettre à l'abri de l'arbitraire d'une autorité en devenant comptes _autonomes_ et ne pas risquer ainsi un blocage _d'opinion_.
 
-La question se pose vis à vis de secrets d'un groupe :
-- un avatar peut être résilié d'un groupe, sauf s'il en est animateur.
-- s'il n'est pas possible de le résilier parce qu'il est animateur, rien n'empêche les membres du groupe choqués par les écrits inappropriés,
-  - d'ouvrir un autre groupe,
-  - d'y transférer par copie les secrets intéressants de l'ancien,
-  - d'y inviter les mêmes membres, sauf l'indésirable,
-  - de s'auto-résilier de l'ancien groupe.
+La liberté de chacun est certes encadrée par la loi dans son expression _**publique**_, pas dans les pensées / écrits / conversations privées. C'est leur publication, accès au public, qui est restreinte. 
 
-La question n'est donc pas pour les autres comptes de se _mettre à l'abri_ d'un comportement problématique car ils peuvent facilement le faire, mais de _dénoncer_ auprès de l'organisation un compte utilisant les ressources de l'application à des fins personnelles / contraires à l'organisation / illégales ...
+**Les notes partagées dans un groupe ne sont pas _publiques_:**
+- elles ne sont partagées qu'avec une liste fermée (et réduite) d'avatars ayant explicitement **demandé** à faire partie du groupe,
+- la _liste de diffusion implicite_ qu'est le groupe est connue de tous les participants au groupe, sans _destinataires cachés_, chacun disposant du droit de s'en exclure à tout instant.  
 
-Cette question se pose moins dans le cadre d'une organisation _par cotisation_ où finalement c'est l'indésirable lui-même qui paye pour disposer de secrets.
+### L'application est agnostique vis à vis des contenus des notes
+Pas de vote, d'avis ... 
 
-### Connaître un avatar n'est pas connaître son compte
-Il est possible de faire bloquer un compte ... encore faut-il le connaître ! Les textes des secrets et leurs fichiers etc. sont tous rattachés à des **avatars**:
-- la plupart des comptes vont utiliser plusieurs avatars et ils ont les seuls à pouvoir faire le rapprochement entre ses avatars et son compte.
-- même s'il est simple d'exhiber qu'un texte est contraire à l'éthique, il est complètement impossible d'associer son avatar auteur à un compte et à le bloquer. C'est toutefois possible quand le compte a utilisé son avatar principal, ce qui est déconseillé pour éviter de corréler un secret à un compte.
+Les notes peuvent être n'importe quoi, en bien ou en mal ... et selon ce que chacun considère comme bien ou mal: c'est une application qui reste du niveau de la communication / mémorisation **personnelle et de groupe privé**, comme celle que peut avoir dans un cercle restreint d'invités discutant librement entre eux dans un domicile privé.
 
-> Il est aussi possible qu'un compte connaisse la véritable identité d'un avatar dans l'organisation et que son compte puisse en être déduit.
-
-> L'application permet de facto une modération par exclusion d'un compte, pas d'un avatar, en aucun cas par retrait des textes litigieux.
-
-> Une organisation peut aussi déclarer dans ses conditions d'utilisation qu'elle ne procédera jamais à un blocage de compte pour raisons éthiques, les autres comptes ayant facilement les moyens de se protéger d'écrits inappropriés.
-
-### L'application est agnostique vis à vis des contenus des secrets
-Pas de vote, d'avis ... Les secrets peuvent être n'importe quoi, en bien ou en mal ... et selon ce que chacun considère comme bien ou mal: c'est une application qui reste du niveau de la communication / mémorisation **personnelle et/ou privée**, comme celle que peut avoir un cercle restreint d'amis discutant librement entre eux dans un domicile privé.  
-
-C'est pour cette raison qu'un groupe a une taille limitée, telle qu'il soit raisonnable de juger qu'il n'est pas _public_, et où tout le monde en contact se connaît et a été coopté.
-
-> Ce n'est pas une application _libertaire_ mais _privée_. Être libertaire supposerait un accès public sans restriction ce qui n'est pas le cas.
+> Ce n'est pas une application _libertaire_: être libertaire supposerait un accès et un affichage **public** sans règles.
