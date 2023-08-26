@@ -1193,16 +1193,150 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
 
-# Features en réflexion
+# En réflexion
 
-## Branches
-Une organisation orgA #24 décide de créer une branche @b1 un jour donné :
-- la base de données est est exportée sous un #36.
-- le Storage est recopiée en changeant orgA en orgA@b1.
-- l'administrateur créé un espace #36 en lui donnat comme nom orgA@b1
+## Gestion des quotas et crédits
 
-Les utilisateurs peuvent se connecter à l'organisation orgA@b1 en donnant leur phrases secrètes, celle qu'ils utilisaient en se connectant à orgA.
+### Dans `comptas`
+Tous les comptes ont les propriétés suivantes dans `comptas`:
+- `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
+  - `jcal`: date de dernier calcul.
+  - `jneg`: date de passage en solde négatif.
+  - `solde`: solde en euros (flottant).
+- `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
+- `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
 
-Les espaces sont dédoublés, tous deux actifs si c'est ce qui est soujaité: les utilisateurs _n'ont plus qu'à_ veiller à savoir quelle branche ils souhaitent connecter.
+#### Calcul du `soldeCK`
+Il est effectué à la connexion et en traitement de synchronisation. La mise à jour par une transaction intervient sur les événnements suivants:
+- crédit par réception de virement,
+- crédit par don reçu,
+- débit par don effectué,
+- changement des quotas,
+- passage de compte A -> O ou O -> A.
 
-L'implémentation se limite à ne préfixer les phrases (secrète, de reconnaissance, de contact) que par le texte AVANt le @ (éventuel) et à accepter la syntaxe a@b dans un code d'organisation.
+En session `soldeCK` est toujours à jour du fait du recalcul en connexion / synchro,  mais la répercussion par une transaction n'est pas systématique: les _débits liés à la consommation quotidienne_ des quotas pour les comptes A donnent lieu à mise à jour en mémoire mais sans provoquer de transaction.
+
+### Dans `avatars`
+- `adons` : array des dons reçus _en attente d'incorporation_ dans le solde. Chaque montant est l'encodage d'un _number_ (flottant) crypté par la clé A de l'avatar bénéficiaire.
+
+### Ticket de virement
+Un ticket de virement est un entier de 11 chiffres:
+- `aammjj` : date de création du ticket.
+- `nnnn` : numéro d'ordre dans le jour.
+- `x`: clé d'autocontrôle.
+
+Dans `espaces`:
+- `dtka` : `[aaaammjj, n]`. jour et numéro d'ordre du dernier ticket attribué.
+
+La référence porté sur un virement est le couple `org/tk` ou org est le code de l'organisation et `tk` les 11 chiffres du ticket.
+ 
+### `tickets`
+Ce document contient les données:
+- `id` : 16 chiffres. `ns` (2 chiffres) + `000` + `ticket` (11 chiffres)
+- _data_ : 
+  - `j` : aaaammjj : jour d'enregistrement
+  - `m` : en euros (entier).
+
+Un document `tickets` est inséré à chaque réception d'un virement. En cas d'erreur, il peut être mis à jour, s'il est encore disponible (sinon c'est trop tard, il a été utilisé).
+
+### Récupération d'un virement
+A la connexion d'un compte, ou sur demande explicite en cours de session:
+- recherche des tickets dans `tickets` pour chaque ticket enregistré dans `aticketK`,
+- incrémentaion du `soldeCK` en mémoire,
+- _Opération en une transaction:_
+    - mise à jour de `soldeCK` (vérification que la version de `comptas` n'a pas changé),
+    - destruction des tickets dans `tickets`.
+
+### Effectuer un don
+Un don s'effectue, soit entre deux avatars qui se connaissent, soit entre le Comptable et un avatar:
+- pour le donneur: le solde du compte soldeCK est recalculé sur l'instant. Si c'est le Comptable, il n'y a pas de soldeCK et le montant est agrégé à dons.
+- pour le bénéficiaire, un item est ajouté à adons. L'incorporation à la Comptas du compte intervient, soit à la prochaine connexion, soit en traitement de synchronisation, recalculera soldeCK et sera agrégé à dons.
+
+Le don à l'occasion d'un sponsoring est directement insrit dans soldeCK (et dons si le sponsor est le Comptable): en cas de refus de sponsoring, il est perdu.
+
+Un compte sponsor O peut sponsoriser un compte A: il est censé avoir un soldeCK positif à cet effet, éventuellement alimenté par un don du Comptable.
+
+### Distinction entre comptes A et O
+Dans `comptas`:
+- soldeCK : A non null, O peut en avoir ou non.
+- dons aticketK: A et O peuvent en avoir ou non.
+- cletX cletK it
+  - null pour un compte A.
+  - définis pour un compte 0.
+
+### Q1 / V1 et Q2 / V2 d'un compte
+V1 : total du nombre des groupes chats notes de tous les avatars d'un compte et des notes des groupes qu'il héberge.
+
+Q1 : nombre maximal de V1.
+
+V2 : volume total exact des fichiers des notes de ses avatars et des groupes qu'il héberge.
+
+Q2 : volume maximal V2.
+
+#### Opérations affectant Q1 / Q2
+- action d'un sponsor ou du comptable pour un compte O. Répercussion dans sa tribu.
+- action du compte pour un compte A.
+
+#### Opérations affectant V1 / V2
+- **Connexion**
+  - recalcul de V1 par décompte des groupes, chats, notes des avatars et des groupes hébergés.
+  - recalcul de V2 par somme des V2 sur les notes des avatars et groupes hébergés.
+  - enregistrement dans Comptas.
+  - pour un compte O, répercussion _statistique_ dans sa tribu en cas d'évolution de plus de 10%.
+- **Création d'une note**
+  - note d'un avatar ou d'un des groupes hébergés: 
+    - contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe.
+    - mise à jour de V1 en mémoire sur synchro pour la session et les autres.
+  - note d'un groupe non hébergé par le compte: 
+    - contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe.
+    - mise à jour en mémoire de V1 par synchro pour les autres sessions. 
+- **Destruction d'une note**
+  - note d'un avatar ou d'un des groupes hébergés: mise à jour de V1 et V2 en mémoire sur opération et synchro en mémoire pour les autres sessions.
+  - note d'un groupe non hébergé par le compte: mise à jour de V1 et V2 en mémoire sur synchro pour les autres sessions.
+- **Ajout / suppression d'un fichier d'une note**
+  - note d'un avatar ou d'un des groupes hébergés: 
+    - contrôle de non dépassement de Q2 et contrôle de non dépassement du maximum G2 du groupe.
+    - mise à jour de V2 sur synchro en mémoire pour la session et les autres.
+  - note d'un groupe non hébergé par le compte:
+    - contrôle de non dépassement de Q2 et contrôle de non dépassement du maximum G2 du groupe.
+    - mise à jour en mémoire de V2 par synchro pour les autres sessions.
+- **Nouveau chat**
+  - côté _interne_ :
+    - contrôle de non dépassement de Q1.
+    - mise à jour en mémoire de V1 sur synchro pour la session et les autres.
+  - côté _externe_ :
+    - mise à jour en mémoire de V1 sur synchro pour les autres sessions.
+- **Acceptation d'invitation à un groupe**
+  - contrôle de non dépassement de Q1.
+  - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+- **Auto-résiliation d'un groupe**
+  - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+- **Abandon d'hébergement**
+  - mise à jour (par scan des notes et groupes) en mémoire de V1 et V2 sur synchro pour la session et les autres.
+- **Prise d'hébergement**
+  - mise à jour (par scan des notes et groupes) en mémoire de V1 et V2 sur synchro pour la session et les autres.
+- **Résiliation d'un groupe** (le compte n'était pas hébergeur)
+  - mise à jour en mémoire de V1 sur synchro pour les autres sessions.
+- **Disparition d'un groupe** (le compte est le dernier actif)
+  - le compte était hébergeur du groupe
+    - mise à jour en mémoire (par scan des notes et groupes) de V1 et V2 sur synchro de versions du groupe.
+  - il n'y avait plus d'hébergeur
+   - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+
+#### Contrôle des dépassements V1/Q1 et V2/Q2
+V1 peut dépasser Q1 :
+- (a) sur réduction de Q1 par sponsor / comptable pour un compte O.
+- (b) sur création d'un chat _externe_ pour comptes A et O.
+
+V2 peut dépasser Q2 :
+- (c) sur réduction de Q1 par sponsor / comptable pour un compte O.
+
+Les comptes O ne sont pas _bloqués_ par dépassement Q1/V1 ou Q2/V2: toutefois seules les opérations menant à une réduction de volume sont possibles.
+
+Seuls les cas (b) peuvent provoquer un dépassement de V1/Q1 pour les comptes A:
+- en cours de session ou à la connexion, alerte et augmentation de Q1 (donc une opération) un peu au-dessus du strict nécessaire.
+- le recalul du solde qui en résulte _en synchro_ ne change pas le niveau éventuel de blocage (il ne s'est pas passé un jour plein). En fait c'est comme si la création de chats externes venait d'avoir lieu, le compte a bénéficié de facto d'un quota V1 supérieur gratuitement pendant N jours. D'un autre côté, cette augmentation lui est imposée, il ne peut pas refuser un chat externe.
+
+> Est-ce un problème réel d'avoir beaucoup de chats externes _non sollicités_, ce qui est le principe du chat, mais décompté dans le V1 et sans qu'on puisse s'en défaire.
+
+> Faut-il ne compter que les chats _non vides_ ? Ca pousserait à décourager les importuns (et à réduire V1) qui verraient leurs ardoises systématiquement nettoyées.
