@@ -564,9 +564,7 @@ La création / mise à jour s'opère dans le document `avatars`.
 - en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant `vcv` en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
 
 ## Documents `chats`
-Un chat est ne disparaît qu'à la disparition des deux avatars en cause.
-
-Un chat est une ardoise commune à deux avatars I et E:
+Un chat est une ardoise dont le texte est commun à deux avatars I et E:
 - vis à vis d'une session :
   - I est l'avatar _interne_,
   - E est un avatar _externe_ connu comme _contact_.
@@ -577,19 +575,25 @@ Un chat est une ardoise commune à deux avatars I et E:
   - cryptée par la clé K,
   - ou cryptée par la clé publique de l'avatar I (par exemple) : dans ce cas la première écriture de contenu de I remplacera cette clé par celle cryptée par K.
 - un chat a un comportement d'ardoise : chaque écriture de l'un _écrase_ la totalité du contenu pour les deux. Un numéro séquentiel détecte les écritures croisées risquant d'ignorer la mise à jour de l'un par celle de l'autre.
-- si I essaie d'écrire à E et que E a disparu, le statut `st` de I vaut 1 pour informer la session.
+- si I essaie d'écrire à E et que le chat E a disparu, le chat I revient en _zombi_ : la session est informé de la fin du chat.
+
+Une fois créé, un chat ne peut pas être volontairement détruit.
+- l'exemplaire E peut disparaître et pas le I : mais du côté E c'est l'avatar entier qui,
+  - soit s'est auto-résilie : l'exemplaire I est _zombi_ avec une `dlv` du jour pour que les sessions actuelles ou ultérieures de I en prenne connaissance.
+  - soit a disparu : ce n'est que quand I cherchera explicitement la carte de visite de E que le chat I sera marqué _zombi_ et sa `dlv` mise à la date du jour.
+- l'exemplaire I du chat finira par être purgé, soit après sa dlv, soit parce I lui-même disparaît et qu'il est purgé quand sa `versions` passe _zombi_.
 
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
+
+RAZ du contenu: `contc` est `null`. Le chat ne compte plus dans V1.
 
 _data_:
 - `id`: id de A,
 - `ids`: hash du cryptage de `idA_court/idB_court` par la clé de A.
 - `v`: 1..N.
+- `dlv`
 - `vcv` : version de la carte de visite.
 
-- `st` : statut:
-  - 0 : le chat est _apriori_ vivant des 2 côtés
-  - 1 : _l'autre_ a été détecté disparu : 
 - `mc` : mots clés attribués par l'avatar au chat.
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé de _l'autre_.
 - `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I.
@@ -1033,14 +1037,16 @@ Détection par la `dlv` inférieure à aujourd'hui (état _zombi_) du `membres`.
 - si c'est le dernier actif, `dlv` de `versions` du groupe est mise à aujourd'hui (devient zombi / immuable).
 
 ### Chat : détection de la disparition de l'avatar E
-A la connexion d'une session les chats avec des avatars E disparus ne sont pas détectés.
+A la connexion d'une session les chats avec des avatars E,
+- qui s'est auto-dissous est détectée (le chat I est `zombi` et à une dlv). 
+- dont la disparition a été gérée par le GC, ne sont **pas** détectés.
 
-Lors d'une synchronisation de son chat (I), l'auto suppression de l'avatar E dans une autre session est détectée par l'état _disparu_ de E inscrit sur le chat (I).
+Lors d'une synchronisation de son chat (I), l'auto suppression de l'avatar E dans une autre session est détectée par l'état _zombi_ du chat (I).
 
 Lors de l'ouverture de la page listant les _chats_ d'un de ses avatars, 
-- la session reçoit les cartes de visite mises à jour ET les avis de disparitions des contacts E.
+- la session reçoit les cartes de visite mises à jour ET la liste des avatars E ayant disparu (détectés par absence de du row `avatars`).
 - lors de l'écriture d'un chat, la session reçoit aussi ce même avis de disparition éventuelle de l'avatar E.
-- le _contact_ E est marqué _disparu_ en mémoire (le chat I y est mis à jour ainsi qu'en IDB).
+- le _contact_ E est marqué _disparu_ en mémoire (le chat I y est supprimé ainsi qu'en IDB).
 
 > Un _contact_ peut donc apparaître _à tort_ en session alors que l'avatar / compte correspondant a été résilié du fait, a) qu'il est un des comptes de la tribu de la session, b) qu'un chat est ouvert avec lui. Toutefois l'ouverture du chat ou de la page des chats, rétablit cette distorsion temporelle provisoire.
 
@@ -1113,7 +1119,9 @@ Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
 Les documents `transferts` sont purgés.
 
 ### `GCDlv` : purge des versions / sponsorings obsolètes
-L'opération récupère tous les documents `versions` de `dlv` antérieures à jour j - 2 ans. Ces documents sont purgés.
+L'opération récupère tous les documents `versions` de `dlv` antérieures à jour j - 2 ans. Ces documents sont purgés: ils ont fini d'être utile pour synchronisation.
+
+L'opération récupère tous les documents `chats` et `notes` de `dlv` antérieures à jour j - 1 an. Ces documents sont purgés: ils ont fini d'être utile pour synchronisation.
 
 L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures ou égales à aujourd'hui. Ces documents sont purgés.
 
@@ -1199,22 +1207,29 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 
 ### Dans `comptas`
 Tous les comptes ont les propriétés suivantes dans `comptas`:
+- `q1 q2 v2`: valeurs courantes à jour.
+- `v1`: valeur courante _la plus vraisemblable_.
 - `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
-  - `jcal`: date de dernier calcul.
-  - `jneg`: date de passage en solde négatif.
+  - `j`: date de dernier calcul.
+  - `q1 q2 v1 v2` : valeurs connues à j.
+  - `jn`: date de passage en solde négatif.
   - `solde`: solde en euros (flottant).
 - `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
 - `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
 
 #### Calcul du `soldeCK`
-Il est effectué à la connexion et en traitement de synchronisation. La mise à jour par une transaction intervient sur les événnements suivants:
-- crédit par réception de virement,
-- crédit par don reçu,
-- débit par don effectué,
-- changement des quotas,
-- passage de compte A -> O ou O -> A.
+Il n'y a calcul que pour les comptes A. Pour les comptes O, soldeCK (réduit à solde) reste figé jusqu'à ce que le compte passe (éventuellement) A.
 
-En session `soldeCK` est toujours à jour du fait du recalcul en connexion / synchro,  mais la répercussion par une transaction n'est pas systématique: les _débits liés à la consommation quotidienne_ des quotas pour les comptes A donnent lieu à mise à jour en mémoire mais sans provoquer de transaction.
+Il est effectué à la connexion et en traitement de synchronisation. La mise à jour sur le serveur par une transaction intervient sur les événnements suivants:
+- **connexion**: l'état _exact_ de V1 vient d'être calculé. Pas de mise à jour serveur si `j q1 q2 v1 v2` sont inchangés.
+- **opérations**: en mémoire la mise à jour est _anticipée_ à la fin de l'opération afin que la synchronisation qui va suivre ne provoque pas une mise jour qui vient d'être faite.
+  - crédit par réception de virement,
+  - crédit par don reçu,
+  - débit par don effectué,
+  - changement des quotas,
+  - passage de compte A -> O: il ne subsiste que `solde`.
+  - passage du compte O -> A: recalcul complet depuis `q1 q2 v1 v2` à l'instant t.
+- **synchronisation**: `soldeCK` est recalculé en mémoire et ne fait l'objet d'une opération de mise à jour sur le serveur dans `comptas` que si j q1 q2 v1 v2 ont changé par rapport à l'état connu en mémoire avant le traitement de synchronisation.
 
 ### Dans `avatars`
 - `adons` : array des dons reçus _en attente d'incorporation_ dans le solde. Chaque montant est l'encodage d'un _number_ (flottant) crypté par la clé A de l'avatar bénéficiaire.
@@ -1228,16 +1243,16 @@ Un ticket de virement est un entier de 11 chiffres:
 Dans `espaces`:
 - `dtka` : `[aaaammjj, n]`. jour et numéro d'ordre du dernier ticket attribué.
 
-La référence porté sur un virement est le couple `org/tk` ou org est le code de l'organisation et `tk` les 11 chiffres du ticket.
+La référence portée sur un virement est `org/tk` ou `org` est le code de l'organisation et `tk` les 11 chiffres du ticket.
  
 ### `tickets`
 Ce document contient les données:
 - `id` : 16 chiffres. `ns` (2 chiffres) + `000` + `ticket` (11 chiffres)
 - _data_ : 
-  - `j` : aaaammjj : jour d'enregistrement
+  - `j` : `aaaammjj` : jour d'enregistrement
   - `m` : en euros (entier).
 
-Un document `tickets` est inséré à chaque réception d'un virement. En cas d'erreur, il peut être mis à jour, s'il est encore disponible (sinon c'est trop tard, il a été utilisé).
+Un document `tickets` est inséré à l'enregistrement de la réception d'un virement. En cas d'erreur, il peut être mis à jour / supprimé, à condition qu'il soit encore disponible (sinon c'est trop tard, il a été utilisé).
 
 ### Récupération d'un virement
 A la connexion d'un compte, ou sur demande explicite en cours de session:
@@ -1249,29 +1264,38 @@ A la connexion d'un compte, ou sur demande explicite en cours de session:
 
 ### Effectuer un don
 Un don s'effectue, soit entre deux avatars qui se connaissent, soit entre le Comptable et un avatar:
-- pour le donneur: le solde du compte soldeCK est recalculé sur l'instant. Si c'est le Comptable, il n'y a pas de soldeCK et le montant est agrégé à dons.
-- pour le bénéficiaire, un item est ajouté à adons. L'incorporation à la Comptas du compte intervient, soit à la prochaine connexion, soit en traitement de synchronisation, recalculera soldeCK et sera agrégé à dons.
+- pour le donneur: le solde du compte `soldeCK` est recalculé sur l'instant. Si c'est le Comptable, il n'y a pas de `soldeCK` et le montant est agrégé à `dons`.
+- pour le bénéficiaire, un item est ajouté à `adons`. L'incorporation à la `comptas` du compte intervient, soit à la prochaine connexion, soit en traitement de synchronisation, recalculera `soldeCK` et sera agrégé à `dons`.
 
-Le don à l'occasion d'un sponsoring est directement insrit dans soldeCK (et dons si le sponsor est le Comptable): en cas de refus de sponsoring, il est perdu.
+Le don à l'occasion d'un sponsoring d'un compte A est directement insrit dans `soldeCK` (et `dons` si le sponsor est le Comptable): en cas de refus de sponsoring, le don est perdu pour tout le monde.
 
-Un compte sponsor O peut sponsoriser un compte A: il est censé avoir un soldeCK positif à cet effet, éventuellement alimenté par un don du Comptable.
+Un compte sponsor O peut sponsoriser un compte A: il est censé avoir un `soldeCK` positif à cet effet, éventuellement alimenté par un don du Comptable.
 
 ### Distinction entre comptes A et O
 Dans `comptas`:
-- soldeCK : A non null, O peut en avoir ou non.
-- dons aticketK: A et O peuvent en avoir ou non.
-- cletX cletK it
-  - null pour un compte A.
+- `soldeCK` : A non null, O peut en avoir ou non.
+- dons `aticketK`: A et O peuvent en avoir ou non.
+- `cletX cletK it`
+  - `null` pour un compte A.
   - définis pour un compte 0.
 
 ### Q1 / V1 et Q2 / V2 d'un compte
-V1 : total du nombre des groupes chats notes de tous les avatars d'un compte et des notes des groupes qu'il héberge.
+V1 : total du nombre des `avatars groupes chats notes` de tous les avatars d'un compte:
+- les notes d'un groupe ne sont décomptées que si le compte héberge le groupe.
+- les chats _vides_ ne sont pas comptés.
 
-Q1 : nombre maximal de V1.
+V2 : volume total en octets des fichiers des notes de ses avatars et des groupes qu'il héberge.
 
-V2 : volume total exact des fichiers des notes de ses avatars et des groupes qu'il héberge.
+Q1 : nombre maximal souhaitable de V1
 
-Q2 : volume maximal V2.
+Q2 : volume maximal souhaitable de V2.
+
+### Q2 / V2: toujours à jour dans `comptas`
+Les opérations qui les mettent à jour peuvent toujours en répercuter la valeur dans `comptas`:
+- création / suppression d'un fichier d'une note.
+- ajustement du quota Q2 par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O).
+- début d'hébergement d'un groupe.
+- fin d'hébergement d'un groupe.
 
 #### Opérations affectant Q1 / Q2
 - action d'un sponsor ou du comptable pour un compte O. Répercussion dans sa tribu.
