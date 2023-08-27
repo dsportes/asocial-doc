@@ -574,14 +574,23 @@ Un chat est une ardoise dont le texte est commun à deux avatars I et E:
 - un chat a une clé de cryptage `cc` propre générée à sa création (première écriture):
   - cryptée par la clé K,
   - ou cryptée par la clé publique de l'avatar I (par exemple) : dans ce cas la première écriture de contenu de I remplacera cette clé par celle cryptée par K.
-- un chat a un comportement d'ardoise : chaque écriture de l'un _écrase_ la totalité du contenu pour les deux. Un numéro séquentiel détecte les écritures croisées risquant d'ignorer la mise à jour de l'un par celle de l'autre.
-- si I essaie d'écrire à E et que le chat E a disparu, le chat I revient en _zombi_ : la session est informé de la fin du chat.
+- un chat a un comportement d'ardoise : l'écriture de l'un _écrase_ les deux exemplaires. Un numéro séquentiel détecte les écritures croisées risquant d'ignorer la mise à jour de l'un par celle de l'autre.
+- si I essaie d'écrire à E et que le chat E a disparu, le chat I revient en _zombi_ : la session est informé de la destruction du chat.
 
-Une fois créé, un chat ne peut pas être volontairement détruit.
-- l'exemplaire E peut disparaître et pas le I : mais du côté E c'est l'avatar entier qui,
-  - soit s'est auto-résilie : l'exemplaire I est _zombi_ avec une `dlv` du jour pour que les sessions actuelles ou ultérieures de I en prenne connaissance.
-  - soit a disparu : ce n'est que quand I cherchera explicitement la carte de visite de E que le chat I sera marqué _zombi_ et sa `dlv` mise à la date du jour.
-- l'exemplaire I du chat finira par être purgé, soit après sa dlv, soit parce I lui-même disparaît et qu'il est purgé quand sa `versions` passe _zombi_.
+Vis à vis du décompte des chats par compte, les actions sont les suivantes:
+- I écrit à E: 1 / 0 -> même texte sur I et E
+- E répond : 1 / 1 -> même texte sur I et E
+- I raccroche: 0 / 1 -> pas de texte sur I, texte inchangé sur E
+- E raccroche: 0 / 0 -> aucun texte sur I ni E
+- E écrit à I: 0 / 1 -> même texte sur I et E
+- E écrit à I: 0 / 1 -> même texte sur I et E
+- E écrit à I: 0 / 1 -> même texte sur I et E
+- E raccroche: 0 / 0 -> aucun texte sur I ni E
+
+Chaque exemplaire du chat, par exemple I, ne se _détruit_ que:
+- soit parce que son avatar s'est auto-résilié: c'est le fait que son document versions devienne _zombi_ qui traduit ce fait (pour tous les chats, membres etc.).
+- soit parce que c'étant adressé à E il a récupéré que E était détruit. Le chat de I devient _zombi_ afin que ça se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
+- soit parce que I a fait rafraîchir les cartes de visite dans sa session et que ça lui a retourné l'information de la disparition de son _contact_.
 
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
 
@@ -601,7 +610,7 @@ _data_:
 - `contc` : contenu crypté par la clé `cc` du chat.
   - `na` : `[nom, cle]` de _l'autre_.
   - `dh`  : date-heure de dernière mise à jour.
-  - `txt` : texte du chat.
+  - `txt` : texte du chat. '' quand le compte a raccroché (ce qui ne _vide_ pas l'autre exemplaire.)
 
 ### _Contact direct_ entre A et B
 Supposons que B veuille ouvrir un chat avec A mais n'en connaît pas le nom / clé.
@@ -905,8 +914,9 @@ _data_:
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
 - **pour le mois en cours**, celui de la date ci-dessus :
-  - `q1 q2`: quotas actuels.
-  - `v1 v2 v1m v2m`: volumes actuels des notes et moyens sur le mois en cours.
+  - `q1 q2`: quotas à partir desquels `compteurs` est calculé.
+  - `v1 v2`: volumes à partir desquels `compteurs` est calculé.
+  - `v1m v2m`: volumes moyens estimés sur le mois en cours.
   - `trj` : transferts cumulés du jour.
   - `trm` : transferts cumulés du mois.
 - `tr8` : log() des volumes des transferts cumulés journaliers de pièces jointes sur les 7 derniers jours + total (en tête) sur ces 7 jours.
@@ -1207,15 +1217,20 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 
 ### Dans `comptas`
 Tous les comptes ont les propriétés suivantes dans `comptas`:
-- `q1 q2 v2`: valeurs courantes à jour.
-- `v1`: valeur courante _la plus vraisemblable_.
+- `q1 q2 v1 v2`: valeurs courantes à jour.
 - `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
   - `j`: date de dernier calcul.
   - `q1 q2 v1 v2` : valeurs connues à j.
-  - `jn`: date de passage en solde négatif.
+  - `njn`: nombre de jours passés en solde négatif (à la date j).
   - `solde`: solde en euros (flottant).
 - `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
 - `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
+- `compteurs` statistiques (non cryptée) d'évolution des quotas et volumes. Calculés d'après les valeurs q1 Q2 v1 v2 de comptas, les compteurs liès aux _quotas, transferts et v2_ sont _exacts_, ceux liés à v1 sont proches mais pas strictement exacts (ce qui n'a pas d'importance).
+
+### Répercussion dans `tribus` pour les seuls comptes O
+Les évolutions de Q1 et Q2 sont toujours répercutés dans l'élément du compte dans la table `act` de `tribus`. 
+
+Les valeurs V1 / V2 ne sont reportées dans TRibus qu'à la connexion du compte et si l'écart entre les valeurs connues de `tribus` et celles de `comptas` excèdent 10%.
 
 #### Calcul du `soldeCK`
 Il n'y a calcul que pour les comptes A. Pour les comptes O, soldeCK (réduit à solde) reste figé jusqu'à ce que le compte passe (éventuellement) A.
@@ -1229,7 +1244,7 @@ Il est effectué à la connexion et en traitement de synchronisation. La mise à
   - changement des quotas,
   - passage de compte A -> O: il ne subsiste que `solde`.
   - passage du compte O -> A: recalcul complet depuis `q1 q2 v1 v2` à l'instant t.
-- **synchronisation**: `soldeCK` est recalculé en mémoire et ne fait l'objet d'une opération de mise à jour sur le serveur dans `comptas` que si j q1 q2 v1 v2 ont changé par rapport à l'état connu en mémoire avant le traitement de synchronisation.
+- **synchronisation**: `soldeCK` est recalculé en mémoire et ne fait l'objet d'une opération de mise à jour sur le serveur dans `comptas` que si `j q1 q2 v1 v2` ont changé par rapport à l'état connu en mémoire avant le traitement de synchronisation.
 
 ### Dans `avatars`
 - `adons` : array des dons reçus _en attente d'incorporation_ dans le solde. Chaque montant est l'encodage d'un _number_ (flottant) crypté par la clé A de l'avatar bénéficiaire.
@@ -1280,9 +1295,9 @@ Dans `comptas`:
   - définis pour un compte 0.
 
 ### Q1 / V1 et Q2 / V2 d'un compte
-V1 : total du nombre des `avatars groupes chats notes` de tous les avatars d'un compte:
+V1 : total du nombre des `groupes chats notes` de tous les avatars d'un compte:
 - les notes d'un groupe ne sont décomptées que si le compte héberge le groupe.
-- les chats _vides_ ne sont pas comptés.
+- les chats _vides_ ne sont pas comptés (consécutivement à l'action de _raccrocher_).
 
 V2 : volume total en octets des fichiers des notes de ses avatars et des groupes qu'il héberge.
 
@@ -1290,77 +1305,108 @@ Q1 : nombre maximal souhaitable de V1
 
 Q2 : volume maximal souhaitable de V2.
 
-### Q2 / V2: toujours à jour dans `comptas`
-Les opérations qui les mettent à jour peuvent toujours en répercuter la valeur dans `comptas`:
+### Q2 / V2 sont toujours à jour dans `comptas`
+Les opérations qui les mettent à jour peuvent toujours en répercuter la valeur exacte dans `comptas`:
 - création / suppression d'un fichier d'une note.
 - ajustement du quota Q2 par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O).
 - début d'hébergement d'un groupe.
 - fin d'hébergement d'un groupe.
 
-#### Opérations affectant Q1 / Q2
-- action d'un sponsor ou du comptable pour un compte O. Répercussion dans sa tribu.
-- action du compte pour un compte A.
+_Remarques_:
+- l'hébergeur d'un groupe ne peut pas être résilié ni s'auto-résilier: ça ne peut donc pas affecter son décompte V2.
+- la résiliation ou auto-résiliation d'un membre non hébergeur par principe n'a pas d'impact sur le décompte V2 (ce n'est pas lui qui le supporte).
+- disparition d'un groupe par disparition de son dernier membre actif. Puisque le membre _disparaît_, ses décomptes V1 / V2 sont sans intérêt.
 
-#### Opérations affectant V1 / V2
-- **Connexion**
-  - recalcul de V1 par décompte des groupes, chats, notes des avatars et des groupes hébergés.
-  - recalcul de V2 par somme des V2 sur les notes des avatars et groupes hébergés.
-  - enregistrement dans Comptas.
-  - pour un compte O, répercussion _statistique_ dans sa tribu en cas d'évolution de plus de 10%.
+### Q1 / V1 sont toujours à jour dans `comptas`
+La seule opération faisant évoluer Q1 est son ajustement par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O): elle met à jour Q1 dans `comptas`.
+
+#### Opérations affectant V1 et contrôles du dépassement de Q1
+Pour toutes les opérations la synchro qui intervient après remet à jour V1: ayant été anticipée, en général elle est ignorée en ce qui concerne `v1 v2 q1 q2`.
 - **Création d'une note**
   - note d'un avatar ou d'un des groupes hébergés: 
-    - contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe.
-    - mise à jour de V1 en mémoire sur synchro pour la session et les autres.
+    - (c1) contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe, en session puis dans l'opération.
+    - anticipation en mémoire avant lancement de l'opération, 
+    - mise à jour de V1 dans comptas par l'opération (+1) et à nouveau (c1),
   - note d'un groupe non hébergé par le compte: 
     - contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe.
-    - mise à jour en mémoire de V1 par synchro pour les autres sessions. 
+    - mise à jour de V1 (+1) dans `comptas` de l'hébergeur. 
 - **Destruction d'une note**
-  - note d'un avatar ou d'un des groupes hébergés: mise à jour de V1 et V2 en mémoire sur opération et synchro en mémoire pour les autres sessions.
-  - note d'un groupe non hébergé par le compte: mise à jour de V1 et V2 en mémoire sur synchro pour les autres sessions.
-- **Ajout / suppression d'un fichier d'une note**
-  - note d'un avatar ou d'un des groupes hébergés: 
-    - contrôle de non dépassement de Q2 et contrôle de non dépassement du maximum G2 du groupe.
-    - mise à jour de V2 sur synchro en mémoire pour la session et les autres.
-  - note d'un groupe non hébergé par le compte:
-    - contrôle de non dépassement de Q2 et contrôle de non dépassement du maximum G2 du groupe.
-    - mise à jour en mémoire de V2 par synchro pour les autres sessions.
-- **Nouveau chat**
-  - côté _interne_ :
-    - contrôle de non dépassement de Q1.
-    - mise à jour en mémoire de V1 sur synchro pour la session et les autres.
-  - côté _externe_ :
-    - mise à jour en mémoire de V1 sur synchro pour les autres sessions.
+  - note d'un avatar ou d'un des groupes hébergés: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
+  - (*) note d'un groupe NON hébergé par le compte: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
+- **Nouveau chat / réactivation d'un chat vide / réponse à un chat (non vide)**
+  - créé par le compte:
+    - (c2) contrôle de non dépassement de Q1.
+    - mise à jour de V1 dans `comptas` (+1 ou non selon que le chat I était vide ou non) et à nouveau (c2). Remarques:
+      - si E est détecté _disparu_, le compteur Q1 de I n'est pas incrémenté si le texte était vide avant l'envoi et est décrémenté s'il était non vide avant l'envoi.
+      - le Q1 du compte _externe_ est inchangé.
+  - créé par l'autre :
+    - une synchro revient (si le compte est connecté) qui contient une mise à jour de V1 et un possible dépassement de Q1.
+- **Raccrocher un chat (non vide)**
+  - par le compte:
+    - mise à jour de V1 dans `comptas` (-1). Remarque: le Q1 du compte _externe_ est inchangé.
+  - par l'autre :
+    - une synchro revient (si le compte est connecté) qui permet une mise à jour de V1 (toujours avec possiblement dépassement de Q1).
 - **Acceptation d'invitation à un groupe**
-  - contrôle de non dépassement de Q1.
-  - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+  - (c2) contrôle de non dépassement de Q1.
+  - mise à jour de V1 dans `comptas` du compte (+1) et à nouveau (c2).
 - **Auto-résiliation d'un groupe**
-  - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+  - mise à jour de V1 dans `comptas` du compte (-1).
 - **Abandon d'hébergement**
-  - mise à jour (par scan des notes et groupes) en mémoire de V1 et V2 sur synchro pour la session et les autres.
+  - mise à jour de V1 dans `comptas` du compte (-V1 du groupe -nombre de notes-) et de V2 (-V2 du groupe).
 - **Prise d'hébergement**
-  - mise à jour (par scan des notes et groupes) en mémoire de V1 et V2 sur synchro pour la session et les autres.
-- **Résiliation d'un groupe** (le compte n'était pas hébergeur)
-  - mise à jour en mémoire de V1 sur synchro pour les autres sessions.
-- **Disparition d'un groupe** (le compte est le dernier actif)
-  - le compte était hébergeur du groupe
-    - mise à jour en mémoire (par scan des notes et groupes) de V1 et V2 sur synchro de versions du groupe.
-  - il n'y avait plus d'hébergeur
-   - mise à jour (par scan des groupes) en mémoire de V1 sur synchro pour la session et les autres.
+  - (c3) contrôle de la capacité à prendre V1 / V2 du groupe dans le compte.
+  - mise à jour de V1 dans `comptas` du compte (+V1 du groupe -nombre de notes-) et de V2 (+V2 du groupe) et à nouveau (c3).
+- **Auto-résiliation d'un groupe** (le compte ne peut pas être hébergeur)
+  - mise à jour de V1 dans `comptas` du compte (-1).
+- **Résiliation d'un groupe par un animateur** (le compte ne peut pas être hébergeur)
+  - une synchro revient (si le compte est connecté) qui permet une mise à jour de V1 (toujours avec possiblement dépassement de Q1).
+- **Disparition d'un groupe** (le compte était le dernier actif et il n'était pas hébergeur)
+  - comme le compte disparaît, son quota Q1 ne l'intéresse plus.
+- **Disparition d'un contact et donc d'un chat**
+  - récupération tardive à l'occasion d'un rafraîchissement de carte de visite. Ce n'est qu'à ce moment que Q1 peut être recalculé en session (et mis à jour par une opération dans `comptas`).
 
-#### Contrôle des dépassements V1/Q1 et V2/Q2
-V1 peut dépasser Q1 :
-- (a) sur réduction de Q1 par sponsor / comptable pour un compte O.
-- (b) sur création d'un chat _externe_ pour comptes A et O.
+**Remarques:**
+- le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
+- il n'y a que l'initiative d'écrire (créer / écrire deuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
+- écrire et raccrocher : correspond à un message final _au revoir_.
 
-V2 peut dépasser Q2 :
-- (c) sur réduction de Q1 par sponsor / comptable pour un compte O.
+#### Dépassements V1/Q1 et V2/Q2 pour un compte C
+V1 peut dépasser Q1 hors de la volonté de C sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
+- remarque: un avatar B ne peut pas créer une note qui provoquerait le dépassement de V1 pour compte: c'est contrôlé par l'opération.
 
-Les comptes O ne sont pas _bloqués_ par dépassement Q1/V1 ou Q2/V2: toutefois seules les opérations menant à une réduction de volume sont possibles.
+V2 peut dépasser Q2 sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
 
-Seuls les cas (b) peuvent provoquer un dépassement de V1/Q1 pour les comptes A:
-- en cours de session ou à la connexion, alerte et augmentation de Q1 (donc une opération) un peu au-dessus du strict nécessaire.
-- le recalul du solde qui en résulte _en synchro_ ne change pas le niveau éventuel de blocage (il ne s'est pas passé un jour plein). En fait c'est comme si la création de chats externes venait d'avoir lieu, le compte a bénéficié de facto d'un quota V1 supérieur gratuitement pendant N jours. D'un autre côté, cette augmentation lui est imposée, il ne peut pas refuser un chat externe.
+Les comptes ne sont pas _bloqués_ par dépassement Q1/V1 ou Q2/V2: seules les opérations menant à une réduction de volume sont possibles.
 
-> Est-ce un problème réel d'avoir beaucoup de chats externes _non sollicités_, ce qui est le principe du chat, mais décompté dans le V1 et sans qu'on puisse s'en défaire.
+## Conversion de Q1 / Q2 en _monétaire_ (comptes A seulement)
+A la connexion, le calcul du _solde_ valorise, les valeurs de Q1 et Q2 et établit le solde du jour en considérant que ces valeurs Q1 / Q2 se sont appliquées tous les jours entre le dernier jour de calcul et aujourd'hui.
+- si le solde est positif le compte n'est pas restreint.
+- si le solde est négatif, on calcule depuis quand il est passé négatif en se basant sur le nombre de jours où il avait déjà été négatif lors du dernier calcul ou sinon depuis quand il l'est devenu par extrapolation dans le temps.
 
-> Faut-il ne compter que les chats _non vides_ ? Ca pousserait à décourager les importuns (et à réduire V1) qui verraient leurs ardoises systématiquement nettoyées.
+La valorisation consiste à appliquer deux coefficients multiplicateurs à Q1 et Q2 pour les valoriser en coût journalier. En pratique on prend un coût annuel qui sera divisé par 365 en raison de la faiblesse ds coûts unitaires journaliers les rendant d'interprétation humaine difficile.
+
+Une unité de Q1 correspond à 250 groupes / notes / chats (soit environ 1Mo de données _technique_): 0,43c / an.
+
+Une unité de Q2 correspond à un volume de 100Mo: 0,091c / an.
+
+Les quotas _symboliques_ suivants sont XXS (1 unité), MD (8 unités) et XXL (64 unités).
+
+                            XXS      MD      XXL     XXS      MD      XXL
+    Q1 : Nombre de g/n/c    250     2000    16000   0,430c   3,440c   27,52c
+    Q2 : Volumes fichiers   100Mo   800Mo   6,4Go   0,091c   0,728c    5,82c
+    Total:                                          0,521c   4,168c   33,34c
+
+### Mode d'estimation a priori
+Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
+
+Le volume _technique_ moyen d'un groupe / note / chat est estimé à 4K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ...
+
+Les autres coûts induits pour Firestore sont ceux des lectures, écritures et suppressions. En première estimation, ils ont été considérés comme équivalents à celui du stockage.
+
+Les autres coûts induits pour Storage sont des downloads, uploads et invocations. Toujours en première estimation, ils ont été considérés comme équivalents à 2 fois celui du stockage.
+
+> Les estimations ci-dessus supposent que le volume occupé effectivement est égal aux quotas. Statistiquement pour 1000 comptes, il est probable que le coût de facturation, par exemple par Google, qui se base sur le volume _réellement occupé_ (et pas les quotas réservés), serait de moitié, voire moins.
+
+> Une organisation hébergeant 1000 comptes MD occupant leurs quotas à 100% aurait à supporter un coût de environ 42€ par an, soit 3,5€ mensuels.
+
+> Le coût pour _un_ compte A est dérisoire : 0,33€ / an pour un compte ayant une occupation réelle XXL, moins de 3c par mois. Autant en acheter pour 20 ans pour moins de 7€.
