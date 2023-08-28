@@ -499,7 +499,15 @@ _data_ :
 - `mavk` : map des avatars du compte. 
   - _clé_ : id court de l'avatar cryptée par la clé K du compte.
   - _valeur_ : couple `[nom clé]` de l'avatar crypté par la clé K du compte.
-- `compteurs`: compteurs sérialisés (non cryptés), dont `q1 q2` les quotas actuels du compte qui sont dupliqués dans son entrée `act` de sa tribu.
+- `qv` : `{ng nc nn q1 q2 v1 v2}`: nombre de groupes, chats, notes, valeurs courantes à jour.
+- `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
+  - `j`: date de dernier calcul.
+  - `q1 q2 v1 v2` : valeurs connues à j.
+  - `njn`: nombre de jours passés en solde négatif (à la date j).
+  - `solde`: solde en centimes (flottant).
+- `dons`: somme des dons _reçus_ (pour le Comptable _donnés_) de l'organisation en centimes.
+- `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
+- `compteurs` statistique (non cryptée) d'évolution des quotas et volumes calculée d'après les valeurs `q1 q2 v1 v2`.
 
 **Pour le Comptable seulement**
 -`atr` : table des tribus : `{clet, info, q1, q2}` crypté par la clé K du comptable.
@@ -603,6 +611,7 @@ _data_:
 - `dlv`
 - `vcv` : version de la carte de visite.
 
+- `ver` : 0:vide 1:émis 2:reçu
 - `mc` : mots clés attribués par l'avatar au chat.
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé de _l'autre_.
 - `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I.
@@ -1217,7 +1226,7 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 
 ### Dans `comptas`
 Tous les comptes ont les propriétés suivantes dans `comptas`:
-- `q1 q2 v1 v2`: valeurs courantes à jour.
+- `qv`: `{ng, nc, nn, q1 q2 v1 v2}` : nombres de groupes, chats, notes ...valeurs connues à j. v1 = ng + nc + nn
 - `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
   - `j`: date de dernier calcul.
   - `q1 q2 v1 v2` : valeurs connues à j.
@@ -1225,7 +1234,9 @@ Tous les comptes ont les propriétés suivantes dans `comptas`:
   - `solde`: solde en euros (flottant).
 - `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
 - `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
-- `compteurs` statistiques (non cryptée) d'évolution des quotas et volumes. Calculés d'après les valeurs q1 Q2 v1 v2 de comptas, les compteurs liès aux _quotas, transferts et v2_ sont _exacts_, ceux liés à v1 sont proches mais pas strictement exacts (ce qui n'a pas d'importance).
+- `compteurs` statistique (non cryptée) d'évolution des quotas et volumes calculée d'après les valeurs `q1 q2 v1 v2`.
+
+> En toute rigueur, les décomptes QV sont toujours corrects dans `comptas`, toutes les opérations pouvant en affecter les compteurs sont cohérentes et travaillent sous exclisivité d'accès dans une transaction. Par **superstition**, apès une connexion, QV est recalculé depuis les groupes / chats / notes. S'il y a divergence avec le QV de `comptas` (il ne devrait pas y en avoir), `QV soldeCK` de `comptas` sont mis à jour avec répercussion éventuelle dans `tribus`. 
 
 ### Répercussion dans `tribus` pour les seuls comptes O
 Les évolutions de Q1 et Q2 sont toujours répercutés dans l'élément du compte dans la table `act` de `tribus`. 
@@ -1313,7 +1324,7 @@ Les opérations qui les mettent à jour peuvent toujours en répercuter la valeu
 - fin d'hébergement d'un groupe.
 
 _Remarques_:
-- l'hébergeur d'un groupe ne peut pas être résilié ni s'auto-résilier: ça ne peut donc pas affecter son décompte V2.
+- l'hébergeur d'un groupe ne peut pas être résilié ni s'auto-résilier: ça ne peut donc pas affecter ses décomptes V1 / V2.
 - la résiliation ou auto-résiliation d'un membre non hébergeur par principe n'a pas d'impact sur le décompte V2 (ce n'est pas lui qui le supporte).
 - disparition d'un groupe par disparition de son dernier membre actif. Puisque le membre _disparaît_, ses décomptes V1 / V2 sont sans intérêt.
 
@@ -1321,7 +1332,6 @@ _Remarques_:
 La seule opération faisant évoluer Q1 est son ajustement par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O): elle met à jour Q1 dans `comptas`.
 
 #### Opérations affectant V1 et contrôles du dépassement de Q1
-Pour toutes les opérations la synchro qui intervient après remet à jour V1: ayant été anticipée, en général elle est ignorée en ce qui concerne `v1 v2 q1 q2`.
 - **Création d'une note**
   - note d'un avatar ou d'un des groupes hébergés: 
     - (c1) contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe, en session puis dans l'opération.
@@ -1358,16 +1368,15 @@ Pour toutes les opérations la synchro qui intervient après remet à jour V1: a
   - mise à jour de V1 dans `comptas` du compte (+V1 du groupe -nombre de notes-) et de V2 (+V2 du groupe) et à nouveau (c3).
 - **Auto-résiliation d'un groupe** (le compte ne peut pas être hébergeur)
   - mise à jour de V1 dans `comptas` du compte (-1).
-- **Résiliation d'un groupe par un animateur** (le compte ne peut pas être hébergeur)
-  - une synchro revient (si le compte est connecté) qui permet une mise à jour de V1 (toujours avec possiblement dépassement de Q1).
-- **Disparition d'un groupe** (le compte était le dernier actif et il n'était pas hébergeur)
-  - comme le compte disparaît, son quota Q1 ne l'intéresse plus.
+- **Résiliation d'un membre d'un groupe par un animateur**: le compte ne peut pas être hébergeur, pas d'impact.
+- **Disparition d'un groupe**: le compte était le dernier actif et il n'était pas hébergeur
+  - comme le compte disparaît, ses compteurs QV ne l'intéressent plus.
 - **Disparition d'un contact et donc d'un chat**
   - récupération tardive à l'occasion d'un rafraîchissement de carte de visite. Ce n'est qu'à ce moment que Q1 peut être recalculé en session (et mis à jour par une opération dans `comptas`).
 
 **Remarques:**
 - le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
-- il n'y a que l'initiative d'écrire (créer / écrire deuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
+- il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
 - écrire et raccrocher : correspond à un message final _au revoir_.
 
 #### Dépassements V1/Q1 et V2/Q2 pour un compte C
