@@ -602,6 +602,11 @@ Un chat est décompté des chats par compte quand il est _en ligne_. Exemple:
 - E écrit à I: 0 / 1 -> même texte sur I et E
 - E raccroche: 0 / 0 -> aucun texte sur I ni E
 
+**Remarques:**
+- le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
+- il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
+- écrire et raccrocher : correspond à un message final _au revoir_.
+
 Chaque exemplaire du chat, par exemple I, ne se _détruit_ que:
 - soit parce que son avatar s'est auto-résilié: son document `versions` devient _zombi_.
 - soit parce que s'étant adressé à E, I a récupéré que E était détruit. Le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
@@ -655,25 +660,28 @@ _data_:
   - `na` : `[nom, cle]` de P.
   - `cv` : `{ v, photo, info }` de P.
   - `naf` : `[nom, cle]` attribué au filleul.
-  - `clet` : clé de sa tribu.
-  - `sp` : vrai si le filleul est lui-même sponsor.
+  - Si c'est un compte O:
+    - `clet` : clé de sa tribu.
+    - `sp` : vrai si le filleul est lui-même sponsor.
+  - Si c'est un compte A:
+    - `m` : montant du _don_ de l'organisation au nouveau compte.
   - `quotas` : `[v1, v2]` quotas attribués par le sponsor.
 - `ardx` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring
 
 **Remarques**
 - la `dlv` d'un sponsoring peut être prolongée (jamais rapprochée). Le sponsoring est purgé par le GC quotidien à cette date, en session et sur le serveur, les documents ayant atteint cette limite sont supprimés et ne sont pas traités.
-- Le sponsor peut annuler son `sponsoring` avant acceptation, en cas de remord son statut passe à 3.
+- Le sponsor peut annuler son `sponsoring` avant acceptation, en cas de remord son statut passe à 3. Pour un compte A, le _don_ est perdu.
 
 **Si le filleul refuse le sponsoring :** 
-- Il écrit dans `ardx` la raison de son refus et met le statut du `sponsorings` à 1. 
+- Il écrit dans `ardx` la raison de son refus et met le statut du `sponsorings` à 1. Pour un compte A, le _don_ est perdu.
 
 **Si le filleul ne fait rien à temps :** 
-- `sponsorings` finit par être purgé par `dlv`. 
+- `sponsorings` finit par être purgé par `dlv`. Pour un compte A, le _don_ est perdu.
 
-**Si le filleul accepte le sposoring :** 
-- Le filleul crée son compte / avatar principal: `naf` donne l'id de son avatar et son nom. L'identifiant de la tribu pour le compte sont obtenu de `clet`.
-- la `compta` du filleul est créée et créditée des quotas attribués par le parrain. Si le sponsor n'est pas sponsor de sa tribu, les quotas attribués au filleul lui sont déduits.
-- la `tribu` est mise à jour (quotas attribués), le filleul est mis dans la liste des comptes `act` de `tribu`.
+**Si le filleul accepte le sponsoring :** 
+- Le filleul crée son compte / avatar principal: `naf` donne l'id de son avatar et son nom. Pour un compte O, l'identifiant de la tribu pour le compte sont obtenu de `clet`.
+- la `comptas` du filleul est créée et créditée des quotas attribués par le parrain pour un compte O et du minimum pour un compte A.
+- pour un compte O la `tribus` est mise à jour (quotas attribués), le filleul est mis dans la liste des comptes `act` de `tribus`.
 - un mot de remerciement est écrit par le filleul au parrain sur `ardx` **ET** ceci est dédoublé dans un chat filleul / sponsor.
 - le statut du `sponsoring` est 2.
 
@@ -759,22 +767,10 @@ Un groupe est caractérisé par :
 - son entête : un document `groupes`.
 - la liste de ses membres : des documents `membres` de sa sous-collection `membres`.
 
-L'hébergement d'un groupe est noté par :
-- `imh`: indice membre de l'avatar hébergeur. 
-- `idhg` : id du **compte** hébergeur crypté par la clé du groupe.
-- `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé.
-
-Le compte peut mettre fin à son hébergement:
-- `dfh` indique le jour de la fin d'hébergement. Les notes ne peuvent plus être mis à jour _en croissance_ quand `dfh` existe. 
-- à `dfh`, 
-  - le GC met `dlv` dans le `versions` du groupe à la date du jour.
-  - les documents `groupe notes membres` sont purgés par le GC.
-  - le groupe est retiré au fil des connexions et des synchronisations des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
-  - le document `versions` du groupe sera purgé par le GC à `dlv` (dans 365 jours).
-
-**Les membres d'un groupe** reçoivent lors de leur création (quand ils sont inscrits en _contact_) un indice membre `ids` :
+**Les membres d'un groupe** reçoivent lors de leur création (quand ils sont inscrits en _contact_) un indice membre `im` (`ids` dans `membres`):
 - cet indice est attribué en séquence : le premier membre est celui du créateur du groupe a pour indice 1.
-- le statut de chaque membre d'index `ids` est stocké dans `ast[ids]`
+- le statut de chaque membre d'index `im` est stocké dans `ast[im]`.
+- allocation en croissance sans réutilisation.
 
 **Modes d'invitation**
 - _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par un animateur (un suffit).
@@ -782,12 +778,42 @@ Le compte peut mettre fin à son hébergement:
 - pour passer en mode _unanime_ il suffit qu'un seul animateur le demande.
 - pour revenir au mode _simple_ depuis le mode _unanime_, il faut que tous les animateurs aient validé ce retour.
 
-**Oubli et disparition**
-- la _disparition_ correspond au fait que l'avatar du membre n'existe plus, soit par non connexion au cours des 365 jours qui précèdent, soit par auto-résiliation de l'avatar.
-- _l'oubli_ a été explicitement demandé par le membre lui-même. 
-- dans les deux cas le membre est _effacé_, ni son nom, ni son identifiant, ni sa carte de visite ne sont accessibles.
+### Hébergement par un membre actif
+L'hébergement d'un groupe est noté par :
+- `imh`: indice membre de l'avatar hébergeur. 
+- `idhg` : id du **compte** hébergeur crypté par la clé du groupe.
+- `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé. Les notes ne peuvent plus être mises à jour _en croissance_ quand `dfh` existe.
+
+Prise d'hébergement:
+- en l'absence d'hébergeur, possible pour,
+  - tout animateur,
+  - en l'absence d'animateur, tout auteur.
+- s'il y a déjà un hébergeur, seulement par un animateur à condition que le transfert de volumes V1 / V2 ne le mette pas en dépassement de quotas.
+
+Fin d'hébergement par l'hébergeur:
+- `dfh` est mise la date du jour + 90 jours.
+- les volumes V1 / V2 de comptas sont décrémentés des volumes V1 / V2 du groupe.
+
+Actions du GC à `dfh`, destruction du groupe:
+- le groupe peut avoir des contacts, des invités, des actifs mais pas d'hébergeur.
+- il met le `versions` du groupe en _zombi_ (`dlv` à la date du jour).
+  - au fil des connexions et des synchronisations, ceci provoquera le retrait du groupe des maps `lgrk` des avatars qui le référencent (ce qui peut prendre jusqu'à un an).
+  - ce document sera purgé par le GC dans 365 jours.
+- les documents `groupe notes membres` sont purgés par le GC.
+  
+Fin d'hébergement suit à détection par le GC de la disparition de l'avatar hébergeur:
+- c'est le fait que la `dlv` dans `membres` est dépassée qui signale que l'avatar a disparu. La disparition de son compte ayant été détectée avant, il n'y a de problèmes de gestion ni de volumes, ni de quotas (qui ont été rendus pour un compte O à sa tranche par un document `gcvols`).
+- dans le document `groupes`:
+  - `dfh` est mise la date du jour + 90 jours.
+  - `imh idhg` sont mis à 0 / null
+
+### Oubli et disparition
+- la _disparition_ correspond au fait que l'avatar du membre n'existe plus, soit par non connexion au cours des 365 jours qui précèdent.
+- _l'oubli_ a été explicitement demandé par le membre lui-même ce qui,
+  - détruit son document `membres` .
+  - sur option _liste noire_, son 'hcmg' (hash de la clé de l'avatar membre cryptée par la clé du groupe) est inscrit dans la liste noire `ln` du groupe afin de bloquer une future inscription comme _contact_.
 - un membre _oublié / disparu_ n'apparaît plus dans les notes que par #99 où 99 était son indice: la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
-- après un _oubli_ si le membre est de nouveau contacté, il récupère un nouvel indice. Son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours un numéro #99 (_inconnu_).
+- après un _oubli_ si le membre qui n'est pas en _liste noire_ est de nouveau inscrit comme _contact_, il récupère un nouvel indice et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours un numéro #99 (_inconnu_).
 
 _data_:
 - `id` : id du groupe.
@@ -801,9 +827,10 @@ _data_:
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
 - `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
 - `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
-  - `sta`: statut d'activité: 1: inactif, 2:résilié, 3:invité, 4:ré-invité, 5:actif
+  - `sta`: statut d'activité: 1: contact, 2:invité, 3:actif
   - `laa`: 1:lecteur, 2:auteur, 3:animateur
-- `nag` : liste des hash de la clé du membre cryptée par la clé du groupe.
+- `nag` : table des 'hcmg' hash de la clé de l'avatar membre cryptée par la clé du groupe. Les index dans nag et ast correspondent. 
+- `ln` : liste noire des 'hcmg' des avatars interdits de redevenir contact. 
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
 - `ardg` : ardoise cryptée par la clé du groupe.
@@ -811,14 +838,24 @@ _data_:
 **Remarque sur `ardg`**
 - texte libre que tous les membres du groupe actifs et invités peuvent lire et écrire.
 - un invité qui refuse son invitation peut écrire sur l'ardoise une explication.
-- on y trouve typiquement,
-  - un texte de présentation du groupe à destination des invités,
+- on peut y trouver typiquement,
   - une courte présentation d'un nouveau contact, voire quelques lignes de débat (si c'est un vrai débat un note du groupe est préférable),
   - un mot de bienvenue pour un nouvel invité,
   - un mot de remerciement d'un nouvel invité.
   - des demandes d'explication de la part d'un invité.
+- le texte de présentation du groupe à destination des invités est plutôt dans la carte de visite du groupe.
 
 ## Documents `membres`
+Un document `membres` est créé à la déclaration d'un avatar comme _contact_ mais n'est pas répertorié dans le `lgrk` de l'avatar correspondant qui ne sait donc pas de quels groupes il est _contact_. Le compte ne _signe_ pas son document membres tant qu'il est _contact_, sa `dlv` reste 0.
+- sa `dlv` reste aussi à 0 en tant qu'invité tant que le membre n'est pas _actif_.
+- les données personnelles de l'avatar à propos du groupe `mc infok` n'existent que quand le membre est _actif_.
+- dans `ddi dda dfa` subsistent les traces de la dernière vie de l'avatar dans le groupe.
+
+Le document `membres` est détruit,
+- par une opération ayant l'option effacament / oubli qui met le statut à 0.
+- par la destruction de son groupe lors de la résiliation du dernier membre actif.
+- par le GC détectant par la dlv que l'avatar a disparu (il ne signe plus dans cette dlv) et q'il est le dernier membre _actif_ de son groupe.
+
 _data_:
 - `id` : id du groupe.
 - `ids`: identifiant, indice de membre relatif à son groupe.
@@ -837,99 +874,51 @@ _data_:
 - `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
 
-### Cycle de vie
-- un document `membres` existe dans tous les états SAUF 0 _disparu / oublié_.
-- un auteur `im` en état `disparu / oublié` d'une note apparaît avec juste un numéro (sans nom), sans pouvoir voir son membre dans le groupe.
-
 #### Transitions d'état d'un membre:
-`sta`: statut d'activité: 0: disparu / oublié, 1: inactif, 2:résilié, 3:invité, 4:ré-invité, 5:actif
-- de (0):
-  - aucune opération (le document `membres` a été purgé).
-- de (1): 
-  - invitation -> (3) et `laa` à (1 2 3)
-  - pré-invitation et accord d'invitation (mode _unanime_): (1) et `laa` à (1 2 3)
-  - disparition -> (0)
-- de (2):
-  - invitation -> 4
-  - disparition -> (0)
-- de (3) :
-  - refus par le compte -> (1)
-  - refus avec oubli -> (0)
-  - acceptation -> (5)
-  - retrait d'invitation par un animateur -> (1)
-  - disparition -> (0)
-- de (4) :
-  - refus par le compte -> (2)
-  - refus avec oubli -> (0)
-  - acceptation -> (5)
-  - retrait d'invitation par un animateur -> (2)
-  - disparition -> (0)
-- de (5) :
-  - résiliation par un animateur -> (2)
-  - auto-résiliation par le compte -> (2)
-  - auto-résiliation avec oubli -> (0)
-  - disparition -> (0)
+**Option _liste noire_:**
+- son 'hcmg' est mis dans `ln[im]`,
+- `nag[im]` est mis à 0.
+- `ast[im]` est mis à 0.
+- le document `membres` est détruit.
 
-Dans `lgrk` de l'avatar concerné, 
-- tout changement de `sta` avec une valeur supérieure à (1) y est inscrit. 
-- l'oubli (0) efface l'entrée dans `lgrk`
+**Depuis _contact_ (1):** 
+- invitation:
+  - _invité_ -> `ast[im]`. 
+  - `laa` à (1 2 3), `ddi` remplie.
+  - inscription dans `lgrk` de l'avatar: c'est ça qui inscrira le groupe dans la liste des groupes en session (s'il n'y était pas déjà).
+- vote d'invitation (en mode _unanime_): 
+  - `laa` à (1 2 3)
+  - si tous les animateurs ont voté,
+    - _invité_ -> `ast[im]`, `ddi` remplie.
+    - inscription dans `lgrk` de l'avatar (comme ci-dessus).
+  - si le vote change le `laa` actuel, les autres votes sont annulés.
+- effacement par un animateur:
+  - (0) -> `ast[im]`.
+  - le document `membres` est détruit.
+  - option _liste noire_: voir ci-dessus.
 
-**Inscription comme simple contact par un membre du groupe**
-- l'opération,
-  - vérifie que le hash de sa clé d'avatar cryptée par la clé du groupe ne se trouve pas dans `nag` du groupe et l'y ajoute.
-  - attribue au membreun index `im` égale à la taille de `ast` du groupe.
-  - inscrit (10) en `ast[im]`,
-- dans `membre` seuls `nag cva` sont significatifs. 
+**Depuis _invité_ (2):**
+- refus d'invitation par le compte:
+  - suppression de son entrée dans `lgrk` de son avatar.
+  - option _liste noire_: voir ci-dessus, sinon _contact_ -> `ast[im]`.
+- acceptation d'invitation par le compte:
+  - _contact_ -> `ast[im]`. `dda` est remplie.
+  - dans `comptas`, le compteur `ng` est incrémenté.
+- retrait d'invitation par un animateur:
+  - option _liste noire_: voir ci-dessus, sinon _contact_ -> `ast[im]`.
+    - dans `lgrk` de l'invité le statut de résiliation `str` est mis à 1.
 
-**Pré-invitation / accord d'invitation, dans le mode unanime**
-- l'opération,
-  - inscrit un `laa` dans `ast[im]`
-  - inscrit le membre qui a pré-invité ou donné son accord dans `inv` du pré-invité.
-
-**Invitation / accord du dernier animateur dans le mode _unanime_**
-- inscription dans `lgrk` de son avatar de `sta ref` `[nomg, cleg, im]` crypté par sa clé RSA publique.
-- dans `membres` `nag cva ddi` sont significatifs.
-- `sta` passe,
-  - de (1) à (3), 
-  - ou de (2) à (4): dans `membres` `mc infok` peuvent être présents.
-
-**Retrait d'invitation par un animateur**
-- `sta` (3) -> (1): retiré du `lgrk` de l'avatar du membre.
-- `sta` (4) -> (2): inscription dans `lgrk` de l'avatar de `[4, null]`
-- `laa` -> 0
-- dans `membres` seuls `nag cva ddi` sont significatifs, possiblement `mc infok` si `sta` était (4). 
-
-**Acceptation d'une invitation par le membre**
-- `sta` (3) ou (4) -> (5)
-- dans `lgrk` de l'avatar, `sta` -> (5).
-- dans `membres` :
-  - `dda` : date de première acceptation est remplie si `sta` était (3).
-  - toutes les propriétés sont significatives.
-  - la carte de visite `cva` est remplie.
-
-**Refus d'invitation par le membre (sans oubli)**
-- `sta` (3) -> (1): retiré du `lgrk` de l'avatar du membre.
-- `sta` (4) -> (2): dans `lgrk` de l'avatar `[2, null]`
-- `laa` -> 0
-- si `sta` était (4) dans `membres` `mc infok` peuvent être présents.
-- dans `membres` rien ne change.
-
-**Résiliation d'un membre par un animateur ou auto résiliation**
-- `sta` -> (2): dans `lgrk` de son avatar `[2, null]`
-- `laa` -> 0
-- dans son document `membres` `dfa` est positionnée à la date du jour.
-- différences avec un `sta` (1): l'avatar membre a encore des mots clés, une information et retrouvera ces informations s'il est ré-invité.
-- le groupe peut disparaître si c'était le dernier membre actif. Pour chaque autre membre en `sta` (2 3 4), 
-  - son terme dans son `lgrk` disparaît,
-  - son row `membres` est détruit.
-
-**Oubli demandé par le membre**
-- `sta` -> (0): suppression de son terme dans `lgrk` de son avatar.
-- dans `nag` du groupe, son terme disparaît.
-- son row `membres` est détruit.
-
-**Disparition d'un membre**
-- voir la section _Gestion des disparitions_
+**Depuis _actif_ (3):**
+- résiliation par un animateur (le membre n'est ni _animateur_, ni _hébergeur_):
+  - dans `lgrk` de l'avatar le statut de résiliation `str` est mis à 2. **Ceci déclenchera en session**, en synchro ou connexion, une opération `AlignerComptas` qui décrémentera `ng` de `comptas` et détruira l'item dans `lgrk`.
+  - option _liste noire_: voir ci-dessus, sinon,
+    - _contact_ -> `ast[im]`. `dfa` est remplie.
+- auto-résiliation:
+  - dans le `comptas` de son compte, le compteur `ng` est incrémenté (du moins _peut_ l'être).
+  - suppression de son entrée dans `lgrk` de l'avatar.
+  - option _liste noire_: voir ci-dessus, sinon,
+    - _contact_ -> `ast[im]`. `dfa` est remplie.
+  - si le membre était le dernier _actif_, le groupe disparaît. Toutefois il peut rester des _invités_. Pour chacun, dans leur `lgrk` le statut de résiliation `str` est mis à 1 (retrait d'invitation).
 
 ## Objet `compteurs`
 - `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
@@ -1342,8 +1331,16 @@ _Remarques_:
 - la résiliation ou auto-résiliation d'un membre non hébergeur par principe n'a pas d'impact sur le décompte V2 (ce n'est pas lui qui le supporte).
 - disparition d'un groupe par disparition de son dernier membre actif. Puisque le membre _disparaît_, ses décomptes V1 / V2 sont sans intérêt.
 
-### Q1 / V1 sont toujours à jour dans `comptas`
+### Q1 / V1 ne sont pas _à tout instant_ à jour dans `comptas`
 La seule opération faisant évoluer Q1 est son ajustement par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O): elle met à jour Q1 dans `comptas`.
+
+Le décompte de V1 comprend, 
+- `ng` le nombre de participations actives aux groupes, qui peut être en divergence avec la réalité:
+  - _résiliation d'un membre par un animateur_: c'est la synchro d'une session du compte ou sa connexion qui intègre à ng ce changement de situation. Dans le cas de synchro, la fenêtre d'inexactitude est faible avec pour seule conséquence que d'autres actions pourraient être refusées pour dépassement de Q1 par V1 (donc le sens de la sécurité). En pratique cette situation est quasiment impossible à détecter en raison de sa brièveté.
+  - _détection de la disparition d'un avatar membre d'un groupe_. Comme la disparition du compte a été détectée et gérée avant, la notion d'inexactitude de V1 n'a plus de sens.
+- `nc` le nombre de chats _en ligne_. 
+  - A la détection de la disparition d'un avatar, la disparition du compte a été actée.
+  - La détection de la disparition d'un _contact_ peut être constatée tardivement par un compte: a) soit quand il essaie d'écrire un chat, b) soit quand il rafraîchit les cartes de visite. Ceci entraîne la suppression du chat, et s'il était _en ligne_ la décrémentation de V1.
 
 #### Opérations affectant V1 et contrôles du dépassement de Q1
 - **Création d'une note**
@@ -1352,50 +1349,40 @@ La seule opération faisant évoluer Q1 est son ajustement par le compte lui-mê
     - anticipation en mémoire avant lancement de l'opération, 
     - mise à jour de V1 dans comptas par l'opération (+1) et à nouveau (c1),
   - note d'un groupe non hébergé par le compte: 
-    - contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe.
+    - contrôle de non dépassement de Q1 de l'hébergeur et contrôle de non dépassement du maximum G1 du groupe.
     - mise à jour de V1 (+1) dans `comptas` de l'hébergeur. 
 - **Destruction d'une note**
   - note d'un avatar ou d'un des groupes hébergés: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
   - (*) note d'un groupe NON hébergé par le compte: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
-- **Nouveau chat / réactivation d'un chat vide / réponse à un chat (non vide)**
-  - créé par le compte:
+- **Nouveau chat / remise en ligne d'un chat**
+  - du côté (I):
     - (c2) contrôle de non dépassement de Q1.
-    - mise à jour de V1 dans `comptas` (+1 ou non selon que le chat I était vide ou non) et à nouveau (c2). Remarques:
-      - si E est détecté _disparu_, le compteur Q1 de I n'est pas incrémenté si le texte était vide avant l'envoi et est décrémenté s'il était non vide avant l'envoi.
-      - le Q1 du compte _externe_ est inchangé.
-  - créé par l'autre :
-    - une synchro revient (si le compte est connecté) qui contient une mise à jour de V1 et un possible dépassement de Q1.
-- **Raccrocher un chat (non vide)**
-  - par le compte:
-    - mise à jour de V1 dans `comptas` (-1). Remarque: le Q1 du compte _externe_ est inchangé.
-  - par l'autre :
-    - une synchro revient (si le compte est connecté) qui permet une mise à jour de V1 (toujours avec possiblement dépassement de Q1).
+    - mise à jour de V1 dans `comptas` (+1) et à nouveau (c2). Remarques:
+      - si E est détecté _disparu_, le compteur Q1 de I n'est pas incrémenté, le chat disparaît.
+  - du côté (E): le Q1 du compte _externe_ est inchangé.
+- **Raccrocher un chat**
+  - du côté (I): mise à jour de V1 dans `comptas` (-1). 
+  - du côté (E): le Q1 du compte _externe_ est inchangé.
 - **Acceptation d'invitation à un groupe**
   - (c2) contrôle de non dépassement de Q1.
   - mise à jour de V1 dans `comptas` du compte (+1) et à nouveau (c2).
 - **Auto-résiliation d'un groupe**
   - mise à jour de V1 dans `comptas` du compte (-1).
+- **Résiliation d'un groupe par un animateur**
+  - **Faible discordance temporelle**: pas de décrémentation de ng / V1. C'est la synchro / connexion qui rétabliera le bon compte.
 - **Abandon d'hébergement**
   - mise à jour de V1 dans `comptas` du compte (-V1 du groupe -nombre de notes-) et de V2 (-V2 du groupe).
 - **Prise d'hébergement**
   - (c3) contrôle de la capacité à prendre V1 / V2 du groupe dans le compte.
   - mise à jour de V1 dans `comptas` du compte (+V1 du groupe -nombre de notes-) et de V2 (+V2 du groupe) et à nouveau (c3).
-- **Auto-résiliation d'un groupe** (le compte ne peut pas être hébergeur)
-  - mise à jour de V1 dans `comptas` du compte (-1).
-- **Résiliation d'un membre d'un groupe par un animateur**: le compte ne peut pas être hébergeur, pas d'impact.
-- **Disparition d'un groupe**: le compte était le dernier actif et il n'était pas hébergeur
-  - comme le compte disparaît, ses compteurs QV ne l'intéressent plus.
-- **Disparition d'un contact et donc d'un chat**
+- **Disparition d'un groupe**: 
+  - le compte était le dernier actif et il n'était pas hébergeur: comme le compte disparaît, ses compteurs QV ne l'intéressent plus.
+- **Disparition d'un contact et donc d'un chat**: 
   - récupération tardive à l'occasion d'un rafraîchissement de carte de visite. Ce n'est qu'à ce moment que Q1 peut être recalculé en session (et mis à jour par une opération dans `comptas`).
-
-**Remarques:**
-- le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
-- il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
-- écrire et raccrocher : correspond à un message final _au revoir_.
 
 #### Dépassements V1/Q1 et V2/Q2 pour un compte C
 V1 peut dépasser Q1 hors de la volonté de C sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
-- remarque: un avatar B ne peut pas créer une note qui provoquerait le dépassement de V1 pour compte: c'est contrôlé par l'opération.
+- un avatar ne peut pas créer une note qui provoquerait le dépassement de V1 pour son hébergeur, 'est contrôlé par l'opération.
 
 V2 peut dépasser Q2 sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
 
