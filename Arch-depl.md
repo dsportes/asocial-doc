@@ -111,28 +111,11 @@ Hormis cette ligne, les autres scripts de l'application sont ES6 (`.mjs`).
 ### Application Serveur
 Le fichier de démarrage `src/server.js` est un module ES6, malgré son extension `.js`:
 - le déploiement GAE **exige** que ce soit un `.js` et que `package.json` ait une directive `"type": "module"`.
-- pour un déploiement hors GAE, un build `webpack` est requis et cette dernière directive **DOIT** être enlevée ou renommée `"typeX"`.
-
-Le module `src/loadreq.js` porte aussi une extension `.js` et concentre les 4 appels `require()` des modules réfractaires à ES6.
-- de facto ce module est ES6 mais peut effectuer des appels `require()`.
-- il exporte en ES6 les 4 points d'accès aux modules rétifs à ES6.
-
-    import { createRequire } from 'module'
-    const require = createRequire(import.meta.url)
-
-    const prompt = require('prompt-sync')({ sigint: true })
-    const Firestore = require('@google-cloud/firestore').Firestore
-    const Storage = require('@google-cloud/storage').Storage
-    const {LoggingWinston} = require('@google-cloud/logging-winston')
-
-    export default { prompt, Firestore, Storage, LoggingWinston }
-
-Tous les autres modules de l'application (sauf `loadreq` donc) sont entièrement ES6.
+- pour les tests usuels, il faut `"type": "module"`.
+- MAIS pour un déploiement hors GAE, un build `npx webpack` est requis et cette dernière directive **DOIT** être enlevée ou renommée `"typeX"`.
 
 _Remarques pour le build du serveur pour déploiement hors GAE_
-- webpack accepte que `loadreq` ait une extension `.js` ce qui évite de la changer quand on passe du déploiement GAE à celui par webpack.
-- webpack n'accepte PAS d'avoir un `"type": "module"` dans `package.json`
-- webpack demande que son `webpack.config.cjs` soit un `.cjs` et utilise donc le mode `require()` plutôt que import (les lignes pour ES6 sont commentées).
+- `webpack.config.mjs` utilise donc le mode `import` plutôt que `require` (les lignes pour CommonJs sont commentées).
 - il a fallu une spécifique dans la configuration de webpack pour que `better-sqlite3` fonctionne après build par webpack.
 
     externals: { 'better-sqlite3': 'commonjs better-sqlite3' }

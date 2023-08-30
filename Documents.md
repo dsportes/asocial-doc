@@ -550,10 +550,9 @@ _data_:
   - _clé_ : `ni` : _numéro d'invitation_ hash de la clé inversée du groupe crypté par la  clé de l'avatar.
   - _valeur_ : couple `[sta, ref]`
     - `sta`: statut d'activité: 2:résilié, 3:invité, 4:ré-invité, 5:actif
-    - `ref`: `[nomg, clég, im]` selon `sta`,
-      - (2): `null`
-      - (3 4): crypté par la clé publique RSA de l'avatar.
-      - (5): ré-encrypté par la clé K du compte par l'opération d'acceptation d'une invitation.
+    - `ref`: `[nomg, cleg, im]`
+      - crypté par la clé publique RSA de l'avatar.
+      - ré-encrypté par la clé K du compte par l'opération d'acceptation d'une invitation.
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
 - `napc` : `[nom, cle]` de l'avatar cryptée par le PBKFD de la phrase de contact.
 
@@ -828,8 +827,8 @@ _data_:
 - `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
 - `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
   - `sta`: statut d'activité: 1: contact, 2:invité, 3:actif
-  - `laa`: 1:lecteur, 2:auteur, 3:animateur
-- `nag` : table des 'hcmg' hash de la clé de l'avatar membre cryptée par la clé du groupe. Les index dans nag et ast correspondent. 
+  - `laa`: 1:lecteur, 2:auteur, 3:animateur.
+- `nag` : table des 'hcmg' hash de la clé de l'avatar membre cryptée par la clé du groupe. Les index dans nag et ast correspondent.
 - `ln` : liste noire des 'hcmg' des avatars interdits de redevenir contact. 
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
@@ -1420,3 +1419,55 @@ Les autres coûts induits pour Storage sont des downloads, uploads et invocation
 > Une organisation hébergeant 1000 comptes MD occupant leurs quotas à 100% aurait à supporter un coût de environ 42€ par an, soit 3,5€ mensuels.
 
 > Le coût pour _un_ compte A est dérisoire : 0,33€ / an pour un compte ayant une occupation réelle XXL, moins de 3c par mois. Autant en acheter pour 20 ans pour moins de 7€.
+
+# Maintien de la cohérence
+**Sur le serveur UNE incohérence et UN retard** apparaissent: 
+- détection de disparition d'un avatar disparu: 
+  - pas d'impact sur les groupes / membres.
+  - les chats avec les autres constatent la disparition avec retard (R1).
+  - (C1) cohérence chats / comptas nc assurée par maj comptas sur raccroché / en ligne du chat.
+- détection de disparition d'un membre:
+  - (a) le groupe survit. 0 -> sta dans groupe. L'incohérence avec lgr de son avatar n'a pas d'importance, le compte est mort.
+  - (b) le groupe est détruit: n'avait pas d'hébergeur et que des invités.
+    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr est mis à jour. comptas pas concerné.
+- résiliation d'un membre im par un animateur:
+  - (C3) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] sta vaut 0 ou est effacé (?)
+  - mais (I1) incohérence entre groupes ast et comptas ng / V1.
+- invitation / acceptation / refus ...
+  - (C4) cohérence entre avatars lgr, groupes ast, comptas ng V1 V2.
+- création / suppression de notes, chagements de fichiers
+  - (C5) cohérence entre notes et comptas nn V1 V2
+
+En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas, dans tous les cas (Ci) ci-dessus de mises à jour de plusieurs documents dans une seule opération.
+- à la connexion: mais l'ordre de lecture est maîtrisé,
+- en synchro: l'ordre de lecture n'est pas maîtrisé.
+
+(C1) cohérence chats / comptas nc
+- si on recompte les chats, on n'est pas sûr de trouver pareil que comptas nc: les chats peuvent avoir du retard ou comptas pas relu à jour.
+- Option: confiance dans comptas, on ne rapproche pas les deux.
+
+(C5) cohérence entre notes et comptas nn V1 V2
+- Option comme pour (C1) confiance dans comptas, on ne rapproche pas les deux.
+
+> On peut imaginer en début de session de recalculer V1 / V2. Si fortes divergence avec comptas, on _reset brutal_ comptas sur V1 / V2 pour rattrapage des bugs.
+
+(C2) groupe mort / avatars lgr
+- Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner avatar lgr par suppression du terme.
+
+(C3+I1) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] sta vaut 0 (ou est effacé ?) et comptas ng / V1
+- qui a de l'avance sur l'autre ?
+- Option 1: opération de réconciliation retournant les deux en cohérence.
+  - sur le serveur groupes et avatars sont cohérents: on retournera, l'un l'autre les deux ou aucun.
+  - Problème pour ng dans compta ?
+
+Où alors on compte pas les groupes (notes et chats seulement) et on compte le nombre de rows lus (on compte bien les transferts).
+- sur le serveur: ça fait écrire dans comptas (ou ailleurs) à chaque opération.
+- dans une session.
+  - on voit passer les rows en synchro et en connexion
+  - on envoie le décompte,
+    - en entête de chaque opération quand il dépasse R1 rows,
+    - par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
+
+Un quota V1 donne droit à N lectures par 7 jours glissants
+
+Pop-ups chiantes pour faire passer à un quota supérieur ?
