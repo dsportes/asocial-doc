@@ -1421,26 +1421,32 @@ Les autres coûts induits pour Storage sont des downloads, uploads et invocation
 > Le coût pour _un_ compte A est dérisoire : 0,33€ / an pour un compte ayant une occupation réelle XXL, moins de 3c par mois. Autant en acheter pour 20 ans pour moins de 7€.
 
 # Maintien de la cohérence
-**Sur le serveur UNE incohérence et UN retard** apparaissent: 
-- détection de disparition d'un avatar disparu: 
-  - pas d'impact sur les groupes / membres.
-  - les chats avec les autres constatent la disparition avec retard (R1).
+
+**Sur le serveur** apparaît et plusieurs opéations mettent à jour plus d'un document pour un compte donné: 
+- détection de disparition d'un avatar par le GC:
+  - dépassement de la dlv de son versions.
+  - pas d'impact sur les groupes / membres: c'est le dépassement de la dlv de ses membres qui en a un.
+  - (IC1) les chats (E) avec les autres ont toujours une référence vers l'avatar disparu.
   - (C1) cohérence chats / comptas nc assurée par maj comptas sur raccroché / en ligne du chat.
 - détection de disparition d'un membre:
   - (a) le groupe survit. 0 -> sta dans groupe. L'incohérence avec lgr de son avatar n'a pas d'importance, le compte est mort.
   - (b) le groupe est détruit: n'avait pas d'hébergeur et que des invités.
-    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr est mis à jour. comptas pas concerné.
-- résiliation d'un membre im par un animateur:
-  - (C3) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] sta vaut 0 ou est effacé (?)
-  - mais (I1) incohérence entre groupes ast et comptas ng / V1.
-- invitation / acceptation / refus ...
-  - (C4) cohérence entre avatars lgr, groupes ast, comptas ng V1 V2.
-- création / suppression de notes, chagements de fichiers
+    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr de leur avatar est effacé.
+- résiliation d'un membre im, refus d'invitation
+  - (C4a) dans groupe ast[im] vaut 0 ou 1, et son avatar lgr[ni] qui est effacé
+- invitation / acceptation
+  - (C4b) cohérence entre avatars lgr, groupes ast
+- création / suppression de notes, changements de fichiers
   - (C5) cohérence entre notes et comptas nn V1 V2
 
-En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas, dans tous les cas (Ci) ci-dessus de mises à jour de plusieurs documents dans une seule opération.
-- à la connexion: mais l'ordre de lecture est maîtrisé,
-- en synchro: l'ordre de lecture n'est pas maîtrisé.
+**En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas**, dans tous les cas ci-dessus de mises à jour de plusieurs documents dans une seule opération.
+- problème à la connexion: mais l'ordre de lecture est maîtrisé,
+- problème en synchro: l'ordre de lecture n'est pas maîtrisé.
+
+(IC1) est résolu,
+- soit à la prochaine tentative d'écriture du chat,
+- soit au premier rafraîchissement des cartes de visite.
+- pas de problème d'incohérence, autre qu'un délai à la prise de connaissance de la disparition du contact.
 
 (C1) cohérence chats / comptas nc
 - si on recompte les chats, on n'est pas sûr de trouver pareil que comptas nc: les chats peuvent avoir du retard ou comptas pas relu à jour.
@@ -1451,23 +1457,29 @@ En session des incohérences apparaissent du fait la lecture désynchronisée de
 
 > On peut imaginer en début de session de recalculer V1 / V2. Si fortes divergence avec comptas, on _reset brutal_ comptas sur V1 / V2 pour rattrapage des bugs.
 
-(C2) groupe mort / avatars lgr
+(C2) groupe mort / avatars lgr existe
 - Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner avatar lgr par suppression du terme.
 
-(C3+I1) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] sta vaut 0 (ou est effacé ?) et comptas ng / V1
+(C4a) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] est effacé  
+(C4b) dans groupe ast[im] vaut 2 ou 3, dans son avatar lgr[ni] existe
 - qui a de l'avance sur l'autre ?
 - Option 1: opération de réconciliation retournant les deux en cohérence.
   - sur le serveur groupes et avatars sont cohérents: on retournera, l'un l'autre les deux ou aucun.
-  - Problème pour ng dans compta ?
 
-Où alors on compte pas les groupes (notes et chats seulement) et on compte le nombre de rows lus (on compte bien les transferts).
-- sur le serveur: ça fait écrire dans comptas (ou ailleurs) à chaque opération.
-- dans une session.
-  - on voit passer les rows en synchro et en connexion
-  - on envoie le décompte,
-    - en entête de chaque opération quand il dépasse R1 rows,
-    - par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
+Compter les lectures / écritures
+- on ne compte que les volumes des notes et chats
+- on compte les volumes transférés
+- on compte le nombre de rows lus / écrits
 
-Un quota V1 donne droit à N lectures par 7 jours glissants
+Le serveur remonte à chaque opération le nombre de rows lus et écrits.
 
-Pop-ups chiantes pour faire passer à un quota supérieur ?
+Dans une session:
+- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire)
+- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
+
+Qu'en faire ?
+Pour un compte A on peut prélever une somme lors du calcul du solde en début de session.
+
+Pour un compte O
+- Un quota V1 donne droit à N lectures par semaine / mois ?
+- si dépassement, pop-ups chiantes pour faire passer à un quota supérieur ?
