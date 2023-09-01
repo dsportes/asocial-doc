@@ -1235,10 +1235,10 @@ Tous les comptes ont les propriétés suivantes dans `comptas`:
   - `njn`: nombre de jours passés en solde négatif (à la date j).
   - `solde`: solde en euros (flottant).
 - `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
-- `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
+- `ticketsK` : liste des tickets de virement générés et en attente de réception d'un virement effectif.
 - `compteurs` statistique (non cryptée) d'évolution des quotas et volumes calculée d'après les valeurs `q1 q2 v1 v2`.
 
-> En toute rigueur, les décomptes QV sont toujours corrects dans `comptas`, toutes les opérations pouvant en affecter les compteurs sont cohérentes et travaillent sous exclisivité d'accès dans une transaction. Par **superstition**, apès une connexion, QV est recalculé depuis les groupes / chats / notes. S'il y a divergence avec le QV de `comptas` (il ne devrait pas y en avoir), `QV soldeCK` de `comptas` sont mis à jour avec répercussion éventuelle dans `tribus`. 
+> En toute rigueur, les décomptes QV sont toujours corrects dans `comptas`, toutes les opérations pouvant en affecter les compteurs sont cohérentes et travaillent sous exclusivité d'accès dans une transaction. Par **superstition**, apès une connexion, QV est recalculé depuis les groupes / chats / notes. S'il y a divergence avec le QV de `comptas` (il ne devrait pas y en avoir), `QV soldeCK` de `comptas` sont mis à jour avec répercussion éventuelle dans `tribus`. 
 
 ### Répercussion dans `tribus` pour les seuls comptes O
 Les évolutions de Q1 et Q2 sont toujours répercutés dans l'élément du compte dans la table `act` de `tribus`. 
@@ -1258,9 +1258,6 @@ Il est effectué à la connexion et en traitement de synchronisation. La mise à
   - passage de compte A -> O: il ne subsiste que `solde`.
   - passage du compte O -> A: recalcul complet depuis `q1 q2 v1 v2` à l'instant t.
 - **synchronisation**: `soldeCK` est recalculé en mémoire et ne fait l'objet d'une opération de mise à jour sur le serveur dans `comptas` que si `j q1 q2 v1 v2` ont changé par rapport à l'état connu en mémoire avant le traitement de synchronisation.
-
-### Dans `avatars`
-- `adons` : array des dons reçus _en attente d'incorporation_ dans le solde. Chaque montant est l'encodage d'un _number_ (flottant) crypté par la clé A de l'avatar bénéficiaire.
 
 ### Ticket de virement
 Un ticket de virement est un entier de 11 chiffres:
@@ -1282,10 +1279,15 @@ Ce document contient les données:
 
 Un document `tickets` est inséré à l'enregistrement de la réception d'un virement. En cas d'erreur, il peut être mis à jour / supprimé, à condition qu'il soit encore disponible (sinon c'est trop tard, il a été utilisé).
 
+#### Don de D à B
+- le bénéficiaire B génère un ticket dont il envoie le texte par chat à D.
+- D génère un virement dans tickets et corrélativement décrémente son solde A ou O du montant.
+- le récupère à la connexion (ou en appuyant sur le bouton).
+
 ### Récupération d'un virement
 A la connexion d'un compte, ou sur demande explicite en cours de session:
-- recherche des tickets dans `tickets` pour chaque ticket enregistré dans `aticketK`,
-- incrémentaion du `soldeCK` en mémoire,
+- recherche des tickets dans `tickets` pour chaque ticket enregistré dans `ticketsK`,
+- incrémentation du `soldeCK` en mémoire,
 - _Opération en une transaction:_
     - mise à jour de `soldeCK` (vérification que la version de `comptas` n'a pas changé),
     - destruction des tickets dans `tickets`.
@@ -1295,7 +1297,7 @@ Un don s'effectue, soit entre deux avatars qui se connaissent, soit entre le Com
 - pour le donneur: le solde du compte `soldeCK` est recalculé sur l'instant. Si c'est le Comptable, il n'y a pas de `soldeCK` et le montant est agrégé à `dons`.
 - pour le bénéficiaire, un item est ajouté à `adons`. L'incorporation à la `comptas` du compte intervient, soit à la prochaine connexion, soit en traitement de synchronisation, recalculera `soldeCK` et sera agrégé à `dons`.
 
-Le don à l'occasion d'un sponsoring d'un compte A est directement insrit dans `soldeCK` (et `dons` si le sponsor est le Comptable): en cas de refus de sponsoring, le don est perdu pour tout le monde.
+Le don à l'occasion d'un sponsoring d'un compte A est directement inscrit dans `soldeCK` (et `dons` si le sponsor est le Comptable): en cas de refus de sponsoring, le don est perdu pour tout le monde.
 
 Un compte sponsor O peut sponsoriser un compte A: il est censé avoir un `soldeCK` positif à cet effet, éventuellement alimenté par un don du Comptable.
 
@@ -1477,9 +1479,180 @@ Dans une session:
 - on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire)
 - on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
 
-Qu'en faire ?
-Pour un compte A on peut prélever une somme lors du calcul du solde en début de session.
+## Décomptes et soldes: `cpts stats soldeA soldeO`
 
-Pour un compte O
-- Un quota V1 donne droit à N lectures par semaine / mois ?
-- si dépassement, pop-ups chiantes pour faire passer à un quota supérieur ?
+#### Objet `cpts` : `{ q1, q2, nn, nc, v2, nl, ne, vm, vd }`
+- `q1`: quota du nombre total de notes et chats.
+- `q2`: quota du volume des fichiers.
+- `nn`: nombre de notes existantes.
+- `nc`: nombre de chats existants.
+- `v2`: volume effectif total des fichiers.
+- `nl`: nombre absolu de lectures depuis la création du compte.
+- `ne`: nombre d'écritures.
+- `vm`: volume _montant_ vers le Storage (upload).
+- `vd`: volume _descendant_ du Storage (download).
+- `q1 q2` participent au calcul de _l'abonnement_.
+- `nn nc v2` participe au contrôle du respect de _l'abonnement_.
+- `nl, ne, vm, vd` participent au calcul de la _consommation_.
+
+#### Classe `Stats` : `{ j, cpts, ...}`
+- `j` : jour de calcul,
+- `cpts` : compteurs sur lesquels le calcul est fondé.
+
+Depuis un document comptas `c: const [s, m] = Stats.de(c, auj)`
+- retourne :
+  - `s` : l'objet `Stats` tiré des objets `cpts stats` de `c` et du jour de calcul `auj`,
+  - `m` : `true` si `stats` a été recalculé et re-sérialisé dans `c`, `false` s'il n'a pas changé (`c.cpts` et `c.auj` étaient déjà ceux basant le calcul antérieur).
+- re-sérialise l'objet `stats` dans c s'il a été recalculé.
+- l'objet `c` est simplement un objet ayant deux propriétés `cpts` et `stats` (sérialisation de l'objet `Stats`). Si `c.stats` est absent, il est calculé par initialisation (nouveau compte).
+- ce calcul peut ainsi s'effectuer en _simulation_, sans toucher au _vrai_ `comptas`.
+
+En session, `stats` est recalculé,
+- par compile(),
+- explicitement a l'occasion d'une mise à jour des compteurs `cpts` ou par simulation en passant comme argument c un simple couple { cpts, stats }.
+
+En serveur, des opérations peuvent faire évoluer `cpts` de comptas de manière incrémentale. Il en résulte une ré-évaluation de `stats`:
+- création / suppression d'une note ou d'un chat: incrément / décrément de nn / nc.
+- prise / abandon d'hébergement d'un groupe: delta sur nn / nc / v2.
+- création / suppression de fichiers: delta sur v2.
+- enregistrement d'un changement de quotas q1 / q2.
+- upload / download d'un fichier: delta sur vm / vd.
+- enregistrement d'une consommation de calcul: delta sur nl / ne.
+
+La classe Stats est donc hébergée par api.mjs (module commun à UI et serveur).
+
+Le Comptable peut afficher le stats de n'importe quel compte A ou O.
+
+Les sponsors d'une tranche ne peuvent faire afficher les stats _que_ des comptes de leur tranche.
+
+#### Classe `soldeA`
+Chaque instance de cette classe représente le calcul du solde courant d'un compte A.
+- dh: date-heure de calcul.
+- dhneg: date-heure à laquelle le montant a été estimé être passé négatif.
+- cpts: compteurs sur lequel le calcul du solde est basé.
+- m: montant du solde (recalculé à dh).
+- etc: autres compteurs internes nécessaires aux calculs, en particulier l'estimation du temps que le solde actuel permet de passer sans nouveau crédit en se basant sur les débits récents.
+
+Son constructeur prend en argument la sérialisation d'un soldeA existant ou vierge.
+- un get serial() retourne sa sérialisation.
+- dans un comptas, la propriété soldeAK est le cryptage de sa sérialisation par la clé K du compte. un soldeA n'est accessible / lisible _que_ par le compte lui-même.
+
+Un soldeA supporte les opérations suivantes:
+- maj(cpts) : mise à jour des compteurs cpts, (typiquement propriété cpts d'un comptas).
+- dbcr(m) : débit / crédit direct de m (delta).
+- dpp(): durée probable pendant laquelle le solde devrait rester positif en se basant sur l'historique récent de consommation.
+
+- figeage() : figeage du solde, le compte n'est plus un compte A.
+
+Un soldeA peut être:
+- _actif_: dh et cpts existent.
+- _figé_: dh et cpts sont absents, c'est le cas du soldeA d'un compte O. Il peut subir des dbcr() même en état figé. Il passe _actif_ sous l'effet d'un appel maj(c).
+
+Passage de A à O et de O à A
+- de O à A : sur demande du compte, une seule opération simple affecte comptas de A et une mise à jour dans la tranche de `q1 q2 dot`.
+- de A à O : c'est le Comptable / sponsor sont les seuls à pouvoir attribuer une tranche, des quotas et une dotation `q1 q2 dot`. C'est une autre forme de _sponsoring_,
+  - qui a une limite de validité,
+  - doit être acceptée ou refusée par le compte.
+
+#### Classe `SoldeO`
+Chaque instance de cette classe représente le calcul du solde courant d'un compte O.
+- dh: date-heure de calcul.
+- cpts: compteurs sur lequel le calcul du solde est basé.
+- dot: dotation annuelle courante attribuée par le Comptable / sponsor.
+- m: montant du solde (recalculé à dh).
+- etc : autres compteurs internes requis par le calcul.
+
+Son constructeur prend en argument la sérialisation d'un soldeO existant ou vierge.
+- un get serial() retourne sa sérialisation.
+- dans un comptas, la propriété soldeO est le cryptage de sa sérialisation par la clé de la tranche du compte.
+
+Un soldeO supporte les opérations suivantes:
+- maj(cpts) : mise à jour des compteurs cpts, (typiquement propriété cpts d'un comptas).
+- dbcr(m) : débit / crédit direct de m (delta), typiquement à l'occasion d'un _don_ ponctuel du Comptable, d'un sponsor (du compte de l'organisation) ou d'ailleurs de n'importe quel compte A ou O (venant de son soldeO ou solde A).
+- dotation(dot) : changement de la dotation annuelle s'appliquant maintenant, par le Comptable ou un sponsor prélevée sur la dotation de la tranche.
+- dpp(): durée probable pendant laquelle le solde devrait rester positif en se basant sur l'historique récent de consommation.
+
+> Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme figée avec seulement un solde monétaire.
+
+Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
+
+## Notifications et restrictions / blocages d'un espace / tranche / compte
+### Par l'administrateur technique
+L'administrateur peut déclarer un espace _figé_ ou _clos_:
+- `texte`: texte informatif.
+- `blocage`:
+  - `0` : aucun blocage, le texte est purement informatif.
+  - `1` : l'espace est strictement **figé** en lecture seule, sans mise à jour possible: 
+    - une connexion en mode _synchro / incognito_ ne signe pas mais il n'y a plus de GC.
+    - **exceptions**: 
+      - enregistrement des lectures / écritures / uploads / downloads par deltas de `{ nl, ne, vm, vd }` dans `comptas` pour contrôler les sur-consommations de lectures / downloads durant la vie en état _figé_.
+      - enregistrement de la notification dans `espaces`.
+    - _question_ : autoriser des crédits ? génération de tickets / virements pour les compte A ? (ça ne touche que `comptas` et `tickets` qui peuvent s'exporter indépendamment). 
+  - `2` : l'espace est **clos** (il n'y a plus de données, du moins accessibles par les comptes). Le texte indique à quelle URL / code d'organisation les comptes vont trouver l'espace transféré (s'il y en a un).
+
+L'administrateur a ainsi les moyens:
+- de figer temporairement un espace,
+  - pendant la durée technique nécessaire à son transfert sur un autre hébergeur,
+  - en le laissant en ligne et permettant à des comptes libres de consulter une image archivée pour des questions réglementaires ou de debug (voire dans ce cas de la dé-figer).
+- de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).
+
+### Par le Comptable et des sponsors pour des comptes O
+Outre une information ponctuelle et ciblée plus ou moins large, l'objectif est de donner à l'organisation la possibilité de restreindre / bloquer l'accès à des comptes O ne faisant plus partie de l'organisation ou ayant changé de statut.
+
+Une notification peut avoir deux portées:
+- tous les comptes O d'une tranche,
+- un compte O spécifique.
+
+Propriétés:
+- `texte`: texte informatif.
+- `blocage` :
+  - 0 : pas de restriction.
+  - `1` : accès _restreint_.
+    - consultation seulement,
+    - mais chats autorisés avec Comptable et sponsors,
+    - mais les opérations de gestion du solde sont autorisées.
+  - `2` : accès _minimal_.
+    - consultation restreinte aux données statistiques et de solde.
+    - mais chats autorisés avec Comptable et sponsors.
+    - mais les opérations de gestion du solde sont autorisées.
+    - le compte ne signe plus sa présence, il sera résilié par le GC au plus dans 365 jours.
+
+Les restrictions _figé_ par l'administrateur et _restreint_ par le Comptable / sponsors, ont presque les mêmes contraintes pour les comptes: le chat n'est possible avec personne dans le cas _figé_ alors que ça reste possible en mode _restreint_.  
+
+### Solde _faiblement positif_ et _négatif_
+Que ce soit un compte O ou A, cette notification a les conséquences suivantes.
+
+Solde _faiblement positif_
+- le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance récente de consommation est inférieur à un seuil d'alerte (60 jours par exemple).
+- pas de restrictions d'accès, mais une pop-up à la connexion et une icône _warning_ en barre d'entête.
+
+Solde _négatif_, accès _minimal_.
+- opérations de gestion du solde autorisées (consultation restreinte aux données statistiques et de solde).
+- chats autorisés avec le Comptable (et sponsors si c'est un compte O).
+- pop-up à la connexion et une icône _rouge_ en barre d'entête.
+
+### Quotas _approchés_ et _dépassés_
+- _warning_ : les quotas q1 / q2 sont _approchés_, le nombre de notes et chats / le volume V2 des fichiers est à moins de 10% de q1 / q2.
+- _décroissant_ : q1 / q2 sont dépassés. 
+  - les opérations _augmentant_ le nombre de notes et chats / le volume V2 des fichiers sont bloquées.
+
+### Synthèse des restrictions
+- F : figé par l'administrateur technique
+- L : restriction à la lecture seulement par le Comptable ou un sponsor
+- M : minimal par le Comptable ou un sponsor
+- D : décroissant par dépassement de quotas
+
+    F L M D
+    o o o o gestion du solde
+    N o o o chats avec Comptable / sponsors
+    o o N o lecture des données
+    N N N - mises à jour
+          o mises à jour n'augmentant pas les volumes
+          N mises à jour augmentant les volumes
+
+Notifications:
+- de l'administrateur technique (- F)
+- du Comptable / sponsor (- L M)
+- niveau du solde (- M)
+- limite des quotas (- D)
+
