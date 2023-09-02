@@ -113,152 +113,131 @@ En mode avion les fichiers attachés aux notes ne sont pas accessibles, **sauf**
 
 > **L'application invoquée depuis un navigateur y est automatiquement mémorisée** : au prochain appel, étant déjà présente en local, elle ne chargera éventuellement que le minimum nécessaire pour se mettre à niveau de la version logicielle la plus récente.
 
-# Maîtrise des ressources utilisées par l'application
-Le coût d'usage de l'application pour une organisation n'est pas nul: les ressources techniques d'hébergement des données et de traitement de celles-ci ne sont pas gratuites.
+# Répartition des coûts d'hébergement de l'application
+Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
-Laisser les comptes utiliser sans contrainte l'espaces des notes et de leurs fichiers aboutirait à saturer inéluctablement les moyens techniques payés à l'hébergeur de l'application.
+#### Abonnement
+Il correspond aux coûts récurrents mensuels pour un compte même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
+- **(V1) Volume des données sur la base de données**. Il est calculé par la multiplication d'un facteur forfaitaire par le nombre de,
+  - **(nn) notes** personnelles et notes d'un groupe hébergé par le compte,
+  - **(nc) chats** en ligne, 
+  - **(ng) participations aux groupes**.
+- **(V2) Volume des fichiers attachés aux notes** stocké sur un _Storage_.
 
-Ce chapitre explicite les moyens logiques mis en œuvre par l'application pour maîtriser les coûts induits par son utilisation par les comptes.
+Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _quotas_ Q1 et Q2** choisis par le compte, c'est à dire **l'espace maximal** auquel il s'abonne et qui a été réservé à cet effet.
 
-## Quotas de volumes autorisés
-Le coût de _traitement_ des données, de leurs opérations de lecture et d'écriture a été inclus forfaitairement dans celui de stockage de celles-ci. C'est aussi le cas des coûts de transfert sur le réseau des textes des notes.
+> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les quotas attribués, sauf dans le cas où les quotas ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
 
-Le coût de transfert sur le réseau des fichiers a été pris en compte de deux manières:
-- pour une inclusion forfaitaire au coût de stockage pour les cas usuels,
-- par un ralentissement progressif des transferts volumineux systématiques. Exemple caricatural: télécharger sur son poste tous les jours tous les fichiers attachés à toutes les auxquelles on a accès. Cet usage _abusif_ aboutirait de facto à l'impossibilité de télécharger quoi que ce soit dans un délai raisonnable jusqu'à ce que l'usage redevienne _normal_.
+#### Consommation de calcul
+Ces coûts de _calcul_ correspondent directement à l'usage fait de l'application quand une session d'un compte est ouverte. Il dépend de _l'usage_ du titulaire du compte, de son activité et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
+- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc. **Lu** signifie extrait de la base de données. Pour un même service apparent, le coût des _lectures_ peut différer fortement typiquement en utilisant le mode _synchronisé_, voire _avion_ où est par principe même nul.
+- **(ne) nombre _d'écritures_** (en base de données): outre quelques écritures techniques indispensables, il s'agit principalement des mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.
+- **(vd) volume _descendant_** (download) de fichiers téléchargés depuis le _Storage_.
+- **(vm) volume _montant_** (upload) de fichiers envoyés dans le _Storage_. Chaque création / mise à jour d'un fichier est décompté dans ce volume.
 
-> En conséquence, la maîtrise des coûts d'usage de l'application a été restreint **à maîtriser les volumes des textes des notes et des fichiers** qui leur sont attachés.
+### Coût total
+La valorisation des coûts est simplement la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `q1*u1 + q2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
+- `q1` = _quota_ maximal de la somme `nn + nc + ng`
 
-Il y a deux types de quotas :
-- le quota Q1 fixe un maximum d'espace utilisable pour les textes des notes: _un_ Q1 correspond à 0,25Mo.
-- le quota Q2 fixe un maximum d'espace utilisable pour les fichiers attachés aux notes: _un_ Q2 correspond à 25Mo.
+#### Solde monétaire d'un compte
+Chaque compte a un _solde_ qui résulte,
+- **en crédit :** 
+  - soit de ce qu'il a versé ou fait verser monétairement au comptable de l'organisation,
+  - soit de ce que lui a crédité automatiquement l'organisation chaque seconde quand celle-ci prend en charge le coût de fonctionnement du compte.
+- **en débit :** les coûts de consommation à chaque consommation effective à chaque opération, PLUS, le coût d'abonnement sur chaque seconde.
 
-L'ordre de grandeur des prix du marché, donne les coûts suivants en centimes d'euro annuel:
+## Le Comptable, les comptes _A_ et _O_
 
-    un Q1 : 250 notes -> 0,45c/an
-    un Q2 : 100Mo     -> 0,10c/an
+### Le compte du "Comptable"
+_Le Comptable_ désigne une personne plus ou moins virtuelle, voire un petit groupe de personnes physiques qui:
+- a négocié avec un hébergeur représenté par le terme _administrateur technique_ les conditions et le prix de l'hébergement.
+- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour certains comptes.
 
-    Pour un compte XXS ( 1 Q1 :   250n /  1 Q2 :  100Mo) ->   1,6c/an
-    Pour un compte MD  ( 8 Q1 :  2000n /  8 Q2 :  800Mo) ->  13c/an
-    Pour un compte XXL (64 Q1 : 16000n / 64 Q2 : 6,4Go ) -> 102c/an
-
-> Les volumes V1 apparaissent environ 25 fois plus coûteux au méga-octet que les volumes V2, mais comme les fichiers peuvent être très volumineux, le coût d'utilisation dépend de ce que chacun met en textes des notes et en fichiers attachés.
-
-> **Tout compte dispose de quotas Q1 et Q2** : les volumes effectivement utilisés ne peuvent pas dépasser les quotas attribués, sauf dans le cas où les quotas ont été réduits a posteriori en dessous des volumes actuellement utilisés.
-
-Comme tout est anonyme même pour les fonctions d'administration techniques, la mise en place de _quotas préalables_ est un moyen efficace pour contenir l'inflation des volumes. Sans cette contrainte, quelques comptes pourraient siphonner toutes les ressources techniques sans qu'il sot possible de savoir à qui s'adresser pour rétablir une nécessaire modération ou le facturer.
-
-## Coûts des lectures / écritures et transferts des fichiers
-
-**Le coût des lectures des notes et chats se mesure en millier de note ou chat lus**. Il est influencé par:
-- l'usage du mode _synchronisé_ ou _incognito_. Un compte ayant 1000 notes aura a minima 1000 lectures en _incognito_ à l'ouverture de la session mais probablement 10 fois moins en mode _synchronisé_ ou la majeure partie des notes étant inchangées depuis la dernière session ne seront pas relues.
-- l'intensité de l'activité elle-même, le nombre de notes crées ou modifiées dans la session, et de chats écrits. Par exemple le stockage d'une note d'un groupe hébergé par un autre compte ne coûte rien (au compte hébergeur, si), mais sa modification intensive coûte au compte qui agit (pas à l'hébergeur du groupe).
-
-> **Le coût du volume est récurrent chaque mois même sans se connecter** et ne dépend pas de ce qu'on fait en session: c'est de **_l'abonnement_**.
-> **Le coût de lectures / écritures est nul en l'absence de connexion** mais dépend fortement du mode de connexion et du volume d'activité de la session: c'est de la **_consommation_**. 
-
-**Le coût de transfert des fichiers (uploads / downloads) se mesure en GB transférés**. Il est influencé par:
-- l'usage de copies locales de fichiers fréquemment lus et peu écrits: le coût de transfert est quasi nul.
-- la lecture fréquente de fichiers très changeants.
-- le _download_ fréquent d'une large sélection de notes sur un répertoire local du poste.
-
-## Le compte du "Comptable"
-A l'installation d'un réseau, l'administrateur technique s'est concerté avec le demandeur de l'installation qui lui a donné une _phrase secrète provisoire_. Un compte un peu privilégié a été créé, le **Comptable** : ce dernier se connecte et change la phrase secrète pour une nouvelle, qui elle sera inconnue de l'administrateur technique.
-
-Le compte **Comptable** ne peut pas être supprimé, a un numéro fixe reconnaissable, a pour nom d'avatar principal `Comptable`, n'a pas de carte de visite mais est connu de tous les comptes.
-
-C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Mais il a le privilège important de gérer les quotas.
+C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. **Il a le privilège important de gérer les quotas / forfaits gratuits**.
 
 > Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
 
-## Comptes (A) _autonome_ et (O) _de l'organisation_
-### Compte _autonome_
+### Compte _autonome_ "A"
 Un compte _autonome_ fixe lui-même ses quotas Q1 et Q2 et peut les changer à son gré, mais pas en-dessous des volumes qu'il occupe effectivement.
 
-**Il dispose d'un solde en _unité monétaire_**, par exemple en euros:
-- le solde est crypté par la clé du compte: lui-seul le connaît.
-- le solde est débité chaque jour du coût journalier des quotas Q1 et Q2 courants et de la consommation en lectures / écritures / transferts.
-- le solde est crédité par un virement anonymisé:
-  - le titulaire du compte génère un _ticket_ et, soit le cite en référence d'un virement qu'il effectue lui-même, soit le communique à un bienfaiteur qui fait le virement en le citant.
-  - quand le Comptable reçoit un virement (de la banque ou par tout autre procédé), il enregistre le ticket cité en référence et le montant. Le solde du compte en est crédité à la prochaine connexion.
-  - le _ticket_ étant enregistré crypté par la clé privée du compte, aucune corrélation ne peut être faite entre la source d'un virement et le compte qui en bénéficie.
-- le solde peut aussi être crédité par un don, anonyme, d'un autre compte (ce qui débite le sien d'autant). 
+> **Nul ne peut bloquer / dissoudre un compte _autonome_**, mais le compte peut se bloquer lui-même s'il ne couvre pas les frais d'utilisation de son compte
 
-Quand à la connexion d'un compte son solde est négatif, il est **restreint** à la seule lecture des informations, comme en mode avion, les mises à jours sont impossibles. Le compte à rebours de sa fin de vie démarre: un an plus tard il sera automatiquement détruit.
+**Il gère son solde en _unité monétaire_**, par exemple en euros:
+- **le solde est crypté par la clé du compte**: lui-seul le connaît.
+- **le solde est débité à chaque instant** des coûts _d'abonnement_ liés aux quotas qu'il a fixé et des coûts de _consommation_, lectures / écritures / transferts faits.
+- **le solde est crédité de manière _anonyme_.**
+- **le solde peut aussi être crédité par un don, anonyme, d'un autre compte** et **par des _dons_ du Comptable**. 
 
-Quand le solde est négatif depuis plus de 60 jours, le compte est **bloqué**, les lectures et les mises à jours sont impossibles.
+Quand à la connexion d'un compte son solde est négatif, l'accès du compte à l'application est  **restreint**.
 
-Dans les deux cas _restreint / bloqué_, le compte peut toutefois:
-- chatter avec le Comptable,
-- consulter son solde et l'état d'occupation de son espace,
-- générer un _ticket_ pour faire créditer son solde par un virement et recevoir des dons d'autres comptes _autonomes_.
+> Avant de devenir _négatif_ le solde d'un compte a été _faiblement positif_. Le compte en est averti lors de sa connexion avec le nombre de jours _estimé_ avant de devenir négatif si son profil de consommation reste voisin de celui des 2 mois antérieurs.
 
-> Sauf le titulaire du compte quand il se connecte, nul ne peut savoir si un compte est _libre / restreint / bloqué_. **Nul ne peut bloquer / dissoudre un compte _autonome_**. 
+A sa création par _sponsoring_ un compte A peut être déclaré _sponsor_ lui-même, c'est à dire avoir le droit de sponsoriser lui-même de nouveaux comptes A.
 
-#### A sa création une organisation **n'accepte pas** de comptes _autonomes_. 
-- Le Comptable peut lever cette interdiction et les autoriser.
+### Compte _d'organisation_ "O"
+**Un compte _d'organisation_ bénéficie _gratuitement_**:
+- _d'un _abonnement_ c'est à dire de **quotas** de notes / chats et de volume de fichiers,
+- _d'une dotation de fonctionnement_ renouvelée à chaque instant destinée à couvrir les coûts de _lectures / écritures de notes, chats, etc._ et de _transfert_ de fichiers.
+
+> **Un compte O peut être bloqué par l'organisation**, en n'ayant plus qu'un accès _restreint_ (en gros en lecture seulement), voire un accès _minimal_.
+
+> **Une organisation peut avoir de multiples raisons pour bloquer un compte**: départ de l'organisation, décès, adhésion à une organisation concurrente ou ayant des buts opposés, etc. selon la charte de l'organisation.
+
+### Gestion des quotas / dotations par _tranche_
+Le Comptable dispose de quotas globaux Q1 / Q2 et d'une _dotation_ globale de consommation pour l'ensemble de l'organisation. 
+
+**Il découpe ces quotas / dotations en _tranches_** et est en charge d'en ajuster la répartition au fil du temps.
+
+Tout compte O _d'organisation_ est créé dépendant d'une tranche de laquelle ses quotas ont été prélevés et sa dotation attribuée.
+
+Dans chaque _tranche_ le Comptable a des _sponsors_ à qui il délègue la distribution des quotas et dotations aux comptes rattachés à la tranche.
+
+### Compte A ou O ?
+**A sa création une organisation **n'accepte pas** de comptes _autonomes_. 
+- Le Comptable peut lever cette interdiction et en autoriser la création,
+  - soit réservé à lui-même,
+  - soit la déléguer aux sponsors.
 - Il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
 
-## Compte _d'organisation_
-Une organisation peut prendre en charge les coûts d'hébergement, pour tous ses membres ou certains d'entre eux, sans les faire contribuer aux charges correspondantes.
+> Si un compte A paie lui-même son activité, en contre-partie il ne peut pas être bloqué par l'organisation: ceci dépend vraiment du profil de chaque organisation.
 
-Le Comptable est le premier compte _d'organisation_ et ne peut, ni être fermé, ni devenir _autonome_, afin d'éviter qu'il ne se bloque lui-même.
+## Notifications et restrictions d'usage des comptes
+Une _notification_ est un message important  dont la présence est signalée par une icône dans la barre d'entête de l'écran et parfois par un affichage lors de la connexion d'un compte, voir d'une _pop up_ en cours de session quand elle est liée à une restriction d'accès du compte.
 
-Le Comptable dispose de quotas globaux Q1 / Q2 et d'un _budget_ global de consommation pour l'ensemble de l'organisation. Il peut découper ces quotas en _tranches_ et ajuster les attributions de quotas / budget à chaque tranche.
+Une _notification_ peut être porteuse d'une restriction d'accès: les actions du compte ne sont plus totalement libres, voire sévèrement limitées.
 
-> Un _budget_ est une dotation monétaire qui chaque jour s'ajoute au solde d'un compte, quelle que soit son activité: le solde est décrémenté des _consommations_ en lectures / écritures et transferts.
+### Notification de l'administrateur technique: accès _figés_ et _clos_
+L'administrateur peut émettre une notification, le cas échéant porteuse déclarant un espace _figé_ ou _clos_:
+- le texte informatif est soit simplement informatif, soit explicite les raisons de la restriction:.
+- **espace figé** : l'espace est en lecture seule.
+- **espace clos** : il n'y a plus de données. Le texte indique à quelle URL / code d'organisation les comptes vont trouver l'espace transféré (s'il y en a un).
 
-**Un compte _d'organisation_ bénéficie _gratuitement_ de ses quotas** prélevés sur les quotas de la _tranche_ dans laquelle il a été créé et **n'a pas à alimenter un solde monétaire pour les conserver**.
+L'administrateur technique a ainsi les moyens:
+- de figer temporairement un espace, par exemple:
+  - pendant la durée technique nécessaire à son transfert sur un autre hébergeur,
+  - en le laissant en ligne et permettant aux comptes de consulter une image archivée pendant que l'opération technique se poursuit.
+- de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).
 
-### Gestion des quotas / budgets par _tranche_
-Tout compte _d'organisation_ est dépendant de la tranche de quotas / budget de laquelle ses quotas ont été prélevés et son budget attribué.
+### Notification pour les comptes O: accès _lecture seule_ et _minimal_ 
+Ces notifications peuvent être émise par le Comptable et des sponsors. Ce peut être une simple information ponctuelle et ciblée plus ou moins large, ne soumettant pas les comptes à des restrictions d'accès:
+- Restriction d'accès en _lecture seulement_,
+- Restriction d'accès _minimal_.
 
-#### Sponsor d'une tranche de quotas
-Le Comptable peut attribuer / enlever un rôle de **_sponsor de sa tranche_** à un compte:
-- un _sponsor_ peut sponsoriser un nouveau compte en lui attribuant des quotas et un budget prélevés sur la tranche qu'il gère (pas sur les siens): il peut aussi déclarer à ce moment le nouveau compte lui-même _sponsor_ de cette tranche.
-- un `sponsor` peut augmenter / réduire les quotas et le budget des comptes liés à la tranche qu'il gère.
-- un compte en excédent d'occupation effective de volume par rapport à ses quotas, devra supprimer / réduire des notes et leurs fichiers jusqu'à revenir dans ses quotas et pouvoir à nouveau augmenter son volume.
-- le Comptable peut déclarer plus d'un compte _sponsor_ pour une tranche donnée.
-- le Comptable peut aussi passer un compte _d'organisation_ d'une tranche à une autre.
+Ces notifications peuvent avoir deux portées:
+- _tous_ les comptes O d'une tranche,
+- _un_ compte O spécifique.
 
-> La gestion des quotas et des budgets des comptes _d'organisation_ s'effectue donc à deux niveaux en décentralisant la maîtrise fine de ceux-ci au niveau des tranches.
+### Notification automatique par surveillance du solde
+Cette notification s'applique aux comptes O et A.
+- Notification sans restriction d'accès quand le solde est _faiblement positif_.
+- Notification avec accès _minimal_ quand le solde est _négatif_.
 
-**Quelques règles :**
-- un compte _non sponsor_ de sa tanche en connaît les sponsors, leurs carte de visite, et peut chatter avec eux (et d'ailleurs avec le Comptable).
-- un compte _sponsor_ de sa tranche :
-  - connaît tous les autres comptes dont les quotas et le budget sont imputés à sa tranche, mais pas forcément jusqu'au niveau _carte de visite_.
-  - peut en lire la comptabilité des volumes et un petit historique des volumes V1 et V2 effectivement occupés et transférés et des consommations de lectures / écritures / transferts.
-- aucun compte, pas même le Comptable, ne peut connaître les avatars secondaires des comptes et n'a aucun moyen d'accéder à leurs note et chats.
+### Notification automatique par surveillance des dépassements des quotas
+Cette notification s'applique aux comptes O et A.
+- Notification sans restriction d'accès quand les quotas sont _approchés_.
+- Notification avec restriction aux opérations _décroissantes_ quand les quotas sont dépassée.
 
-Le Comptable dispose de la liste des tranches (puisqu'il les as créées) et pour chacune dispose des mêmes possibilités qu'un sponsor de la tranche.
-
-> Du fait qu'un compte _d'organisation_ est un invité sans contrainte de participation aux coûts d'hébergement, il est normal que l'organisation ait les moyens d'en contrôler l'usage.
-
-### Notification et blocage des comptes _d'organisation_
-**Une organisation peut avoir diverses raisons d'initier une procédure de blocage d'un compte _d'organisation_.** Par exemple,
-- Le compte n'acquitte plus sa cotisation ou a quitté l'organisation.
-- Les quotas ou le budget du compte doivent être révisés à la baisse mais les volumes occupés n'ont pas été réduits malgré des rappels amicaux et la consommation trop importante.
-- Autres, décès ...
-
-#### Notifications
-Une notification a un court message qui en explicite la raison. Une notification peut être :
-- **simple** : elle se limite au texte informatif.
-- **restrictive** : le compte ne peut plus que lire ses données, comme s'il était en mode _avion_ mais peut toutefois chatter avec le Comptable et les sponsors de sa tranche.
-- **bloquante** : le compte ne peut plus **que** chatter avec son sponsor ou le Comptable et n'a plus accès, même en lecture, à ses autres données.
-
-Un compte _d'organisation_ perçoit jusqu'à 3 notifications en cliquant sur l'indicateur des notifications:
-- une **notification générale** de l'administrateur technique, s'adressant à tous les comptes, de toutes tranches, et même aux comptes _autonomes_.
-  - par exemple si l'administrateur technique doit opérer un transfert sur un autre hébergement, il va bloquer les comptes de l'organisation jusqu'à la fin de l'opération de transfert.
-- une **notification de tranche** du Comptable ou d'un sponsor de sa tranche, s'adressant à tous les comptes d'organisation de la tranche (mais pas aux comptes _autonomes_ qui par principe ne sont liés à aucune tranche).
-- une **notification personnelle** du Comptable ou d'un sponsor de sa tranche, s'adressant à lui-même spécifiquement (ne concerne pas les comptes _autonomes_).
-
-Une notification **restrictive** spécifie combien de jours après son ouverture elle deviendra **bloquante**.
-
-La destruction automatique du compte intervient à l'anniversaire de l'ouverture de la procédure restrictive / bloquante.
-
-Une fois le problème réglé, l'émetteur d'une notification, Comptable ou sponsor, la supprime.
-
-> Quand le Comptable a ouvert une procédure de blocage pour une tranche ou un compte, les sponsors de la tranche ne peuvent plus alors y intervenir.
+> Lire plus de détails dans le document **Couts-Hebergement**.
 
 # Annexe : les _espaces_
 L'administrateur technique d'un site peut héberger techniquement sur le site jusqu'à 50 **espaces** numérotés de 10 à 69.
