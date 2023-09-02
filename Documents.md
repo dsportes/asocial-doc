@@ -1481,11 +1481,12 @@ Dans une session:
 
 ## Décomptes et soldes: `cpts stats soldeA soldeO`
 
-#### Objet `cpts` : `{ q1, q2, nn, nc, v2, nl, ne, vm, vd }`
-- `q1`: quota du nombre total de notes et chats.
+### Objet `cpts` : `{ q1, q2, nn, nc, ng, v2, nl, ne, vm, vd }`
+- `q1`: quota du nombre total de notes / chats / groupes.
 - `q2`: quota du volume des fichiers.
 - `nn`: nombre de notes existantes.
 - `nc`: nombre de chats existants.
+- `ng` : nombre de participations aux groupes existantes.
 - `v2`: volume effectif total des fichiers.
 - `nl`: nombre absolu de lectures depuis la création du compte.
 - `ne`: nombre d'écritures.
@@ -1495,23 +1496,57 @@ Dans une session:
 - `nn nc v2` participe au contrôle du respect de _l'abonnement_.
 - `nl, ne, vm, vd` participent au calcul de la _consommation_.
 
-#### Classe `Stats` : `{ j, cpts, ...}`
-- `j` : jour de calcul,
-- `cpts` : compteurs sur lesquels le calcul est fondé.
+Unités:
+- T : temps.
+- D : nombre de document (note, chat, participations à un groupe).
+- B : byte.
+- L : lecture d'un document.
+- E : écriture d'un document.
+- € : unité monétaire.
 
-Depuis un document comptas `c: const [s, m] = Stats.de(c, auj)`
-- retourne :
-  - `s` : l'objet `Stats` tiré des objets `cpts stats` de `c` et du jour de calcul `auj`,
-  - `m` : `true` si `stats` a été recalculé et re-sérialisé dans `c`, `false` s'il n'a pas changé (`c.cpts` et `c.auj` étaient déjà ceux basant le calcul antérieur).
-- re-sérialise l'objet `stats` dans c s'il a été recalculé.
+### Classe `Stats` : `{ dh, cpts, cmc, cmp, h10 }`
+Cette classe donne les éléments de facturation et des éléments de statistique d'utilisation sur les les 12 derniers mois (mois en cours y compris).
+
+Pour chaque mois, il y a un **vecteur** de,
+  - 6 compteurs de _cumul / intégrale sur le mois_ qui servent au calcul de la facture du mois,
+    - 0 : intégrale sur t des valeurs de q1 (D*T)
+    - 1 : intégrale sur t des valeurs de q2 (B*T)
+    - 2 : nb lectures cumulés sur le mois (L),
+    - 3 : nb écritures cumulés sur le mois (E),
+    - 4 : total des transferts montants (B),
+    - 5 : total des transferts descendants (B).
+  - 4 compteurs de _moyenne sur le mois_ qui n'ont qu'une utilité documentaire.
+
+Le vecteur du mois _en cours_ (`aamm`) évolue jusqu'à la fin du mois: les vecteurs des mois antérieurs sont définitivement figés.
+
+Propriétés:
+- `dh` : date-heure de calcul,
+- `aamm`: année mois correspondant à `dh` (en UTC).
+- `cpts` : compteurs sur lesquels le calcul est fondé,
+- `vm`: [0..11] un _vecteur_ par mois (0-> janvier, 11-> décembre).
+- `mm` : [0..11] _montant monétarisé total_ pour chaque mois.
+
+Pour chacun des 6 éléments de base de la facturation, la configuration donne un _tarif_, un coût unitaire pour chaque compteur valide sur un mois entier.
+- le mois suivant, les coût unitaires peuvent changer,
+- les coûts unitaires ne changent plus dès que le mois est commencé.
+
+Le montant monétarisé est, comme pour les vecteurs, en évolution pour le mois en cours et figé pour les 11 mois antérieurs.
+
+Depuis un document `comptas` `c: const s = Stats.de(c, tarif, dh)`
+- `dh` est facultatif, la date-heure courante est prise en cas d'absence, et permet d'effectuer des tests reproductibles.
+- retourne l'objet `Stats` calculé depuis les objets `cpts stats` de `c`, la date-heure de calcul et le `tarif` du mois en cours (6 coûts unitaires).
 - l'objet `c` est simplement un objet ayant deux propriétés `cpts` et `stats` (sérialisation de l'objet `Stats`). Si `c.stats` est absent, il est calculé par initialisation (nouveau compte).
 - ce calcul peut ainsi s'effectuer en _simulation_, sans toucher au _vrai_ `comptas`.
 
-En session, `stats` est recalculé,
-- par compile(),
-- explicitement a l'occasion d'une mise à jour des compteurs `cpts` ou par simulation en passant comme argument c un simple couple { cpts, stats }.
+Le getter `Stats.serial` retourne la sérialisation de l'objet.
 
-En serveur, des opérations peuvent faire évoluer `cpts` de comptas de manière incrémentale. Il en résulte une ré-évaluation de `stats`:
+La méthode `estimation(m)` retourne **le nombre de jours estimé qu'il faut pour épuiser le montant `m`** en se basant sur la moyenne du mois encours et des mois précédents avec une pondération d'autant plus forte pour le mois est récent/
+
+**En session,** `stats` est recalculé,
+- par `compile()` à la connexion et en synchro,
+- explicitement a l'occasion d'une mise à jour des compteurs `cpts` ou par simulation en passant comme argument `c` un simple couple `{ cpts, stats }`.
+
+**En serveur,** des opérations peuvent faire évoluer `cpts` de `comptas` de manière incrémentale. Il en résulte une ré-évaluation de `stats` à l'occasion des opérations suivantes:
 - création / suppression d'une note ou d'un chat: incrément / décrément de nn / nc.
 - prise / abandon d'hébergement d'un groupe: delta sur nn / nc / v2.
 - création / suppression de fichiers: delta sur v2.
@@ -1519,17 +1554,15 @@ En serveur, des opérations peuvent faire évoluer `cpts` de comptas de manière
 - upload / download d'un fichier: delta sur vm / vd.
 - enregistrement d'une consommation de calcul: delta sur nl / ne.
 
-La classe Stats est donc hébergée par api.mjs (module commun à UI et serveur).
+La classe `Stats` est donc hébergée par `api.mjs` (module commun à UI et serveur).
 
-Le Comptable peut afficher le stats de n'importe quel compte A ou O.
+Le Comptable peut afficher le `stats` de n'importe quel compte A ou O.
 
-Les sponsors d'une tranche ne peuvent faire afficher les stats _que_ des comptes de leur tranche.
+Les sponsors d'une tranche ne peuvent faire afficher les `stats` _que_ des comptes de leur tranche.
 
 #### Classe `soldeA`
 Chaque instance de cette classe représente le calcul du solde courant d'un compte A.
 - dh: date-heure de calcul.
-- dhneg: date-heure à laquelle le montant a été estimé être passé négatif.
-- cpts: compteurs sur lequel le calcul du solde est basé.
 - m: montant du solde (recalculé à dh).
 - etc: autres compteurs internes nécessaires aux calculs, en particulier l'estimation du temps que le solde actuel permet de passer sans nouveau crédit en se basant sur les débits récents.
 
@@ -1575,84 +1608,3 @@ Un soldeO supporte les opérations suivantes:
 > Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme figée avec seulement un solde monétaire.
 
 Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
-
-## Notifications et restrictions / blocages d'un espace / tranche / compte
-### Par l'administrateur technique
-L'administrateur peut déclarer un espace _figé_ ou _clos_:
-- `texte`: texte informatif.
-- `blocage`:
-  - `0` : aucun blocage, le texte est purement informatif.
-  - `1` : l'espace est strictement **figé** en lecture seule, sans mise à jour possible: 
-    - une connexion en mode _synchro / incognito_ ne signe pas mais il n'y a plus de GC.
-    - **exceptions**: 
-      - enregistrement des lectures / écritures / uploads / downloads par deltas de `{ nl, ne, vm, vd }` dans `comptas` pour contrôler les sur-consommations de lectures / downloads durant la vie en état _figé_.
-      - enregistrement de la notification dans `espaces`.
-    - _question_ : autoriser des crédits ? génération de tickets / virements pour les compte A ? (ça ne touche que `comptas` et `tickets` qui peuvent s'exporter indépendamment). 
-  - `2` : l'espace est **clos** (il n'y a plus de données, du moins accessibles par les comptes). Le texte indique à quelle URL / code d'organisation les comptes vont trouver l'espace transféré (s'il y en a un).
-
-L'administrateur a ainsi les moyens:
-- de figer temporairement un espace,
-  - pendant la durée technique nécessaire à son transfert sur un autre hébergeur,
-  - en le laissant en ligne et permettant à des comptes libres de consulter une image archivée pour des questions réglementaires ou de debug (voire dans ce cas de la dé-figer).
-- de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).
-
-### Par le Comptable et des sponsors pour des comptes O
-Outre une information ponctuelle et ciblée plus ou moins large, l'objectif est de donner à l'organisation la possibilité de restreindre / bloquer l'accès à des comptes O ne faisant plus partie de l'organisation ou ayant changé de statut.
-
-Une notification peut avoir deux portées:
-- tous les comptes O d'une tranche,
-- un compte O spécifique.
-
-Propriétés:
-- `texte`: texte informatif.
-- `blocage` :
-  - 0 : pas de restriction.
-  - `1` : accès _restreint_.
-    - consultation seulement,
-    - mais chats autorisés avec Comptable et sponsors,
-    - mais les opérations de gestion du solde sont autorisées.
-  - `2` : accès _minimal_.
-    - consultation restreinte aux données statistiques et de solde.
-    - mais chats autorisés avec Comptable et sponsors.
-    - mais les opérations de gestion du solde sont autorisées.
-    - le compte ne signe plus sa présence, il sera résilié par le GC au plus dans 365 jours.
-
-Les restrictions _figé_ par l'administrateur et _restreint_ par le Comptable / sponsors, ont presque les mêmes contraintes pour les comptes: le chat n'est possible avec personne dans le cas _figé_ alors que ça reste possible en mode _restreint_.  
-
-### Solde _faiblement positif_ et _négatif_
-Que ce soit un compte O ou A, cette notification a les conséquences suivantes.
-
-Solde _faiblement positif_
-- le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance récente de consommation est inférieur à un seuil d'alerte (60 jours par exemple).
-- pas de restrictions d'accès, mais une pop-up à la connexion et une icône _warning_ en barre d'entête.
-
-Solde _négatif_, accès _minimal_.
-- opérations de gestion du solde autorisées (consultation restreinte aux données statistiques et de solde).
-- chats autorisés avec le Comptable (et sponsors si c'est un compte O).
-- pop-up à la connexion et une icône _rouge_ en barre d'entête.
-
-### Quotas _approchés_ et _dépassés_
-- _warning_ : les quotas q1 / q2 sont _approchés_, le nombre de notes et chats / le volume V2 des fichiers est à moins de 10% de q1 / q2.
-- _décroissant_ : q1 / q2 sont dépassés. 
-  - les opérations _augmentant_ le nombre de notes et chats / le volume V2 des fichiers sont bloquées.
-
-### Synthèse des restrictions
-- F : figé par l'administrateur technique
-- L : restriction à la lecture seulement par le Comptable ou un sponsor
-- M : minimal par le Comptable ou un sponsor
-- D : décroissant par dépassement de quotas
-
-    F L M D
-    o o o o gestion du solde
-    N o o o chats avec Comptable / sponsors
-    o o N o lecture des données
-    N N N - mises à jour
-          o mises à jour n'augmentant pas les volumes
-          N mises à jour augmentant les volumes
-
-Notifications:
-- de l'administrateur technique (- F)
-- du Comptable / sponsor (- L M)
-- niveau du solde (- M)
-- limite des quotas (- D)
-

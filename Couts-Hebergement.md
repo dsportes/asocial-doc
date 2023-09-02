@@ -48,9 +48,9 @@ C'est la somme des coûts induits par chacun des 6 compteurs valorisés par leur
 - `q1` = _quota_ maximal de la somme `nn + nc + ng`
 
 Un compte peut consulter à tout instant:
-- le détail des coûts _exacts_ cumulés pour le mois en cours et le précédent et le détail des coûts _arrondis_ pour les 10 mois antérieurs,
-- les nombres _moyens_ de notes / chats / groupes, _effectivement utilisés_ pas le _quota maximal_, le mois en cours et le précédent.
-- le volume _moyen_ des fichiers _effectivement stockés_, pour le mois en cours et le précédent.
+- le détail des coûts _exacts_ cumulés pour le mois en cours et les 11 précédents,
+- les nombres _moyens_ de notes / chats / groupes, _effectivement utilisés_ le mois en cours et les 11 précédents.
+- le volume _moyen_ des fichiers _effectivement stockés_ le mois en cours et les 11 précédents.
 
 >_L'ordre de grandeur_ d'un coût total par compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible. Ce n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement pour un millier de comptes, soit à financer par sponsoring ou par quote-part sur les adhésions ...
 
