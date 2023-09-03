@@ -1422,63 +1422,6 @@ Les autres coûts induits pour Storage sont des downloads, uploads et invocation
 
 > Le coût pour _un_ compte A est dérisoire : 0,33€ / an pour un compte ayant une occupation réelle XXL, moins de 3c par mois. Autant en acheter pour 20 ans pour moins de 7€.
 
-# Maintien de la cohérence
-
-**Sur le serveur** apparaît et plusieurs opéations mettent à jour plus d'un document pour un compte donné: 
-- détection de disparition d'un avatar par le GC:
-  - dépassement de la dlv de son versions.
-  - pas d'impact sur les groupes / membres: c'est le dépassement de la dlv de ses membres qui en a un.
-  - (IC1) les chats (E) avec les autres ont toujours une référence vers l'avatar disparu.
-  - (C1) cohérence chats / comptas nc assurée par maj comptas sur raccroché / en ligne du chat.
-- détection de disparition d'un membre:
-  - (a) le groupe survit. 0 -> sta dans groupe. L'incohérence avec lgr de son avatar n'a pas d'importance, le compte est mort.
-  - (b) le groupe est détruit: n'avait pas d'hébergeur et que des invités.
-    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr de leur avatar est effacé.
-- résiliation d'un membre im, refus d'invitation
-  - (C4a) dans groupe ast[im] vaut 0 ou 1, et son avatar lgr[ni] qui est effacé
-- invitation / acceptation
-  - (C4b) cohérence entre avatars lgr, groupes ast
-- création / suppression de notes, changements de fichiers
-  - (C5) cohérence entre notes et comptas nn V1 V2
-
-**En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas**, dans tous les cas ci-dessus de mises à jour de plusieurs documents dans une seule opération.
-- problème à la connexion: mais l'ordre de lecture est maîtrisé,
-- problème en synchro: l'ordre de lecture n'est pas maîtrisé.
-
-(IC1) est résolu,
-- soit à la prochaine tentative d'écriture du chat,
-- soit au premier rafraîchissement des cartes de visite.
-- pas de problème d'incohérence, autre qu'un délai à la prise de connaissance de la disparition du contact.
-
-(C1) cohérence chats / comptas nc
-- si on recompte les chats, on n'est pas sûr de trouver pareil que comptas nc: les chats peuvent avoir du retard ou comptas pas relu à jour.
-- Option: confiance dans comptas, on ne rapproche pas les deux.
-
-(C5) cohérence entre notes et comptas nn V1 V2
-- Option comme pour (C1) confiance dans comptas, on ne rapproche pas les deux.
-
-> On peut imaginer en début de session de recalculer V1 / V2. Si fortes divergence avec comptas, on _reset brutal_ comptas sur V1 / V2 pour rattrapage des bugs.
-
-(C2) groupe mort / avatars lgr existe
-- Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner avatar lgr par suppression du terme.
-
-(C4a) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] est effacé  
-(C4b) dans groupe ast[im] vaut 2 ou 3, dans son avatar lgr[ni] existe
-- qui a de l'avance sur l'autre ?
-- Option 1: opération de réconciliation retournant les deux en cohérence.
-  - sur le serveur groupes et avatars sont cohérents: on retournera, l'un l'autre les deux ou aucun.
-
-Compter les lectures / écritures
-- on ne compte que les volumes des notes et chats
-- on compte les volumes transférés
-- on compte le nombre de rows lus / écrits
-
-Le serveur remonte à chaque opération le nombre de rows lus et écrits.
-
-Dans une session:
-- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire)
-- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
-
 ## Décomptes et soldes: `cpts stats soldeA soldeO`
 ### Classe `Tarif`
 Un tarif correspond à,
@@ -1651,30 +1594,80 @@ L'intégration des compteurs de consommation n'est pas continue à chaque opéra
 - c'est peut-être une option à retenir si le solde est _faiblement positif_.
 - pour l'opération lourde de download d'une sélection de notes avec leur fichier, un précalcul _pourrait_ interdire le lancement de l'opération.
 
-Le niveau de la dotation est fixé par le Comptable / sponsor de la tranche.
-- à l'initialisation, un mois de dotation est intégré à m.
-- quand le montant de la dotation change,
-  - la consommation jusqu'à m-1 est débitée de m.
-  - un _don_ facultatif
-  - m est crédité du montant de l'ancienne dotation non intégrée depuis dhidot. Si le m résultant est supérieur à 6 mois de dotation, il est tronqué au montant de ces 6 mois.
-  - la nouvelle dotation est inscrite: si m est inférieur à un mois de dotation, m est fixé à un mois de dotation et dhidot est fixée à j + 30 jours. On permet ainsi au compte d'avoir une _avance_ de trésorerie de 30 jours
+> Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme _figée_ avec seulement un solde monétaire.
 
-Son constructeur prend en argument la sérialisation d'un soldeO existant ou vierge.
-- un get serial() retourne sa sérialisation.
-- dans un comptas, la propriété soldeO est le cryptage de sa sérialisation par la clé de la tranche du compte.
+> Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
 
-Un soldeO supporte les opérations suivantes:
-- maj(cpts) : mise à jour des compteurs cpts, (typiquement propriété cpts d'un comptas).
-- dbcr(m) : débit / crédit direct de m (delta), typiquement à l'occasion d'un _don_ ponctuel du Comptable, d'un sponsor (du compte de l'organisation) ou d'ailleurs de n'importe quel compte A ou O (venant de son soldeO ou solde A).
-- dotation(dot) : changement de la dotation annuelle s'appliquant maintenant, par le Comptable ou un sponsor prélevée sur la dotation de la tranche.
-- dpp(): durée probable pendant laquelle le solde devrait rester positif en se basant sur l'historique récent de consommation.
+### Sponsoring : passage d'un compte A à O
+- Le sponsor prépare un item `spons` avec, crypté par la clé publique du compte:
+  - `dlv`
+  - `cleT` : la clé de la tribu (ce qui donne son id),
+  - `cleTC` : le cryptage de cette clé par la cle K du Comptable,
+  - `q1 q2 dot`
+- le compte doit accepter (ou refuser) ce sponsoring, au plus tard à la prochaine connexion. L'opération a les données pour,
+  - créer son soldeO et figer son soldeA,
+  - détruire `spons`,
+  - s'inscrire dans la tranche.
 
-> Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme figée avec seulement un solde monétaire.
+### Rendre _autonome_ un compte O
+- Opération du Comptable et/ou d'un sponsor selon la configuration de l'espace et, a priori sur souhait du compte, mais pas forcément.
+  - son `soldeO` est détruit,
+  - il est retiré de sa tribu.
+- sur synchronisation, ou à la prochaine connexion, le soldeA est réactivé s'il existait, sinon il est créé.
 
-Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
+# Maintien de la cohérence
 
-Passage de A à O et de O à A
-- de O à A : sur demande du compte, une seule opération simple affecte comptas de A et une mise à jour dans la tranche de `q1 q2 dot`.
-- de A à O : c'est le Comptable / sponsor sont les seuls à pouvoir attribuer une tranche, des quotas et une dotation `q1 q2 dot`. C'est une autre forme de _sponsoring_,
-  - qui a une limite de validité,
-  - doit être acceptée ou refusée par le compte.
+**Sur le serveur** apparaît et plusieurs opéations mettent à jour plus d'un document pour un compte donné: 
+- détection de disparition d'un avatar par le GC:
+  - dépassement de la dlv de son versions.
+  - pas d'impact sur les groupes / membres: c'est le dépassement de la dlv de ses membres qui en a un.
+  - (IC1) les chats (E) avec les autres ont toujours une référence vers l'avatar disparu.
+  - (C1) cohérence chats / comptas nc assurée par maj comptas sur raccroché / en ligne du chat.
+- détection de disparition d'un membre:
+  - (a) le groupe survit. 0 -> sta dans groupe. L'incohérence avec lgr de son avatar n'a pas d'importance, le compte est mort.
+  - (b) le groupe est détruit: n'avait pas d'hébergeur et que des invités.
+    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr de leur avatar est effacé.
+- résiliation d'un membre im, refus d'invitation
+  - (C4a) dans groupe ast[im] vaut 0 ou 1, et son avatar lgr[ni] qui est effacé
+- invitation / acceptation
+  - (C4b) cohérence entre avatars lgr, groupes ast
+- création / suppression de notes, changements de fichiers
+  - (C5) cohérence entre notes et comptas nn V1 V2
+
+**En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas**, dans tous les cas ci-dessus de mises à jour de plusieurs documents dans une seule opération.
+- problème à la connexion: mais l'ordre de lecture est maîtrisé,
+- problème en synchro: l'ordre de lecture n'est pas maîtrisé.
+
+(IC1) est résolu,
+- soit à la prochaine tentative d'écriture du chat,
+- soit au premier rafraîchissement des cartes de visite.
+- pas de problème d'incohérence, autre qu'un délai à la prise de connaissance de la disparition du contact.
+
+(C1) cohérence chats / comptas nc
+- si on recompte les chats, on n'est pas sûr de trouver pareil que comptas nc: les chats peuvent avoir du retard ou comptas pas relu à jour.
+- Option: confiance dans comptas, on ne rapproche pas les deux.
+
+(C5) cohérence entre notes et comptas nn V1 V2
+- Option comme pour (C1) confiance dans comptas, on ne rapproche pas les deux.
+
+> On peut imaginer en début de session de recalculer V1 / V2. Si fortes divergence avec comptas, on _reset brutal_ comptas sur V1 / V2 pour rattrapage des bugs.
+
+(C2) groupe mort / avatars lgr existe
+- Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner avatar lgr par suppression du terme.
+
+(C4a) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] est effacé  
+(C4b) dans groupe ast[im] vaut 2 ou 3, dans son avatar lgr[ni] existe
+- qui a de l'avance sur l'autre ?
+- Option 1: opération de réconciliation retournant les deux en cohérence.
+  - sur le serveur groupes et avatars sont cohérents: on retournera, l'un l'autre les deux ou aucun.
+
+Compter les lectures / écritures
+- on ne compte que les volumes des notes et chats
+- on compte les volumes transférés
+- on compte le nombre de rows lus / écrits
+
+Le serveur remonte à chaque opération le nombre de rows lus et écrits.
+
+Dans une session:
+- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire)
+- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
