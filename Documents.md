@@ -1480,10 +1480,27 @@ Dans une session:
 - on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
 
 ## Décomptes et soldes: `cpts stats soldeA soldeO`
+### Classe `Tarif`
+Un tarif correspond à,
+- `aaaamm`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
+- `cu` : [6] un tableau de 6 coûts unitaires `[u1, u2, ul, ue, um, ud]`
+  - `u1`: 365 jours de quota q1
+  - `u2`: 365 jours de quota q2
+  - `ul`: 1 million de lectures
+  - `ue`: 1 million d'écritures
+  - `um`: 1 GB de transfert montant.
+  - `ud`: 1 GB de transfert descendant.
 
-### Objet `cpts` : `{ q1, q2, nn, nc, ng, v2, nl, ne, vm, vd }`
+En configuration un tableau ordonné par `aaaammjj` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. Pour des raisons pratiques de gestion de configuration, la class Tarif a deux implémentations, une UI et une serveur.
+
+On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en cours (les _futurs_ c'est possible).
+
+La méthode `const t = Tarif.de(aaaammjj)` retourne le tarif en vigueur pour le mois indiqué et le plus récent si aaaammjj n'est pas donné.
+
+### Objet `cpts` : `{ q1, q2, dot, nn, nc, ng, v2, nl, ne, vm, vd }`
 - `q1`: quota du nombre total de notes / chats / groupes.
 - `q2`: quota du volume des fichiers.
+- `dot`: niveau de dotation pour un compte O.
 - `nn`: nombre de notes existantes.
 - `nc`: nombre de chats existants.
 - `ng` : nombre de participations aux groupes existantes.
@@ -1515,32 +1532,37 @@ Pour chaque mois, il y a un **vecteur** de,
     - 3 : nb écritures cumulés sur le mois (E),
     - 4 : total des transferts montants (B),
     - 5 : total des transferts descendants (B).
-  - 4 compteurs de _moyenne sur le mois_ qui n'ont qu'une utilité documentaire.
+  - 4 compteurs de _moyenne sur le mois_ qui n'ont qu'une utilité statistique documentaire.
+    - 6 : nombre moyen de notes existantes.
+    - 7 : nombre moyen de chats existants.
+    - 8 : nombre moyen de participations aux groupes existantes.
+    - 9 : volume moyen effectif total des fichiers stockés.
 
-Le vecteur du mois _en cours_ (`aamm`) évolue jusqu'à la fin du mois: les vecteurs des mois antérieurs sont définitivement figés.
+Le vecteur du mois _en cours_ évolue jusqu'à la fin du mois, les vecteurs des mois antérieurs sont définitivement figés.
 
 Propriétés:
 - `dh` : date-heure de calcul,
-- `aamm`: année mois correspondant à `dh` (en UTC).
+- `aaaamm`: année mois correspondant à `dh` (en UTC).
 - `cpts` : compteurs sur lesquels le calcul est fondé,
 - `vm`: [0..11] un _vecteur_ par mois (0-> janvier, 11-> décembre).
 - `mm` : [0..11] _montant monétarisé total_ pour chaque mois.
 
-Pour chacun des 6 éléments de base de la facturation, la configuration donne un _tarif_, un coût unitaire pour chaque compteur valide sur un mois entier.
-- le mois suivant, les coût unitaires peuvent changer,
-- les coûts unitaires ne changent plus dès que le mois est commencé.
-
 Le montant monétarisé est, comme pour les vecteurs, en évolution pour le mois en cours et figé pour les 11 mois antérieurs.
 
-Depuis un document `comptas` `c: const s = Stats.de(c, tarif, dh)`
+Depuis un document `comptas` `c: const s = Stats.de({cpts, stats}, dh)`
 - `dh` est facultatif, la date-heure courante est prise en cas d'absence, et permet d'effectuer des tests reproductibles.
-- retourne l'objet `Stats` calculé depuis les objets `cpts stats` de `c`, la date-heure de calcul et le `tarif` du mois en cours (6 coûts unitaires).
-- l'objet `c` est simplement un objet ayant deux propriétés `cpts` et `stats` (sérialisation de l'objet `Stats`). Si `c.stats` est absent, il est calculé par initialisation (nouveau compte).
-- ce calcul peut ainsi s'effectuer en _simulation_, sans toucher au _vrai_ `comptas`.
+- retourne l'objet `Stats` calculé depuis les objets `{cpts, stats}`, la date-heure de calcul et le tarif du mois en cours.
+  - `stats` est la _sérialisation_ d'un `Stats`. Si absent c'est une initialisation (nouveau compte).
+- remarque: le calcul peut s'effectuer en _simulation_, sans toucher au _vrai_ `comptas`.
 
 Le getter `Stats.serial` retourne la sérialisation de l'objet.
 
-La méthode `estimation(m)` retourne **le nombre de jours estimé qu'il faut pour épuiser le montant `m`** en se basant sur la moyenne du mois encours et des mois précédents avec une pondération d'autant plus forte pour le mois est récent/
+La méthode `moyenne(i)` retourne la moyenne _journalière_ (pour 24h) pour le compteur `i` (de 0 à 9):
+- pour le mois en cours c'est extrapolé en fonction du temps restant à couvrir jusqu'à la fin du mois.
+- les autres mois sont considérés avec leur nombre de jours réels.
+- les mois les plus récents ont un poids plus forts dans la moyenne que les plus anciens.
+
+La méthode `estimation(m)` retourne **le nombre de jours estimé qu'il faut pour épuiser un montant `m`** en se basant sur les moyennes calculées ci-dessus.
 
 **En session,** `stats` est recalculé,
 - par `compile()` à la connexion et en synchro,
@@ -1562,38 +1584,80 @@ Les sponsors d'une tranche ne peuvent faire afficher les `stats` _que_ des compt
 
 #### Classe `soldeA`
 Chaque instance de cette classe représente le calcul du solde courant d'un compte A.
-- dh: date-heure de calcul.
-- m: montant du solde (recalculé à dh).
-- etc: autres compteurs internes nécessaires aux calculs, en particulier l'estimation du temps que le solde actuel permet de passer sans nouveau crédit en se basant sur les débits récents.
+- `aaaamm`: dernier mois dont la consommation a été intégrée au solde.
+- `dhf`: date-heure de figeage quand le solde est figé.
+- `m`: montant du solde.
 
-Son constructeur prend en argument la sérialisation d'un soldeA existant ou vierge.
-- un get serial() retourne sa sérialisation.
-- dans un comptas, la propriété soldeAK est le cryptage de sa sérialisation par la clé K du compte. un soldeA n'est accessible / lisible _que_ par le compte lui-même.
+Son constructeur `const s = new SoldeA(soldeA)` prend en argument la sérialisation d'un soldeA existant (ou null).
 
-Un soldeA supporte les opérations suivantes:
-- maj(cpts) : mise à jour des compteurs cpts, (typiquement propriété cpts d'un comptas).
-- dbcr(m) : débit / crédit direct de m (delta).
-- dpp(): durée probable pendant laquelle le solde devrait rester positif en se basant sur l'historique récent de consommation.
+**Mise à jour par intégration de `stats`:** `const c = s.integrer(stats, dh)`
+- `dh` est réservé aux tests, la date-heure courante est prise.
+- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`. 
+- retourne le solde _courant_ : `m` - le montant du mois en cours. C'est le solde instantané.
 
-- figeage() : figeage du solde, le compte n'est plus un compte A.
+**Mise à jour par intégration d'un crédit (don, virement):** `const c = s.crediter(cr)`
+- crédite le montant `cr` en l'ajoutant à `m`
 
-Un soldeA peut être:
-- _actif_: dh et cpts existent.
-- _figé_: dh et cpts sont absents, c'est le cas du soldeA d'un compte O. Il peut subir des dbcr() même en état figé. Il passe _actif_ sous l'effet d'un appel maj(c).
+`get serial()` retourne sa sérialisation.
 
-Passage de A à O et de O à A
-- de O à A : sur demande du compte, une seule opération simple affecte comptas de A et une mise à jour dans la tranche de `q1 q2 dot`.
-- de A à O : c'est le Comptable / sponsor sont les seuls à pouvoir attribuer une tranche, des quotas et une dotation `q1 q2 dot`. C'est une autre forme de _sponsoring_,
-  - qui a une limite de validité,
-  - doit être acceptée ou refusée par le compte.
+Dans `comptas`, la propriété `soldeAK` est le cryptage de sa sérialisation par la clé K du compte. Un `soldeA` n'est accessible / lisible _que_ par le compte lui-même.
+
+**Figeage du solde:** le compte n'est plus un compte A. `s.figeage(stats)`
+- intègre à `m` les débits des mois antérieurs et celui du mois courant,
+- met à 0 `aaaamm`,
+- remplit la date-heure de figeage `dfh`.
+
+**Réactivation du solde:** le compte anciennement O devient A. `s.reactiver(stats)`
+- le solde est _crédité_ du montant du mois courant qui a été: en effet le mois entier lui sera débité. D'ailleurs si on interroge le montant courant juste après la réactivation on constate qu'il est _débité_ du mois courant.
+- `aaaamm` est positionné au mois m-1.
+- `dfh` est mis à 0.
 
 #### Classe `SoldeO`
 Chaque instance de cette classe représente le calcul du solde courant d'un compte O.
-- dh: date-heure de calcul.
-- cpts: compteurs sur lequel le calcul du solde est basé.
-- dot: dotation annuelle courante attribuée par le Comptable / sponsor.
-- m: montant du solde (recalculé à dh).
-- etc : autres compteurs internes requis par le calcul.
+- `aaaamm`: dernier mois dont la consommation a été intégrée au solde.
+- `m`: montant du solde.
+- `q1 q2 dot`: quotas et dotation attribués par le Comptable / sponsor.
+- `dhi`: date-heure de dernière intégration de la dotation et des quotas q1 / q2 au solde.
+
+**`un mois`** : 30 jours d'abonnement à q1 / q2 + 30 jours de dotation, le tout calculé au _tarif du mois courant_.
+
+Le constructeur prend en argument la sérialisation d'un `soldeO` ou `{q1, q2, dot}` pour une création: `const s = new SoldeO(soldeO OU {q1, q2, dot})`
+- dans le cas de _création_,
+  - `aaaamm` est mis au mois précédent,
+  - `q1, q2, dot` est initialisé,
+  - `dhi` est la date-heure courante,
+  - le montant `m` est fixé à `un mois`.
+
+Si `s.estVieux()` (`aaaamm` est antérieur au mois précédent) il est utile de procéder à une intégration ET de faire mettre à jour dans `comptas` sa sérialisation.
+
+**Mise à jour par intégration de `stats`:** `const c = s.integrer(stats, dh, {q1, q2, dot})`
+- `dh` est réservé aux tests, la date-heure courante est prise.
+- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`.
+- crédite de l'intégration de `q1, q2, dot` entre `dh` (actuel) et `dhi` (mis à `dh`).
+- tronque si nécessaire `m` à 6 fois `un mois` pour éviter une accumulation sans limité en cas de faible utilisation du compte.
+- retourne le solde _courant_ calculé: `m` - le montant dans `stats` du mois en cours + `un mois` au prorata du nombre jours restant dans le mois en cours.
+- si `{q1, q2, dot}` est présent, il est inscrit à la fin de l'opération.
+
+**Débit / crédit par don:** `s.don(md)`
+- contrainte: le solde _courant_ après don ne doit pas être inférieur à `un mois`.
+
+Par construction un `soldeO` peut difficilement passer en territoire négatif. C'est possible dans le scénario suivant:
+- à l'instant t0 il est _positif_ mais quasi nul: pas de restrictions d'opérations.
+- une opération lourde de download est lancée: la mise à jour des compteurs de consommation a lieu juste après par `const s = Stats.de({cpts, stats})`.
+- s est intégré au solde et en ressort _négatif_, le coût de transfert par download ayant été lourd.
+- le compte est bloqué.
+
+L'intégration des compteurs de consommation n'est pas continue à chaque opération. Toutefois,
+- c'est peut-être une option à retenir si le solde est _faiblement positif_.
+- pour l'opération lourde de download d'une sélection de notes avec leur fichier, un précalcul _pourrait_ interdire le lancement de l'opération.
+
+Le niveau de la dotation est fixé par le Comptable / sponsor de la tranche.
+- à l'initialisation, un mois de dotation est intégré à m.
+- quand le montant de la dotation change,
+  - la consommation jusqu'à m-1 est débitée de m.
+  - un _don_ facultatif
+  - m est crédité du montant de l'ancienne dotation non intégrée depuis dhidot. Si le m résultant est supérieur à 6 mois de dotation, il est tronqué au montant de ces 6 mois.
+  - la nouvelle dotation est inscrite: si m est inférieur à un mois de dotation, m est fixé à un mois de dotation et dhidot est fixée à j + 30 jours. On permet ainsi au compte d'avoir une _avance_ de trésorerie de 30 jours
 
 Son constructeur prend en argument la sérialisation d'un soldeO existant ou vierge.
 - un get serial() retourne sa sérialisation.
@@ -1608,3 +1672,9 @@ Un soldeO supporte les opérations suivantes:
 > Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme figée avec seulement un solde monétaire.
 
 Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
+
+Passage de A à O et de O à A
+- de O à A : sur demande du compte, une seule opération simple affecte comptas de A et une mise à jour dans la tranche de `q1 q2 dot`.
+- de A à O : c'est le Comptable / sponsor sont les seuls à pouvoir attribuer une tranche, des quotas et une dotation `q1 q2 dot`. C'est une autre forme de _sponsoring_,
+  - qui a une limite de validité,
+  - doit être acceptée ou refusée par le compte.
