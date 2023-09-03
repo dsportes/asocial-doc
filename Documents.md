@@ -1222,208 +1222,18 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
 
-# En réflexion
+# Décomptes des coûts, calcul des soldes
+On compte sur le serveur le nombre de lectures et d'écritures effectué dans l'opération et c'est remonté à la session où:
+- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta).
+- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
 
-## Gestion des quotas et crédits
+On compte en session les downloads / uploads soumis au Storage.
 
-### Dans `comptas`
-Tous les comptes ont les propriétés suivantes dans `comptas`:
-- `qv`: `{ng, nc, nn, q1 q2 v1 v2}` : nombres de groupes, chats, notes ...valeurs connues à j. v1 = ng + nc + nn
-- `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
-  - `j`: date de dernier calcul.
-  - `q1 q2 v1 v2` : valeurs connues à j.
-  - `njn`: nombre de jours passés en solde négatif (à la date j).
-  - `solde`: solde en euros (flottant).
-- `dons`: dons _reçus_ (pour le Comptable _donnés_) de l'organisation en euros (flottant).
-- `ticketsK` : liste des tickets de virement générés et en attente de réception d'un virement effectif.
-- `compteurs` statistique (non cryptée) d'évolution des quotas et volumes calculée d'après les valeurs `q1 q2 v1 v2`.
-
-> En toute rigueur, les décomptes QV sont toujours corrects dans `comptas`, toutes les opérations pouvant en affecter les compteurs sont cohérentes et travaillent sous exclusivité d'accès dans une transaction. Par **superstition**, apès une connexion, QV est recalculé depuis les groupes / chats / notes. S'il y a divergence avec le QV de `comptas` (il ne devrait pas y en avoir), `QV soldeCK` de `comptas` sont mis à jour avec répercussion éventuelle dans `tribus`. 
-
-### Répercussion dans `tribus` pour les seuls comptes O
-Les évolutions de Q1 et Q2 sont toujours répercutés dans l'élément du compte dans la table `act` de `tribus`. 
-
-Les valeurs V1 / V2 ne sont reportées dans TRibus qu'à la connexion du compte et si l'écart entre les valeurs connues de `tribus` et celles de `comptas` excèdent 10%.
-
-#### Calcul du `soldeCK`
-Il n'y a calcul que pour les comptes A. Pour les comptes O, soldeCK (réduit à solde) reste figé jusqu'à ce que le compte passe (éventuellement) A.
-
-Il est effectué à la connexion et en traitement de synchronisation. La mise à jour sur le serveur par une transaction intervient sur les événnements suivants:
-- **connexion**: l'état _exact_ de V1 vient d'être calculé. Pas de mise à jour serveur si `j q1 q2 v1 v2` sont inchangés.
-- **opérations**: en mémoire la mise à jour est _anticipée_ à la fin de l'opération afin que la synchronisation qui va suivre ne provoque pas une mise jour qui vient d'être faite.
-  - crédit par réception de virement,
-  - crédit par don reçu,
-  - débit par don effectué,
-  - changement des quotas,
-  - passage de compte A -> O: il ne subsiste que `solde`.
-  - passage du compte O -> A: recalcul complet depuis `q1 q2 v1 v2` à l'instant t.
-- **synchronisation**: `soldeCK` est recalculé en mémoire et ne fait l'objet d'une opération de mise à jour sur le serveur dans `comptas` que si `j q1 q2 v1 v2` ont changé par rapport à l'état connu en mémoire avant le traitement de synchronisation.
-
-### Ticket de virement
-Un ticket de virement est un entier de 11 chiffres:
-- `aammjj` : date de création du ticket.
-- `nnnn` : numéro d'ordre dans le jour.
-- `x`: clé d'autocontrôle.
-
-Dans `espaces`:
-- `dtka` : `[aaaammjj, n]`. jour et numéro d'ordre du dernier ticket attribué.
-
-La référence portée sur un virement est `org/tk` ou `org` est le code de l'organisation et `tk` les 11 chiffres du ticket.
- 
-### `tickets`
-Ce document contient les données:
-- `id` : 16 chiffres. `ns` (2 chiffres) + `000` + `ticket` (11 chiffres)
-- _data_ : 
-  - `j` : `aaaammjj` : jour d'enregistrement
-  - `m` : en euros (entier).
-
-Un document `tickets` est inséré à l'enregistrement de la réception d'un virement. En cas d'erreur, il peut être mis à jour / supprimé, à condition qu'il soit encore disponible (sinon c'est trop tard, il a été utilisé).
-
-#### Don de D à B
-- le bénéficiaire B génère un ticket dont il envoie le texte par chat à D.
-- D génère un virement dans tickets et corrélativement décrémente son solde A ou O du montant.
-- le récupère à la connexion (ou en appuyant sur le bouton).
-
-### Récupération d'un virement
-A la connexion d'un compte, ou sur demande explicite en cours de session:
-- recherche des tickets dans `tickets` pour chaque ticket enregistré dans `ticketsK`,
-- incrémentation du `soldeCK` en mémoire,
-- _Opération en une transaction:_
-    - mise à jour de `soldeCK` (vérification que la version de `comptas` n'a pas changé),
-    - destruction des tickets dans `tickets`.
-
-### Effectuer un don
-Un don s'effectue, soit entre deux avatars qui se connaissent, soit entre le Comptable et un avatar:
-- pour le donneur: le solde du compte `soldeCK` est recalculé sur l'instant. Si c'est le Comptable, il n'y a pas de `soldeCK` et le montant est agrégé à `dons`.
-- pour le bénéficiaire, un item est ajouté à `adons`. L'incorporation à la `comptas` du compte intervient, soit à la prochaine connexion, soit en traitement de synchronisation, recalculera `soldeCK` et sera agrégé à `dons`.
-
-Le don à l'occasion d'un sponsoring d'un compte A est directement inscrit dans `soldeCK` (et `dons` si le sponsor est le Comptable): en cas de refus de sponsoring, le don est perdu pour tout le monde.
-
-Un compte sponsor O peut sponsoriser un compte A: il est censé avoir un `soldeCK` positif à cet effet, éventuellement alimenté par un don du Comptable.
-
-### Distinction entre comptes A et O
-Dans `comptas`:
-- `soldeCK` : A non null, O peut en avoir ou non.
-- dons `aticketK`: A et O peuvent en avoir ou non.
-- `cletX cletK it`
-  - `null` pour un compte A.
-  - définis pour un compte 0.
-
-### Q1 / V1 et Q2 / V2 d'un compte
-V1 : total du nombre des `groupes chats notes` de tous les avatars d'un compte:
-- les notes d'un groupe ne sont décomptées que si le compte héberge le groupe.
-- les chats _vides_ ne sont pas comptés (consécutivement à l'action de _raccrocher_).
-
-V2 : volume total en octets des fichiers des notes de ses avatars et des groupes qu'il héberge.
-
-Q1 : nombre maximal souhaitable de V1
-
-Q2 : volume maximal souhaitable de V2.
-
-### Q2 / V2 sont toujours à jour dans `comptas`
-Les opérations qui les mettent à jour peuvent toujours en répercuter la valeur exacte dans `comptas`:
-- création / suppression d'un fichier d'une note.
-- ajustement du quota Q2 par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O).
-- début d'hébergement d'un groupe.
-- fin d'hébergement d'un groupe.
-
-_Remarques_:
-- l'hébergeur d'un groupe ne peut pas être résilié ni s'auto-résilier: ça ne peut donc pas affecter ses décomptes V1 / V2.
-- la résiliation ou auto-résiliation d'un membre non hébergeur par principe n'a pas d'impact sur le décompte V2 (ce n'est pas lui qui le supporte).
-- disparition d'un groupe par disparition de son dernier membre actif. Puisque le membre _disparaît_, ses décomptes V1 / V2 sont sans intérêt.
-
-### Q1 / V1 ne sont pas _à tout instant_ à jour dans `comptas`
-La seule opération faisant évoluer Q1 est son ajustement par le compte lui-même (compte A) ou le Comptable ou un sponsor (compte O): elle met à jour Q1 dans `comptas`.
-
-Le décompte de V1 comprend, 
-- `ng` le nombre de participations actives aux groupes, qui peut être en divergence avec la réalité:
-  - _résiliation d'un membre par un animateur_: c'est la synchro d'une session du compte ou sa connexion qui intègre à ng ce changement de situation. Dans le cas de synchro, la fenêtre d'inexactitude est faible avec pour seule conséquence que d'autres actions pourraient être refusées pour dépassement de Q1 par V1 (donc le sens de la sécurité). En pratique cette situation est quasiment impossible à détecter en raison de sa brièveté.
-  - _détection de la disparition d'un avatar membre d'un groupe_. Comme la disparition du compte a été détectée et gérée avant, la notion d'inexactitude de V1 n'a plus de sens.
-- `nc` le nombre de chats _en ligne_. 
-  - A la détection de la disparition d'un avatar, la disparition du compte a été actée.
-  - La détection de la disparition d'un _contact_ peut être constatée tardivement par un compte: a) soit quand il essaie d'écrire un chat, b) soit quand il rafraîchit les cartes de visite. Ceci entraîne la suppression du chat, et s'il était _en ligne_ la décrémentation de V1.
-
-#### Opérations affectant V1 et contrôles du dépassement de Q1
-- **Création d'une note**
-  - note d'un avatar ou d'un des groupes hébergés: 
-    - (c1) contrôle de non dépassement de Q1 et contrôle de non dépassement du maximum G1 du groupe, en session puis dans l'opération.
-    - anticipation en mémoire avant lancement de l'opération, 
-    - mise à jour de V1 dans comptas par l'opération (+1) et à nouveau (c1),
-  - note d'un groupe non hébergé par le compte: 
-    - contrôle de non dépassement de Q1 de l'hébergeur et contrôle de non dépassement du maximum G1 du groupe.
-    - mise à jour de V1 (+1) dans `comptas` de l'hébergeur. 
-- **Destruction d'une note**
-  - note d'un avatar ou d'un des groupes hébergés: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
-  - (*) note d'un groupe NON hébergé par le compte: mise à jour de V1 (-1) et V2 (-V2 de la note) sur `comptas` du compte.
-- **Nouveau chat / remise en ligne d'un chat**
-  - du côté (I):
-    - (c2) contrôle de non dépassement de Q1.
-    - mise à jour de V1 dans `comptas` (+1) et à nouveau (c2). Remarques:
-      - si E est détecté _disparu_, le compteur Q1 de I n'est pas incrémenté, le chat disparaît.
-  - du côté (E): le Q1 du compte _externe_ est inchangé.
-- **Raccrocher un chat**
-  - du côté (I): mise à jour de V1 dans `comptas` (-1). 
-  - du côté (E): le Q1 du compte _externe_ est inchangé.
-- **Acceptation d'invitation à un groupe**
-  - (c2) contrôle de non dépassement de Q1.
-  - mise à jour de V1 dans `comptas` du compte (+1) et à nouveau (c2).
-- **Auto-résiliation d'un groupe**
-  - mise à jour de V1 dans `comptas` du compte (-1).
-- **Résiliation d'un groupe par un animateur**
-  - **Faible discordance temporelle**: pas de décrémentation de ng / V1. C'est la synchro / connexion qui rétabliera le bon compte.
-- **Abandon d'hébergement**
-  - mise à jour de V1 dans `comptas` du compte (-V1 du groupe -nombre de notes-) et de V2 (-V2 du groupe).
-- **Prise d'hébergement**
-  - (c3) contrôle de la capacité à prendre V1 / V2 du groupe dans le compte.
-  - mise à jour de V1 dans `comptas` du compte (+V1 du groupe -nombre de notes-) et de V2 (+V2 du groupe) et à nouveau (c3).
-- **Disparition d'un groupe**: 
-  - le compte était le dernier actif et il n'était pas hébergeur: comme le compte disparaît, ses compteurs QV ne l'intéressent plus.
-- **Disparition d'un contact et donc d'un chat**: 
-  - récupération tardive à l'occasion d'un rafraîchissement de carte de visite. Ce n'est qu'à ce moment que Q1 peut être recalculé en session (et mis à jour par une opération dans `comptas`).
-
-#### Dépassements V1/Q1 et V2/Q2 pour un compte C
-V1 peut dépasser Q1 hors de la volonté de C sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
-- un avatar ne peut pas créer une note qui provoquerait le dépassement de V1 pour son hébergeur, 'est contrôlé par l'opération.
-
-V2 peut dépasser Q2 sur réduction de Q1 par un sponsor / le Comptable pour un compte O.
-
-Les comptes ne sont pas _bloqués_ par dépassement Q1/V1 ou Q2/V2: seules les opérations menant à une réduction de volume sont possibles.
-
-## Conversion de Q1 / Q2 en _monétaire_ (comptes A seulement)
-A la connexion, le calcul du _solde_ valorise, les valeurs de Q1 et Q2 et établit le solde du jour en considérant que ces valeurs Q1 / Q2 se sont appliquées tous les jours entre le dernier jour de calcul et aujourd'hui.
-- si le solde est positif le compte n'est pas restreint.
-- si le solde est négatif, on calcule depuis quand il est passé négatif en se basant sur le nombre de jours où il avait déjà été négatif lors du dernier calcul ou sinon depuis quand il l'est devenu par extrapolation dans le temps.
-
-La valorisation consiste à appliquer deux coefficients multiplicateurs à Q1 et Q2 pour les valoriser en coût journalier. En pratique on prend un coût annuel qui sera divisé par 365 en raison de la faiblesse ds coûts unitaires journaliers les rendant d'interprétation humaine difficile.
-
-Une unité de Q1 correspond à 250 groupes / notes / chats (soit environ 1Mo de données _technique_): 0,43c / an.
-
-Une unité de Q2 correspond à un volume de 100Mo: 0,091c / an.
-
-Les quotas _symboliques_ suivants sont XXS (1 unité), MD (8 unités) et XXL (64 unités).
-
-                            XXS      MD      XXL     XXS      MD      XXL
-    Q1 : Nombre de g/n/c    250     2000    16000   0,430c   3,440c   27,52c
-    Q2 : Volumes fichiers   100Mo   800Mo   6,4Go   0,091c   0,728c    5,82c
-    Total:                                          0,521c   4,168c   33,34c
-
-### Mode d'estimation a priori
 Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
 
-Le volume _technique_ moyen d'un groupe / note / chat est estimé à 4K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ...
+Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ... D'un autre côté, le serveur considère les volumes utilisés en base alors que V1 va être décompté sur des quotas (des maximum rarement atteints).
 
-Les autres coûts induits pour Firestore sont ceux des lectures, écritures et suppressions. En première estimation, ils ont été considérés comme équivalents à celui du stockage.
-
-Les autres coûts induits pour Storage sont des downloads, uploads et invocations. Toujours en première estimation, ils ont été considérés comme équivalents à 2 fois celui du stockage.
-
-> Les estimations ci-dessus supposent que le volume occupé effectivement est égal aux quotas. Statistiquement pour 1000 comptes, il est probable que le coût de facturation, par exemple par Google, qui se base sur le volume _réellement occupé_ (et pas les quotas réservés), serait de moitié, voire moins.
-
-> Une organisation hébergeant 1000 comptes MD occupant leurs quotas à 100% aurait à supporter un coût de environ 42€ par an, soit 3,5€ mensuels.
-
-> Le coût pour _un_ compte A est dérisoire : 0,33€ / an pour un compte ayant une occupation réelle XXL, moins de 3c par mois. Autant en acheter pour 20 ans pour moins de 7€.
-
-## Décomptes et soldes: `cpts stats soldeA soldeO`
-### Classe `Tarif`
+## Classe `Tarif`
 Un tarif correspond à,
 - `aaaamm`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
 - `cu` : [6] un tableau de 6 coûts unitaires `[u1, u2, ul, ue, um, ud]`
@@ -1440,7 +1250,9 @@ On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en c
 
 La méthode `const t = Tarif.de(aaaammjj)` retourne le tarif en vigueur pour le mois indiqué et le plus récent si aaaammjj n'est pas donné.
 
-### Objet `cpts` : `{ q1, q2, dot, nn, nc, ng, v2, nl, ne, vm, vd }`
+**`unmois(q1, q2, dot)`** : retourne le montant de 30 jours d'abonnement à q1 / q2 + 30 jours de dotation, le tout calculé au _tarif du mois courant_.
+
+## Objet `cpts` : `{ q1, q2, dot, nn, nc, ng, v2, nl, ne, vm, vd }`
 - `q1`: quota du nombre total de notes / chats / groupes.
 - `q2`: quota du volume des fichiers.
 - `dot`: niveau de dotation pour un compte O.
@@ -1464,7 +1276,7 @@ Unités:
 - E : écriture d'un document.
 - € : unité monétaire.
 
-### Classe `Stats` : `{ dh, cpts, cmc, cmp, h10 }`
+## Classe `Stats` : `{ dh, cpts, cmc, cmp, h10 }`
 Cette classe donne les éléments de facturation et des éléments de statistique d'utilisation sur les les 12 derniers mois (mois en cours y compris).
 
 Pour chaque mois, il y a un **vecteur** de,
@@ -1525,114 +1337,117 @@ Le Comptable peut afficher le `stats` de n'importe quel compte A ou O.
 
 Les sponsors d'une tranche ne peuvent faire afficher les `stats` _que_ des comptes de leur tranche.
 
-#### Classe `soldeA`
-Chaque instance de cette classe représente le calcul du solde courant d'un compte A.
-- `aaaamm`: dernier mois dont la consommation a été intégrée au solde.
-- `dhf`: date-heure de figeage quand le solde est figé.
-- `m`: montant du solde.
+A la connexion d'un compte O, trois compteurs statistiques sont remontés de `stats` dans la tribu:
+- le volume V1 effectivement utilisé,
+- le volume V2 effectivement utilisé,
+- le nombre de jours estimé où le solde devrait rester positif.
 
-Son constructeur `const s = new SoldeA(soldeA)` prend en argument la sérialisation d'un soldeA existant (ou null).
+Toutefois ces compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue par la tribu.
 
-**Mise à jour par intégration de `stats`:** `const c = s.integrer(stats, dh)`
-- `dh` est réservé aux tests, la date-heure courante est prise.
-- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`. 
-- retourne le solde _courant_ : `m` - le montant du mois en cours. C'est le solde instantané.
+## Classe `Solde`
+Elle a deux sous-classes SoldeA et SoldeO. Un document comptas a,
+- **soit** une propriété `soldeA` qui est la sérialisation de son objet `Solde` cryptée par la clé K du compte (et n'a pas de tribu).
+- **soit** une propriété `soldeO` qui est la sérialisation de son objet `Solde` cryptée par la clé T de la tribu du compte (et a une tribu).
 
-**Mise à jour par intégration d'un crédit (don, virement):** `const c = s.crediter(cr)`
-- crédite le montant `cr` en l'ajoutant à `m`
-
-`get serial()` retourne sa sérialisation.
-
-Dans `comptas`, la propriété `soldeAK` est le cryptage de sa sérialisation par la clé K du compte. Un `soldeA` n'est accessible / lisible _que_ par le compte lui-même.
-
-**Figeage du solde:** le compte n'est plus un compte A. `s.figeage(stats)`
-- intègre à `m` les débits des mois antérieurs et celui du mois courant,
-- met à 0 `aaaamm`,
-- remplit la date-heure de figeage `dfh`.
-
-**Réactivation du solde:** le compte anciennement O devient A. `s.reactiver(stats)`
-- le solde est _crédité_ du montant du mois courant qui a été: en effet le mois entier lui sera débité. D'ailleurs si on interroge le montant courant juste après la réactivation on constate qu'il est _débité_ du mois courant.
-- `aaaamm` est positionné au mois m-1.
-- `dfh` est mis à 0.
-
-#### Classe `SoldeO`
-Chaque instance de cette classe représente le calcul du solde courant d'un compte O.
+Chaque instance de cette classe représente le calcul du solde courant d'un compte.
 - `aaaamm`: dernier mois dont la consommation a été intégrée au solde.
 - `m`: montant du solde.
+
+`SoldeO` a de plus les propriétés suivantes:
 - `q1 q2 dot`: quotas et dotation attribués par le Comptable / sponsor.
 - `dhi`: date-heure de dernière intégration de la dotation et des quotas q1 / q2 au solde.
 
-**`un mois`** : 30 jours d'abonnement à q1 / q2 + 30 jours de dotation, le tout calculé au _tarif du mois courant_.
+Le constructeur `const s = new SoldeA(soldeA, dh)` prend en argument la sérialisation d'un `soldeA` existant, ou null pour une création.
 
-Le constructeur prend en argument la sérialisation d'un `soldeO` ou `{q1, q2, dot}` pour une création: `const s = new SoldeO(soldeO OU {q1, q2, dot})`
-- dans le cas de _création_,
+Le constructeur `const s = new SoldeO(soldeO OU {q1, q2, dot}, dh)`
+_ `soldeO` : sérialisation d'un solde existant.
+- `{q1, q2, dot}` pour une _création_,
   - `aaaamm` est mis au mois précédent,
   - `q1, q2, dot` est initialisé,
   - `dhi` est la date-heure courante,
   - le montant `m` est fixé à `un mois`.
 
-Si `s.estVieux()` (`aaaamm` est antérieur au mois précédent) il est utile de procéder à une intégration ET de faire mettre à jour dans `comptas` sa sérialisation.
+**Remarque**: `dh` est absent en production où la date-heure courante est prise, mais permet en test de gérer des tests de non régression répétitifs.
 
-**Mise à jour par intégration de `stats`:** `const c = s.integrer(stats, dh, {q1, q2, dot})`
-- `dh` est réservé aux tests, la date-heure courante est prise.
+`get serial()` retourne la sérialisation de l'objet `Solde`.
+
+Si `s.estVieux()` (`aaaamm` est antérieur au mois précédent) il est utile de procéder à une _intégration_ ET de faire mettre à jour dans `comptas` sa sérialisation.
+
+### Classe `SoldeA`
+
+**Intégration de `stats`:** `const sc = s.integrer(stats, dh)`
+- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`. 
+- retourne le solde _courant_ : `m` - le montant du mois en cours. C'est le solde instantané.
+
+**Intégration d'un crédit (don, virement) ou d'un débit:** `const sc = s.dbcr(m)`
+- contrainte: ne doit pas amener le solde _courant_ à négatif.
+- crédite / débite le montant `m` en l'ajoutant / retranchant à `m`.
+- retourne le solde _courant_ après intégration: si -1 l'opération a été rejetée.
+
+### Classe `SoldeO`
+
+**Intégration de `stats`:** `const c = s.integrer(stats, dh, {q1, q2, dot})`
 - intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`.
-- crédite de l'intégration de `q1, q2, dot` entre `dh` (actuel) et `dhi` (mis à `dh`).
-- tronque si nécessaire `m` à 6 fois `un mois` pour éviter une accumulation sans limité en cas de faible utilisation du compte.
-- retourne le solde _courant_ calculé: `m` - le montant dans `stats` du mois en cours + `un mois` au prorata du nombre jours restant dans le mois en cours.
-- si `{q1, q2, dot}` est présent, il est inscrit à la fin de l'opération.
+- crédite `m` du calcul de l'intégrale `q1, q2, dot` _actuels_ entre `dh` (actuel) et `dhi` (qui est mis à `dh`).
+- tronque le cas échéant `m` à 6 fois `un mois` pour éviter une accumulation sans limité en cas de faible utilisation du compte.
+- si `{q1, q2, dot}` est présent, remplace les valeurs actuelles.
+- retourne le solde _courant_ calculé: `m` - le montant dans `stats` du mois en cours + `un mois` au prorata du nombre jours restant dans le mois en cours, le cas échéant _après_ avoir remplacé `q1 q2 dot`.
 
-**Débit / crédit par don:** `s.don(md)`
-- contrainte: le solde _courant_ après don ne doit pas être inférieur à `un mois`.
+**Intégration d'un crédit (don, virement) ou d'un débit:** `const sc = s.dbcr(m)`
+- contrainte: le solde _courant_ après don ne doit pas être inférieur à `unmois`.
+- crédite / débite le montant `m` en l'ajoutant / retranchant à `m`.
+- retourne le solde _courant_ après intégration: si -1 l'opération a été rejetée.
 
-Par construction un `soldeO` peut difficilement passer en territoire négatif. C'est possible dans le scénario suivant:
-- à l'instant t0 il est _positif_ mais quasi nul: pas de restrictions d'opérations.
-- une opération lourde de download est lancée: la mise à jour des compteurs de consommation a lieu juste après par `const s = Stats.de({cpts, stats})`.
-- s est intégré au solde et en ressort _négatif_, le coût de transfert par download ayant été lourd.
-- le compte est bloqué.
+### Soldes négatifs
+Par construction un `solde` peut difficilement passer en territoire très négatif: le compte est vite bloqué.
 
-L'intégration des compteurs de consommation n'est pas continue à chaque opération. Toutefois,
-- c'est peut-être une option à retenir si le solde est _faiblement positif_.
-- pour l'opération lourde de download d'une sélection de notes avec leur fichier, un précalcul _pourrait_ interdire le lancement de l'opération.
+C'est possible dans le scénario suivant:
+- à l'instant t0 il est _positif_ mais quasi nul: pas de restriction d'opérations.
+- une opération lourde de download est lancée.
+- une opération de mise à jour des consommations de stats est lancée et sur le serveur,
+  - `cpts` de comptas est mis à jour par incrémentation des deltas de `nl ne vm vd`.
+  - `stats` est mis à jour juste après de la variation des compteurs de consommation par `const s = Stats.de({cpts, stats})`.
+- au retour de cette opération, le nouveau `stats` est intégré au `solde` qui en ressort _négatif_: le compte est bloqué.
 
-> Un soldeO disparaît dès que le compte n'est plus O: il n'a plus trace de son existence passée, contrairement à soldeA qui prend une forme _figée_ avec seulement un solde monétaire.
+L'intégration des compteurs de consommation n'est pas continue à chaque opération mais en cas, soit de forte variation, soit au bout d'un certain délai:
+- ce _délai_ peut être raccourci si le solde est _faiblement positif_.
+- pour une opération _lourde_ comme le download d'une sélection de notes avec leurs fichiers, un précalcul _pourrait_ interdire le lancement de l'opération si le solde a des risques de passer négatif à cette occasion (ce qui n'est pas complexe à simuler).
 
-> Le Comptable et les sponsors d'une tranche ont accès au soldeO des comptes de la tranche.
-
-### Sponsoring : passage d'un compte A à O
-- Le sponsor prépare un item `spons` avec, crypté par la clé publique du compte:
-  - `dlv`
-  - `cleT` : la clé de la tribu (ce qui donne son id),
-  - `cleTC` : le cryptage de cette clé par la cle K du Comptable,
-  - `q1 q2 dot`
-- le compte doit accepter (ou refuser) ce sponsoring, au plus tard à la prochaine connexion. L'opération a les données pour,
-  - créer son soldeO et figer son soldeA,
-  - détruire `spons`,
-  - s'inscrire dans la tranche.
+### Passage d'un compte A à O
+- le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
+- Le Comptable ou un sponsor désigne le compte dans ses contacts et cite cette phrase. Si elle est conforme, ça lance une opération qui:
+  - inscrit le compte dans une tribu,
+  - créer son soldeO,
+  - détruit son soldeA,
+  - efface `oko`.
 
 ### Rendre _autonome_ un compte O
-- Opération du Comptable et/ou d'un sponsor selon la configuration de l'espace et, a priori sur souhait du compte, mais pas forcément.
-  - son `soldeO` est détruit,
-  - il est retiré de sa tribu.
-- sur synchronisation, ou à la prochaine connexion, le soldeA est réactivé s'il existait, sinon il est créé.
+C'est une opération du Comptable et/ou d'un sponsor selon la configuration de l'espace, qui n'a besoin de l'accord du compte (dans `oko` comme ci-dessus) que si la configuration de l'espace l'a rendu obligatoire.
+- le `soldeO` est détruit,
+- il est retiré de sa tribu.
+
+Sur synchronisation, ou à la prochaine connexion, en l'absence de `soldeO` et de `soldeA` dans comptas,
+un `soldeA` est créé avec un montant égal à `unmois` du minimum de `q1 q2 dot`.
 
 # Maintien de la cohérence
 
-**Sur le serveur** apparaît et plusieurs opéations mettent à jour plus d'un document pour un compte donné: 
+**Sur le serveur** plusieurs opérations mettent à jour plus d'un document pour un compte donné ce qui peut entraîner une incohérence en session selon l'ordre dans lequel les documents mis à jour sont récupérés pour mettre à jour chaque session: 
 - détection de disparition d'un avatar par le GC:
-  - dépassement de la dlv de son versions.
-  - pas d'impact sur les groupes / membres: c'est le dépassement de la dlv de ses membres qui en a un.
+  - dépassement de la `dlv` de son `versions`.
+  - pas d'impact sur les groupes / membres: c'est le dépassement de la `dlv` de ses membres qui en a un.
   - (IC1) les chats (E) avec les autres ont toujours une référence vers l'avatar disparu.
-  - (C1) cohérence chats / comptas nc assurée par maj comptas sur raccroché / en ligne du chat.
+  - (C1) la cohérence `chats` / `comptas.nc` est assurée par la mise à jour de `comptas` sur raccroché / en ligne du chat.
 - détection de disparition d'un membre:
-  - (a) le groupe survit. 0 -> sta dans groupe. L'incohérence avec lgr de son avatar n'a pas d'importance, le compte est mort.
-  - (b) le groupe est détruit: n'avait pas d'hébergeur et que des invités.
-    - (C2) cohérence entre groupe mort (son versions est _zombi_) et les avatars _invités_ dont le lgr de leur avatar est effacé.
-- résiliation d'un membre im, refus d'invitation
-  - (C4a) dans groupe ast[im] vaut 0 ou 1, et son avatar lgr[ni] qui est effacé
+  - (a) le groupe survit. 0 -> `groupes.sta`. L'incohérence avec `avatars.lgr` de son avatar n'a pas d'importance, le compte est mort.
+  - (b) le groupe est détruit: il n'avait pas d'hébergeur et que des invités.
+    - (C2) cohérence entre groupe mort (son `versions` est _zombi_) et les avatars _invités_ dont `avatars.lgr` de leur avatar est effacé.
+- résiliation d'un membre `im`, refus d'invitation
+  - (C4a) `groupes.ast[im]` vaut 0 ou 1, et son `avatars.lgr[ni]` est effacé.
+  - (C6) `comptas.ng` est faux d'une unité.
 - invitation / acceptation
-  - (C4b) cohérence entre avatars lgr, groupes ast
+  - (C4b) cohérence entre `avatars.lgr` et `groupes.ast[im]`
 - création / suppression de notes, changements de fichiers
-  - (C5) cohérence entre notes et comptas nn V1 V2
+  - (C5) cohérence entre `notes` et `comptas.nn v2`
 
 **En session des incohérences apparaissent du fait la lecture désynchronisée des avatars / groupes et comptas**, dans tous les cas ci-dessus de mises à jour de plusieurs documents dans une seule opération.
 - problème à la connexion: mais l'ordre de lecture est maîtrisé,
@@ -1643,31 +1458,22 @@ L'intégration des compteurs de consommation n'est pas continue à chaque opéra
 - soit au premier rafraîchissement des cartes de visite.
 - pas de problème d'incohérence, autre qu'un délai à la prise de connaissance de la disparition du contact.
 
-(C1) cohérence chats / comptas nc
+(C1) cohérence `chats` / `comptas.nc`
 - si on recompte les chats, on n'est pas sûr de trouver pareil que comptas nc: les chats peuvent avoir du retard ou comptas pas relu à jour.
-- Option: confiance dans comptas, on ne rapproche pas les deux.
+- Option: confiance dans `comptas`, on ne rapproche pas les deux.
 
-(C5) cohérence entre notes et comptas nn V1 V2
-- Option comme pour (C1) confiance dans comptas, on ne rapproche pas les deux.
+(C5) cohérence entre `notes` et `comptas.nn v2`
+- Option comme pour (C1) confiance dans `comptas`, on ne rapproche pas les deux.
 
-> On peut imaginer en début de session de recalculer V1 / V2. Si fortes divergence avec comptas, on _reset brutal_ comptas sur V1 / V2 pour rattrapage des bugs.
+> On _pourrait_ imaginer en début de session de recalculer `nn nc ng v2`. En l'absence bugs, la divergence devrait être faible ou null et se rétablir très vite. S'il y a de fortes divergence, c'est qu'un bug a sévi: on peut envisager un _reset brutal_ de `comptas`.
 
-(C2) groupe mort / avatars lgr existe
-- Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner avatar lgr par suppression du terme.
+(C2) groupe mort / `avatars.lgr` existe
+- Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner `avatars.lgr` par suppression du terme.
 
-(C4a) dans groupe ast[im] vaut 0 ou 1, dans son avatar lgr[ni] est effacé  
-(C4b) dans groupe ast[im] vaut 2 ou 3, dans son avatar lgr[ni] existe
+(C4a) dans `groupes.ast[im]` vaut 0 ou 1, son `avatars.lgr[ni]` existe.
+(C4b) dans `groupes.ast[im]` vaut 2 ou 3, son `avatars.lgr[ni]` n'existe pas.
 - qui a de l'avance sur l'autre ?
-- Option 1: opération de réconciliation retournant les deux en cohérence.
-  - sur le serveur groupes et avatars sont cohérents: on retournera, l'un l'autre les deux ou aucun.
+- Option: opération de réconciliation. Sur le serveur `groupes` et `avatars` sont cohérents: on retournera, l'un, l'autre ou les deux à jour dans leur dernière version.
 
-Compter les lectures / écritures
-- on ne compte que les volumes des notes et chats
-- on compte les volumes transférés
-- on compte le nombre de rows lus / écrits
-
-Le serveur remonte à chaque opération le nombre de rows lus et écrits.
-
-Dans une session:
-- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire)
-- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
+(C6) le nombre d'avatars _actifs_ dans un groupe n'est pas possible à tenir à jour en temps réel sur le serveur. `comptas.ng` est imprécis.
+- Option: à chaque envoi d'une opération d'enregistrement d'une consommation, ng est calculé par la session et envoyé aussi. Ca reste imprécis, mais moins et ça va finir par être exact.
