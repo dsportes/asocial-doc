@@ -1237,8 +1237,8 @@ Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chif
 Un tarif correspond à,
 - `aaaamm`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
 - `cu` : [6] un tableau de 6 coûts unitaires `[u1, u2, ul, ue, um, ud]`
-  - `u1`: 365 jours de quota q1
-  - `u2`: 365 jours de quota q2
+  - `u1`: 365 jours de quota q1 (250 notes / chats)
+  - `u2`: 365 jours de quota q2 (100Mo)
   - `ul`: 1 million de lectures
   - `ue`: 1 million d'écritures
   - `um`: 1 GB de transfert montant.
@@ -1248,7 +1248,7 @@ En configuration un tableau ordonné par `aaaammjj` donne les tarifs applicables
 
 On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en cours (les _futurs_ c'est possible).
 
-La méthode `const t = Tarif.de(aaaammjj)` retourne le tarif en vigueur pour le mois indiqué et le plus récent si aaaammjj n'est pas donné.
+La méthode `const t = Tarif.de(aaaamm)` retourne le tarif en vigueur pour le mois indiqué et le plus récent si aaaamm n'est pas donné.
 
 **`unmois(q1, q2, dot)`** : retourne le montant de 30 jours d'abonnement à q1 / q2 + 30 jours de dotation, le tout calculé au _tarif du mois courant_.
 
@@ -1280,9 +1280,9 @@ Unités:
 Cette classe donne les éléments de facturation et des éléments de statistique d'utilisation sur les les 12 derniers mois (mois en cours y compris).
 
 Pour chaque mois, il y a un **vecteur** de,
-  - 6 compteurs de _cumul / intégrale sur le mois_ qui servent au calcul de la facture du mois,
-    - 0 : intégrale sur t des valeurs de q1 (D*T)
-    - 1 : intégrale sur t des valeurs de q2 (B*T)
+  - 6 compteurs de _moyennes et cumuls_ qui servent au calcul au montant du mois,
+    - 0 : moyenne des valeurs de q1 (D)
+    - 1 : moyenne des valeurs de q2 (B)
     - 2 : nb lectures cumulés sur le mois (L),
     - 3 : nb écritures cumulés sur le mois (E),
     - 4 : total des transferts montants (B),
