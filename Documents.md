@@ -1214,7 +1214,7 @@ Les deux termes de clés `id` et `ids` sont chacune en string crypté par la cl�
 
 Le formar _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
 
-En IDB les _rows_ sont sérilisés et cryptés par la clé K du compte.
+En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
 
 Il y a donc une stricte identité entre les documents extraits de SQL / Firestore et leurs états stockés en IDB
 
@@ -1222,12 +1222,12 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
 
-# Décomptes des coûts, calcul des soldes
-On compte sur le serveur le nombre de lectures et d'écritures effectué dans l'opération et c'est remonté à la session où:
+# Décomptes des coûts et crédits
+On compte **sur le serveur le nombre de lectures et d'écritures** effectué dans chaque opération et c'est remonté à la session où:
 - on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta).
-- on envoie le décompte par une opération spéciale au bout de M minutes sans envoi (avec un minimum de R2 rows).
+- la session envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` au bout de M minutes sans envoi (avec un minimum de R2 rows).
 
-On compte en session les downloads / uploads soumis au Storage.
+On compte **en session les downloads / uploads soumis au Storage**.
 
 Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
 
@@ -1235,8 +1235,9 @@ Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chif
 
 ## Classe `Tarif`
 Un tarif correspond à,
-- `aaaamm`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
-- `cu` : [6] un tableau de 6 coûts unitaires `[u1, u2, ul, ue, um, ud]`
+- `am`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
+- `cu` : un tableau de 7 coûts unitaires `[uc, u1, u2, ul, ue, um, ud]`
+  - `uc` : 365 jours de quota qc de calcul
   - `u1`: 365 jours de quota q1 (250 notes / chats)
   - `u2`: 365 jours de quota q2 (100Mo)
   - `ul`: 1 million de lectures
@@ -1244,31 +1245,34 @@ Un tarif correspond à,
   - `um`: 1 GB de transfert montant.
   - `ud`: 1 GB de transfert descendant.
 
-En configuration un tableau ordonné par `aaaammjj` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. Pour des raisons pratiques de gestion de configuration, la class Tarif a deux implémentations, une UI et une serveur.
+En configuration un tableau ordonné par `aaaammjj` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. 
+
+L'initialisation de la classe `Tarif.init(...)` est faite depuis la configuration (UI comme serveur).
 
 On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en cours (les _futurs_ c'est possible).
 
-La méthode `const t = Tarif.de(aaaamm)` retourne le tarif en vigueur pour le mois indiqué et le plus récent si aaaamm n'est pas donné.
+La méthode `const t = Tarif.cu(a, m)` retourne le tarif en vigueur pour le mois indiqué.
 
-**`unmois(q1, q2, dot)`** : retourne le montant de 30 jours d'abonnement à q1 / q2 + 30 jours de dotation, le tout calculé au _tarif du mois courant_.
-
-## Objet `cpts` : `{ q1, q2, dot, nn, nc, ng, v2, nl, ne, vm, vd }`
+## Objet quotas et volumes `qv` : `{ qc, q1, q2, nn, nc, ng, v2 }`
+- `qc`: quota de consommation
 - `q1`: quota du nombre total de notes / chats / groupes.
 - `q2`: quota du volume des fichiers.
-- `dot`: niveau de dotation pour un compte O.
 - `nn`: nombre de notes existantes.
 - `nc`: nombre de chats existants.
 - `ng` : nombre de participations aux groupes existantes.
 - `v2`: volume effectif total des fichiers.
+
+Cette objet est la propriété `qv` de `comptas`. 
+
+## Objet consommation `conso` : `{ nl, ne, vm, vd }`
 - `nl`: nombre absolu de lectures depuis la création du compte.
 - `ne`: nombre d'écritures.
 - `vm`: volume _montant_ vers le Storage (upload).
 - `vd`: volume _descendant_ du Storage (download).
-- `q1 q2` participent au calcul de _l'abonnement_.
-- `nn nc v2` participe au contrôle du respect de _l'abonnement_.
-- `nl, ne, vm, vd` participent au calcul de la _consommation_.
 
-Unités:
+Cet objet rapporte une évolution de consommation. Paramètre de l'opération `EnregConso`.
+
+## Unités
 - T : temps.
 - D : nombre de document (note, chat, participations à un groupe).
 - B : byte.
@@ -1276,104 +1280,97 @@ Unités:
 - E : écriture d'un document.
 - € : unité monétaire.
 
-## Classe `Stats` : `{ dh, cpts, cmc, cmp, h10 }`
+## Classe `Compteurs`
 Cette classe donne les éléments de facturation et des éléments de statistique d'utilisation sur les les 12 derniers mois (mois en cours y compris).
 
-Pour chaque mois, il y a un **vecteur** de,
-  - 6 compteurs de _moyennes et cumuls_ qui servent au calcul au montant du mois,
-    - 0 : moyenne des valeurs de q1 (D)
-    - 1 : moyenne des valeurs de q2 (B)
-    - 2 : nb lectures cumulés sur le mois (L),
-    - 3 : nb écritures cumulés sur le mois (E),
-    - 4 : total des transferts montants (B),
-    - 5 : total des transferts descendants (B).
-  - 4 compteurs de _moyenne sur le mois_ qui n'ont qu'une utilité statistique documentaire.
-    - 6 : nombre moyen de notes existantes.
-    - 7 : nombre moyen de chats existants.
-    - 8 : nombre moyen de participations aux groupes existantes.
-    - 9 : volume moyen effectif total des fichiers stockés.
+**Propriétés:**
+- `dh0` : date-heure de création du compte.
+- `dh` : date-heure courante.
+- `qv` : quotas et volumes du dernier calcul `{ qc, q1, q2, nn, nc, ng, v2 }`.
+  - Quand on _prolonge_ l'état actuel pendant un certain temps AVANT d'appliquer de nouvelles valeurs, il faut pouvoir disposer de celles-ci.
+- `vd` : [0..3] - vecteurs détaillés pour M M-1 M-2 M-3.
+- `mm` : [0..18] - coût abonnement + consommation pour le mois M et les 17 mois antérieurs (si 0 pour un mois, le compte n'était pas créé).
+- `aboma` : somme des coûts d'abonnement des mois antérieurs au mois courant depuis la création du compte.
+- `consoma` : somme des coûts de consommation des mois antérieurs au mois courant depuis la création du compte.
 
-Le vecteur du mois _en cours_ évolue jusqu'à la fin du mois, les vecteurs des mois antérieurs sont définitivement figés.
+Le vecteur `vd[0]` et le montant `mm[0]` vont évoluer tant que mois courant n'est pas terminé. Pour les mois antérieurs `vd[i]` et `mm[i]` sont immuables.
 
-Propriétés:
-- `dh` : date-heure de calcul,
-- `aaaamm`: année mois correspondant à `dh` (en UTC).
-- `cpts` : compteurs sur lesquels le calcul est fondé,
-- `vm`: [0..11] un _vecteur_ par mois (0-> janvier, 11-> décembre).
-- `mm` : [0..11] _montant monétarisé total_ pour chaque mois.
+### Dynamique
+Un objet compteur est construit,
+- soit depuis la sérialisation de son dernier état,
+- soit depuis `null` pour un nouveau compte.
+- la construction recalcule tout l'objet: il était sérialisé à un instant `dh`, il est recalculé être à jour à l'instant t.
+- **puis** il peut être mis à jour, facultativement, juste avant le retour du `constructor`, par:
+  - `qv` : quand il faut mettre à jour les quotas ou les volumes,
+  - `conso` : quand il faut enregistrer une consommation.
 
-Le montant monétarisé est, comme pour les vecteurs, en évolution pour le mois en cours et figé pour les 11 mois antérieurs.
+`const compteurs = new Compteurs(serial, qv, conso, dh)`
+- `dh` est facultatif et sert en test pour effectuer des batteries de tests ne dépendants pas de l'heure courante.
 
-Depuis un document `comptas` `c: const s = Stats.de({cpts, stats}, dh)`
-- `dh` est facultatif, la date-heure courante est prise en cas d'absence, et permet d'effectuer des tests reproductibles.
-- retourne l'objet `Stats` calculé depuis les objets `{cpts, stats}`, la date-heure de calcul et le tarif du mois en cours.
-  - `stats` est la _sérialisation_ d'un `Stats`. Si absent c'est une initialisation (nouveau compte).
-- remarque: le calcul peut s'effectuer en _simulation_, sans toucher au _vrai_ `comptas`.
+### Vecteur détaillé d'un mois
+Pour chaque mois M à M-3, il y a un **vecteur** de 14 (X1 + X2 + X2 + 3) compteurs:
+- X1_moyennes et X2 cumuls servent au calcul au montant du mois
+  - QC : moyenne de qc dans le mois (€)
+  - Q1 : moyenne de q1 dans le mois (D)
+  - Q2 : moyenne de q2 dans le mois (B)
+  - X1 + NL : nb lectures cumulés sur le mois (L),
+  - X1 + NE : nb écritures cumulés sur le mois (E),
+  - X1 + VM : total des transferts montants (B),
+  - X1 + VD : total des transferts descendants (B).
+- X2 compteurs de _consommation moyenne sur le mois_ qui n'ont qu'une utilité documentaire.
+  - X2 + NN : nombre moyen de notes existantes.
+  - X2 + NC : nombre moyen de chats existants.
+  - X2 + NG : nombre moyen de participations aux groupes existantes.
+  - X2 + V2 : volume moyen effectif total des fichiers stockés.
+- 3 compteurs spéciaux
+  - MS : nombre de ms dans le mois - si 0, le compte n'était pas créé
+  - CA : coût de l'abonnement pour le mois
+  - CC : coût de la consommation pour le mois
+  
+### Méthodes et getter publiques:
+- `cadeau (c)` : déclaration d'un "cadeau" de dépannage de la part du Comptable ou d'un sponsor pour permettre au compte de surmonter un excès transitoire de consommation.
+- `razma ()` : lors de la transition O <-> A il faut remettre à 0 les coûts d'abonnement / consommation passés (en pratique ceux des mois antérieurs).
+- `get totalAbo ()` retourne le coût d'abonnement en additionnant ceux du mois courant et des mois antérieurs.
+- `get totalConso ()` retourne le coût de consommation en additionnant ceux du mois courant et des mois antérieurs.
+- `get totalAboConso ()` retourne la somme des coûts d'abonnement et de consommation en additionnant ceux du mois courant et des mois antérieurs.
+- `get moyconso4 ()` retourne la moyenne _journalière_ de la consommation sur le mois en cours et les 3 précédents et -1 si celle-ci n'est pas représentative (moins de 7 jours d'existence).
+- `get crqc ()` retourne le rapport `CR/QC` de la consommation réelle / quota de consommation, calculés sur le mois en cours et le précédent.
 
-Le getter `Stats.serial` retourne la sérialisation de l'objet.
-
-La méthode `moyenne(i)` retourne la moyenne _journalière_ (pour 24h) pour le compteur `i` (de 0 à 9):
-- pour le mois en cours c'est extrapolé en fonction du temps restant à couvrir jusqu'à la fin du mois.
-- les autres mois sont considérés avec leur nombre de jours réels.
-- les mois les plus récents ont un poids plus forts dans la moyenne que les plus anciens.
-
-La méthode `estimation(m)` retourne **le nombre de jours estimé qu'il faut pour épuiser un montant `m`** en se basant sur les moyennes calculées ci-dessus.
+Le getter `get serial ()` retourne la sérialisation de l'objet afin de l'écrire dans la propriété `compteurs` de `comptas`.
 
 **En session,** `stats` est recalculé,
 - par `compile()` à la connexion et en synchro,
-- explicitement a l'occasion d'une mise à jour des compteurs `cpts` ou par simulation en passant comme argument `c` un simple couple `{ cpts, stats }`.
+- explicitement a l'occasion d'une simulation en passant comme arguments `qv` et `conso`.
 
-**En serveur,** des opérations peuvent faire évoluer `cpts` de `comptas` de manière incrémentale. Il en résulte une ré-évaluation de `stats` à l'occasion des opérations suivantes:
+**En serveur,** des opérations peuvent faire évoluer `qv` de `comptas` de manière incrémentale. L'objet compteurs est construit (avec un qv) puis sa sérialisation est enregistrée dans `comptas`:
 - création / suppression d'une note ou d'un chat: incrément / décrément de nn / nc.
 - prise / abandon d'hébergement d'un groupe: delta sur nn / nc / v2.
 - création / suppression de fichiers: delta sur v2.
 - enregistrement d'un changement de quotas q1 / q2.
 - upload / download d'un fichier: delta sur vm / vd.
-- enregistrement d'une consommation de calcul: delta sur nl / ne.
+- enregistrement d'une consommation de calcul: delta sur nl / ne / vd / vm en passant l'évolution de consommation dans l'objet `conso`.
 
-La classe `Stats` est donc hébergée par `api.mjs` (module commun à UI et serveur).
+La classe `Compteurs` est hébergée par `api.mjs` (module commun à UI et serveur).
 
-Le Comptable peut afficher le `stats` de n'importe quel compte A ou O.
+Le Comptable peut afficher le `compteurs` de n'importe quel compte A ou O.
 
-Les sponsors d'une tranche ne peuvent faire afficher les `stats` _que_ des comptes de leur tranche.
+Les sponsors d'une tranche ne peuvent faire afficher les `compteurs` _que_ des comptes de leur tranche.
 
 A la connexion d'un compte O, trois compteurs statistiques sont remontés de `stats` dans la tribu:
 - le volume V1 effectivement utilisé,
 - le volume V2 effectivement utilisé,
-- le nombre de jours estimé où le solde devrait rester positif.
+- le rapport `crqc` de la consommation réelle / quota de consommation, calculés sur le mois en cours et le précédent.
 
 Toutefois ces compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue par la tribu.
 
-## Classe `Solde`
-Elle a deux sous-classes SoldeA et SoldeO. Un document comptas a,
-- **soit** une propriété `soldeA` qui est la sérialisation de son objet `Solde` cryptée par la clé K du compte (et n'a pas de tribu).
-- **soit** une propriété `soldeO` qui est la sérialisation de son objet `Solde` cryptée par la clé T de la tribu du compte (et a une tribu).
+### Classe `Credits`
+La propriété credits n'existe dans comptas que pour un compte A:
+- elle est cryptée par la clé K du compte qui est seule à y accéder.
+- toutefois elle est cryptée par la clé publique du compte juste après l'opération de passage d'un compte O à A.
 
-Chaque instance de cette classe représente le calcul du solde courant d'un compte.
-- `aaaamm`: dernier mois dont la consommation a été intégrée au solde.
-- `m`: montant du solde.
-
-`SoldeO` a de plus les propriétés suivantes:
-- `q1 q2 dot`: quotas et dotation attribués par le Comptable / sponsor.
-- `dhi`: date-heure de dernière intégration de la dotation et des quotas q1 / q2 au solde.
-
-Le constructeur `const s = new SoldeA(soldeA, dh)` prend en argument la sérialisation d'un `soldeA` existant, ou null pour une création.
-
-Le constructeur `const s = new SoldeO(soldeO OU {q1, q2, dot}, dh)`
-_ `soldeO` : sérialisation d'un solde existant.
-- `{q1, q2, dot}` pour une _création_,
-  - `aaaamm` est mis au mois précédent,
-  - `q1, q2, dot` est initialisé,
-  - `dhi` est la date-heure courante,
-  - le montant `m` est fixé à `un mois`.
-
-**Remarque**: `dh` est absent en production où la date-heure courante est prise, mais permet en test de gérer des tests de non régression répétitifs.
-
-`get serial()` retourne la sérialisation de l'objet `Solde`.
-
-Si `s.estVieux()` (`aaaamm` est antérieur au mois précédent) il est utile de procéder à une _intégration_ ET de faire mettre à jour dans `comptas` sa sérialisation.
-
-### Classe `SoldeA`
+**Propriétés:**
+- total : total des crédits encaissés.
+- tickets: liste des numéro de ticket générés par le compte et en attente d'enregistrement.
 
 **Intégration de `stats`:** `const sc = s.integrer(stats, dh)`
 - intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`. 
@@ -1384,34 +1381,7 @@ Si `s.estVieux()` (`aaaamm` est antérieur au mois précédent) il est utile de 
 - crédite / débite le montant `m` en l'ajoutant / retranchant à `m`.
 - retourne le solde _courant_ après intégration: si -1 l'opération a été rejetée.
 
-### Classe `SoldeO`
 
-**Intégration de `stats`:** `const c = s.integrer(stats, dh, {q1, q2, dot})`
-- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`.
-- crédite `m` du calcul de l'intégrale `q1, q2, dot` _actuels_ entre `dh` (actuel) et `dhi` (qui est mis à `dh`).
-- tronque le cas échéant `m` à 6 fois `un mois` pour éviter une accumulation sans limité en cas de faible utilisation du compte.
-- si `{q1, q2, dot}` est présent, remplace les valeurs actuelles.
-- retourne le solde _courant_ calculé: `m` - le montant dans `stats` du mois en cours + `un mois` au prorata du nombre jours restant dans le mois en cours, le cas échéant _après_ avoir remplacé `q1 q2 dot`.
-
-**Intégration d'un crédit (don, virement) ou d'un débit:** `const sc = s.dbcr(m)`
-- contrainte: le solde _courant_ après don ne doit pas être inférieur à `unmois`.
-- crédite / débite le montant `m` en l'ajoutant / retranchant à `m`.
-- retourne le solde _courant_ après intégration: si -1 l'opération a été rejetée.
-
-### Soldes négatifs
-Par construction un `solde` peut difficilement passer en territoire très négatif: le compte est vite bloqué.
-
-C'est possible dans le scénario suivant:
-- à l'instant t0 il est _positif_ mais quasi nul: pas de restriction d'opérations.
-- une opération lourde de download est lancée.
-- une opération de mise à jour des consommations de stats est lancée et sur le serveur,
-  - `cpts` de comptas est mis à jour par incrémentation des deltas de `nl ne vm vd`.
-  - `stats` est mis à jour juste après de la variation des compteurs de consommation par `const s = Stats.de({cpts, stats})`.
-- au retour de cette opération, le nouveau `stats` est intégré au `solde` qui en ressort _négatif_: le compte est bloqué.
-
-L'intégration des compteurs de consommation n'est pas continue à chaque opération mais en cas, soit de forte variation, soit au bout d'un certain délai:
-- ce _délai_ peut être raccourci si le solde est _faiblement positif_.
-- pour une opération _lourde_ comme le download d'une sélection de notes avec leurs fichiers, un précalcul _pourrait_ interdire le lancement de l'opération si le solde a des risques de passer négatif à cette occasion (ce qui n'est pas complexe à simuler).
 
 ### Passage d'un compte A à O
 - le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
