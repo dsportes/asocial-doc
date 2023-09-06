@@ -129,22 +129,17 @@ Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, n
 > Les volumes _effectivement utilisés_ ne peuvent pas dépasser les quotas attribués, sauf dans le cas où les quotas ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
 
 #### Consommation de calcul
-Ces coûts de _calcul_ correspondent directement à l'usage fait de l'application quand une session d'un compte est ouverte. Il dépend de _l'usage_ du titulaire du compte, de son activité et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
+Ces coûts de _calcul_ correspondent directement à l'usage fait de l'application quand une session d'un compte est ouverte. Il dépend de _l'activité_ du titulaire du compte et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
 - **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc. **Lu** signifie extrait de la base de données. Pour un même service apparent, le coût des _lectures_ peut différer fortement typiquement en utilisant le mode _synchronisé_, voire _avion_ où est par principe même nul.
 - **(ne) nombre _d'écritures_** (en base de données): outre quelques écritures techniques indispensables, il s'agit principalement des mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.
 - **(vd) volume _descendant_** (download) de fichiers téléchargés depuis le _Storage_.
 - **(vm) volume _montant_** (upload) de fichiers envoyés dans le _Storage_. Chaque création / mise à jour d'un fichier est décompté dans ce volume.
 
-### Coût total
-La valorisation des coûts est simplement la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `q1*u1 + q2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
-- `q1` = _quota_ maximal de la somme `nn + nc + ng`
+> **Remarque: certains comptes ont un _quota de calcul_.** C'est le montant du calcul qu'ils peuvent utiliser sans avoir une restriction d'accès. Ce _quota_ ne rentre ni dans le coût de l'abonnement, ni dans le coût de consommation, ce n'est qu'une _limite d'usage_.
 
-#### Solde monétaire d'un compte
-Chaque compte a un _solde_ qui résulte,
-- **en crédit :** 
-  - soit de ce qu'il a versé ou fait verser monétairement au comptable de l'organisation,
-  - soit de ce que lui a crédité automatiquement l'organisation chaque seconde quand celle-ci prend en charge le coût de fonctionnement du compte.
-- **en débit :** les coûts de consommation à chaque consommation effective à chaque opération, PLUS, le coût d'abonnement sur chaque seconde.
+### Coût total
+La valorisation des coûts est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `q1*u1 + q2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
+- `q1` = _quota_ maximal de la somme `nn + nc + ng`
 
 ## Le Comptable, les comptes _A_ et _O_
 
@@ -153,22 +148,25 @@ _Le Comptable_ désigne une personne plus ou moins virtuelle, voire un petit gro
 - a négocié avec un hébergeur représenté par le terme _administrateur technique_ les conditions et le prix de l'hébergement.
 - est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour certains comptes.
 
-C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. **Il a le privilège important de gérer les quotas / forfaits gratuits**.
+C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. **Il a le privilège important de gérer les quotas gratuits**.
 
 > Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
 
 ### Compte _autonome_ "A"
 Un compte _autonome_ fixe lui-même ses quotas Q1 et Q2 et peut les changer à son gré, mais pas en-dessous des volumes qu'il occupe effectivement.
 
-> **Nul ne peut bloquer / dissoudre un compte _autonome_**, mais le compte peut se bloquer lui-même s'il ne couvre pas les frais d'utilisation de son compte
+> **Nul ne peut bloquer / résilier un compte _autonome_**, mais le compte peut se bloquer lui-même s'il ne couvre pas les frais d'utilisation de son compte.
 
-**Il gère son solde en _unité monétaire_**, par exemple en euros:
-- **le solde est crypté par la clé du compte**: lui-seul le connaît.
-- **le solde est débité à chaque instant** des coûts _d'abonnement_ liés aux quotas qu'il a fixé et des coûts de _consommation_, lectures / écritures / transferts faits.
-- **le solde est crédité de manière _anonyme_.**
-- **le solde peut aussi être crédité par un don, anonyme, d'un autre compte** et **par des _dons_ du Comptable**. 
+Il dispose d'un compteur de **crédits** qui lui donne le cumul de tous les crédits qu'il a récupérés et enregistrés depuis le début de la vie du compte.
 
-Quand à la connexion d'un compte son solde est négatif, l'accès du compte à l'application est  **restreint**.
+Pour enregistrer un crédit, le compte:
+- génère un _ticket_,
+- effectue un paiement ou fait effectuer un apiement par un tiers qui référence ce ticket,
+- le Comptable inscrit les paiements reçus avec leur montant et numéro de ticket.
+- à la prochaine connexion (ou appui sur un bouton) le compte augmente le cumul de ses crédits de tous les paiements reçus par le Comptable.
+- ce mécanisme garantit l'anonymat du paiement qui personne, sauf le compte, ne peut corréler à son compte.
+
+Comme le compte dispose à tout instant de la somme des coûts d'abonnement et de consommation depuis le début de la vie du compte, il en résulte **un solde qui doit normalement être positif** et enclenche une restriction d'accès s'il est négatif.
 
 > Avant de devenir _négatif_ le solde d'un compte a été _faiblement positif_. Le compte en est averti lors de sa connexion avec le nombre de jours _estimé_ avant de devenir négatif si son profil de consommation reste voisin de celui des 2 mois antérieurs.
 
@@ -177,14 +175,14 @@ A sa création par _sponsoring_ un compte A peut être déclaré _sponsor_ lui-m
 ### Compte _d'organisation_ "O"
 **Un compte _d'organisation_ bénéficie _gratuitement_**:
 - _d'un _abonnement_ c'est à dire de **quotas** de notes / chats et de volume de fichiers,
-- _d'une dotation de fonctionnement_ renouvelée à chaque instant destinée à couvrir les coûts de _lectures / écritures de notes, chats, etc._ et de _transfert_ de fichiers.
+- _d'un quota de calcul_ renouvelée à chaque instant destiné à couvrir les coûts de _lectures / écritures de notes, chats, etc._ et de _transfert_ de fichiers. **Le compte subit une restriction d'accès** si sa consommation de calcul moyenne journalière sur le mois en cours et le précédent dépasse le quota attribué ramené à la journée.
 
-> **Un compte O peut être bloqué par l'organisation**, en n'ayant plus qu'un accès _restreint_ (en gros en lecture seulement), voire un accès _minimal_.
+> **Un compte O peut être bloqué par l'organisation**, en n'ayant plus qu'un accès _en lecture seule_, voire un accès _minimal_.
 
 > **Une organisation peut avoir de multiples raisons pour bloquer un compte**: départ de l'organisation, décès, adhésion à une organisation concurrente ou ayant des buts opposés, etc. selon la charte de l'organisation.
 
 ### Gestion des quotas / dotations par _tranche_
-Le Comptable dispose de quotas globaux Q1 / Q2 et d'une _dotation_ globale de consommation pour l'ensemble de l'organisation. 
+Le Comptable dispose de quotas globaux QC / Q1 / Q2 pour l'ensemble de l'organisation. 
 
 **Il découpe ces quotas / dotations en _tranches_** et est en charge d'en ajuster la répartition au fil du temps.
 
@@ -197,12 +195,13 @@ Dans chaque _tranche_ le Comptable a des _sponsors_ à qui il délègue la distr
 - Le Comptable peut lever cette interdiction et en autoriser la création,
   - soit réservé à lui-même,
   - soit la déléguer aux sponsors.
-- Il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+- il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+- enfin il précise si le passage de compte O à compte A est soumis à l'accord du compte.
 
-> Si un compte A paie lui-même son activité, en contre-partie il ne peut pas être bloqué par l'organisation: ceci dépend vraiment du profil de chaque organisation.
+> Si un compte A paie lui-même son activité, en contre-partie il ne peut pas être bloqué par l'organisation: ceci dépend du profil de chaque organisation.
 
 ## Notifications et restrictions d'usage des comptes
-Une _notification_ est un message important  dont la présence est signalée par une icône dans la barre d'entête de l'écran et parfois par un affichage lors de la connexion d'un compte, voir d'une _pop up_ en cours de session quand elle est liée à une restriction d'accès du compte.
+Une _notification_ est un message important  dont la présence est signalée par une icône dans la barre d'entête de l'écran et parfois par un affichage lors de la connexion d'un compte, voire d'une _pop up_ en cours de session quand elle est liée à une restriction d'accès du compte.
 
 Une _notification_ peut être porteuse d'une restriction d'accès: les actions du compte ne sont plus totalement libres, voire sévèrement limitées.
 
@@ -227,15 +226,18 @@ Ces notifications peuvent avoir deux portées:
 - _tous_ les comptes O d'une tranche,
 - _un_ compte O spécifique.
 
-### Notification automatique par surveillance du solde
-Cette notification s'applique aux comptes O et A.
-- Notification sans restriction d'accès quand le solde est _faiblement positif_.
-- Notification avec accès _minimal_ quand le solde est _négatif_.
+### Notification automatique par surveillance de la consommation
+- pour un compte A: solde (crédits - coûts).
+- pour un compte O: comparaison entre la _consommation journalière_ moyenne sur le mois en cours et le précédent, et le quota de consommation (ramené à la journée).
 
-### Notification automatique par surveillance des dépassements des quotas
+Il y a restriction d'accès _minimal_ quand,
+- **compte A) le solde est _négatif_**, 
+- **compte O) la consommation journalière moyenne est _excessive_**, dépasse 100% du quota de consommation.
+
+### Notification automatique par surveillance des dépassements des quotas Q1 et Q2
 Cette notification s'applique aux comptes O et A.
 - Notification sans restriction d'accès quand les quotas sont _approchés_.
-- Notification avec restriction aux opérations _décroissantes_ quand les quotas sont dépassée.
+- Notification avec restriction aux opérations diminuant les volumes quand les quotas sont dépassée.
 
 > Lire plus de détails dans le document **Couts-Hebergement**.
 

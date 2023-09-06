@@ -218,18 +218,21 @@ Ces notifications peuvent avoir deux portées:
 
 ### Notification automatique par surveillance de la consommation
 - pour un compte A: solde (crédits - coûts).
-- pour un compte O: rapport `CR/QC` de la consommation réelle / quota de consommation, calculés sur le mois en cours et le précédent.
+- pour un compte O: comparaison entre `consoj` la _consommation journalière_ moyenne sur le mois en cours et le précédent, et le quota de consommation `qcj` (ramené à la journée).
 
-**Notification sans restriction d'accès quand, A) le solde est _faiblement positif_, O) `CR/QC` supérieur à 80%**
-- pour les comptes A, le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance récente de consommation est inférieur à un seuil d'alerte (60 jours par exemple).
-- pas de restrictions d'accès, mais une pop-up à la connexion et une icône _d'attention_ en barre d'entête.
+**Notification sans restriction d'accès quand,** 
+- **compte A) le solde est _faiblement positif_**: le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance récente de consommation est inférieur à un seuil d'alerte (60 jours).
+- **compte O) la consommation journalière moyenne est _importante_**, dépasse 80% du quota de consommation.
 
-**Notification avec accès _minimal_ quand, A) le solde est _négatif_, O) `CR/QC` est supérieur à 100%**
-- les données ne peuvent ni être lues, ni être écrites avec les exceptions suivantes:
-  - les chats sont possibles avec le Comptable (et les sponsors pour un compte O),
-  - pour les comptes A les opérations de gestion du crédit et des quotas restent autorisées.
-- **les connexions du compte ne le maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, le compte disparaîtra.
-- une pop-up apparaît à la connexion et une icône _d'alerte_ figure en barre d'entête.
+Pas de restrictions d'accès, mais une pop-up à la connexion et une icône _d'attention_ en barre d'entête.
+
+**Notification avec accès _minimal_ quand,**
+- **compte A) le solde est _négatif_**, 
+- **compte O) la consommation journalière moyenne est _excessive_**, dépasse 100% du quota de consommation.
+
+**Les connexions du compte ne le maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, le compte disparaîtra.
+
+Une pop-up apparaît à la connexion et une icône _d'alerte_ figure en barre d'entête.
 
 ### Notification automatique par surveillance des dépassements des quotas Q1 et Q2
 Cette notification s'applique aux comptes O et A.

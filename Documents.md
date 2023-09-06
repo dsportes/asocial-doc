@@ -423,9 +423,34 @@ _data_ :
 - `id` : de l'espace de 10 à 89.
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
-
+- `opt`: `xy`
+  - x : 0: l'organisation n'autorise pas les comptes A.
+  - x : 1: comptes A autorisés sous contrôle du Comptable.
+  - x : 2: comptes A autorisés sous contrôle du Comptable ou d'un sponsor.
+  - y : 0: l'accord du compte n'est pas nécessaire pour passer de O à A
+  - y : 0: l'accord du compte est requis pour passer de O à A.
 - `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
-- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration (chaque profil donne un couple de quotas q1 q2).
+- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un couple de quotas `q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se conceter avec l'administrateur technique.
+
+### Documents `tickets`
+Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
+- `ns` : numéro d'espace,
+- `aaaammjj` : jour d'émission
+- `nnnn`: numéro d'ordre d'émission dans le jour.
+- `c` : clé d'auto-contrôle.
+
+Il y a un document `tickets` par ticket de paiement reçu et pas encore _crédité ou traité_.
+
+_data_:
+- `id`: numéro de ticket.
+- `dh`: date-heure d'enregistrement.
+- `m`: montant.
+- `infoK`: texte facultatif du Comptable pour un ticket qu'il considère comme _à traiter_ plus tard, à vérifier, etc.
+- `cr`: 0: pas encore crédité par le compte, 1: crédité par le compte.
+
+Normalement un ticket est détruit quand il est cumulé à ses crédité par le compte, SAUF s'il existe une `infoK` qui indique que le Comptable souhaite le conserver encore. Dans ce cas l'indicateur `cr` est mis à 1.
+
+Le Comptable peut mettre à jour `infoK` et le supprimer, ce qui entraînera la suppression du ticket si `cr` est à 1.
 
 ## Documents `gcvols`
 _data_ :
@@ -447,16 +472,16 @@ _data_:
 - `v` : 1..N
 
 - `cletX` : clé de la tribu cryptée par la clé K du comptable.
-- `q1 q2` : quotas totaux de la tribu.
-- `stn` : statut de la notification de tribu: _0:aucune 1:simple 2:bloquante 3:bloquée_
+- `qc q1 q2` : quotas totaux de la tribu.
+- `stn` : restriction d'accès de la notification _tribu_: _0:aucune 1:lecture seule 2:minimal_
 - `notif`: notification de niveau tribu cryptée par la clé de la tribu.
 - `act` : table des comptes de la tribu. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
   - `idT` : id court du compte crypté par la clé de la tribu.
   - `nasp` : si sponsor `[nom, cle]` crypté par la cle de la tribu.
   - `notif`: notification de niveau compte cryptée par la clé de la tribu (null s'il n'y en a pas).
-  - `stn` : statut de la notification _du compte_: _0:aucune 1:simple 2:bloquante_
-  - `q1 q2` : quotas attribués.
-  - `v1 v2` : volumes **approximatifs** effectivement utilisés: recopiés de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `tribus / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
+  - `stn` : restriction d'accès de la notification _compte_: _0:aucune 1:lecture seule 2:minimal_
+  - `qc q1 q2` : quotas attribués.
+  - `cj v1 v2` : consommation journalière, v1, v2: obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `tribus / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
 
 Un sponsor (ou le Comptable) peut accéder à la liste des comptes de sa tranche : toutefois il n'a pas accès à leur carte de visite, sauf si l'avatar est connu par ailleurs, chats au moment du sponsoring ou ultérieur par phrase de contact, appartence à un même groupe ...
 
@@ -470,16 +495,17 @@ _data_:
 - `v` : date-heure d'écriture (purement informative).
 
 - `atr` : table des synthèses des tribus de l'espace. L'indice dans cette table est l'id court de la tribu. Chaque élément est la sérialisation de:
-  - `q1 q2` : quotas de la tribu.
-  - `a1 a2` : sommes des quotas attribués aux comptes de la tribu.
-  - `v1 v2` : somme des volumes (approximatifs) effectivement utilisés.
-  - `ntr1` : nombre de notifications tribu_simples.
-  - `ntr2` : nombre de notifications tribu bloquantes.
-  - `ntr3` : nombre de notifications tribu bloquées.
+  - `qc q1 q2` : quotas de la tribu.
+  - `ac a1 a2` : sommes des quotas attribués aux comptes de la tribu.
+  - `cj v1 v2` : somme des consommations journalières et des volumes effectivement utilisés.
+  - `ntr0` : nombre de notifications tribu sans restriction d'accès.
+  - `ntr1` : nombre de notifications tribu avec restriction d'accès _lecture seule_.
+  - `ntr2` : nombre de notifications tribu avec restriction d'accès _minimal_.
   - `nbc` : nombre de comptes.
   - `nbsp` : nombre de sponsors.
-  - `nco1` : nombres de comptes ayant une notification simple.
-  - `nco2` : nombres de comptes ayant une notification bloquante.
+  - `nco0` : nombres de comptes ayant une notification sans restriction d'accès.
+  - `nco1` : nombres de comptes ayant une notification avec restriction d'accès _lecture seule_.
+  - `nco2` : nombres de comptes ayant une notification avec restriction d'accès _minimal_.
 
 `atr[0]` est la somme des `atr[1..N]` calculé en session, pas stocké.
 
@@ -499,27 +525,25 @@ _data_ :
 - `mavk` : map des avatars du compte. 
   - _clé_ : id court de l'avatar cryptée par la clé K du compte.
   - _valeur_ : couple `[nom clé]` de l'avatar crypté par la clé K du compte.
-- `qv` : `{ng nc nn q1 q2 v1 v2}`: nombre de groupes, chats, notes, valeurs courantes à jour.
-- `soldeCK` : solde du compte crypté par la clé K du compte. Pour le Comptable c'est toujours `null`. Pour les autres, c'est toujours existant pour un compte A, ou qui a été A à un moment de sa vie, et `null` pour les comptes qui n'ont toujours été que O (donc pour Comptable).
-  - `j`: date de dernier calcul.
-  - `q1 q2 v1 v2` : valeurs connues à j.
-  - `njn`: nombre de jours passés en solde négatif (à la date j).
-  - `solde`: solde en centimes (flottant).
-- `dons`: somme des dons _reçus_ (pour le Comptable _donnés_) de l'organisation en centimes.
-- `aticketK` : array des tickets de virement générés et en attente de réception d'un virement effectif.
-- `compteurs` statistique (non cryptée) d'évolution des quotas et volumes calculée d'après les valeurs `q1 q2 v1 v2`.
+- `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
+- `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
+- `credits` : pour un compte A seulement:
+  - `total`: cumuls des crédits reçus depuis le début e la vie du compte.
+  - `tickets`: liste des tickets en attente d'enregistrement.
+  -crypté par la clé K sauf après une conversion de compte O ou c'est crypté par la clé publique de l'avatar principal du compte.
+- `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
 
 **Pour le Comptable seulement**
 -`atr` : table des tribus : `{clet, info, q1, q2}` crypté par la clé K du comptable.
   - `clet` : clé de la tribu (donne aussi son id, index dans `act / astn`).
   - `info` : texte très court pour le seul usage du comptable.
-  - `q1 q2` : quotas globaux de la tribu.
-- `astn` : table des statuts de notification des tribus _0:aucune 1:simple 2:bloquante_.
+  - `qc q1 q2` : quotas globaux de la tribu.
+- `astn` : table des restriction d'accès des notifications des tribus _0:aucune 1:lecture seule 2:minimal_.
 
 La première tribu d'`id` 1 est la tribu _primitive_, celle du comptable et est indestructible.
 
 **Remarques :**  
-- Le document est mis à jour à minima à chaque mise à jour d'une note (volumes dans compteurs).
+- Le document est mis à jour à minima à chaque mise à jour d'une note (`qv` et `compteurs`).
 - La version de `comptas` lui est spécifique (ce n'est pas la version de l'avatar principal du compte).
 - `cletX it` sont transmis par le GC dans un document `gcvols` pour notifier au Comptable, quel est le compte détecté disparu (donc de sa tribu).
 - Le fait d'accéder à `atr` permet d'obtenir la _liste des tribus existantes_ de l'espace. Le serveur peut ainsi recalculer la statistique de l'espace (agrégation des compteurs des tribus) en scannant ces tribus.
@@ -919,20 +943,6 @@ _data_:
     - _contact_ -> `ast[im]`. `dfa` est remplie.
   - si le membre était le dernier _actif_, le groupe disparaît. Toutefois il peut rester des _invités_. Pour chacun, dans leur `lgrk` le statut de résiliation `str` est mis à 1 (retrait d'invitation).
 
-## Objet `compteurs`
-- `j` : **date du dernier calcul enregistré** : par exemple le 17 Mai de l'année A
-- **pour le mois en cours**, celui de la date ci-dessus :
-  - `q1 q2`: quotas à partir desquels `compteurs` est calculé.
-  - `v1 v2`: volumes à partir desquels `compteurs` est calculé.
-  - `v1m v2m`: volumes moyens estimés sur le mois en cours.
-  - `trj` : transferts cumulés du jour.
-  - `trm` : transferts cumulés du mois.
-- `tr8` : log() des volumes des transferts cumulés journaliers de pièces jointes sur les 7 derniers jours + total (en tête) sur ces 7 jours.
-- **pour les 12 mois antérieurs** `hist` (dans l'exemple ci-dessus Mai de A-1 à Avril de A),
-  - `q1 q2` quotas q1 et q2 au dernier jour du mois.
-  - `v1 v2` log() des volumes moyens du mois (log de `v1m` `v2m` ci-dessus au dernier jour du mois)
-  - `tr` log() du total des transferts des pièces jointes dans le mois (log de `trm` à la fin du mois).
-
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
 - filtrer / caractériser à l'affichage les **chats** accédés par un compte.
@@ -1212,7 +1222,7 @@ La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée
 
 Les deux termes de clés `id` et `ids` sont chacune en string crypté par la clé K du compte et encodée en base 64 URL.
 
-Le formar _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
+Le format _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
 
 En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
 
@@ -1223,6 +1233,7 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
 
 # Décomptes des coûts et crédits
+
 On compte **sur le serveur le nombre de lectures et d'écritures** effectué dans chaque opération et c'est remonté à la session où:
 - on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta).
 - la session envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` au bout de M minutes sans envoi (avec un minimum de R2 rows).
@@ -1296,7 +1307,7 @@ Cette classe donne les éléments de facturation et des éléments de statistiqu
 Le vecteur `vd[0]` et le montant `mm[0]` vont évoluer tant que mois courant n'est pas terminé. Pour les mois antérieurs `vd[i]` et `mm[i]` sont immuables.
 
 ### Dynamique
-Un objet compteur est construit,
+Un objet `compteur` est construit,
 - soit depuis la sérialisation de son dernier état,
 - soit depuis `null` pour un nouveau compte.
 - la construction recalcule tout l'objet: il était sérialisé à un instant `dh`, il est recalculé être à jour à l'instant t.
@@ -1333,16 +1344,17 @@ Pour chaque mois M à M-3, il y a un **vecteur** de 14 (X1 + X2 + X2 + 3) compte
 - `get totalAbo ()` retourne le coût d'abonnement en additionnant ceux du mois courant et des mois antérieurs.
 - `get totalConso ()` retourne le coût de consommation en additionnant ceux du mois courant et des mois antérieurs.
 - `get totalAboConso ()` retourne la somme des coûts d'abonnement et de consommation en additionnant ceux du mois courant et des mois antérieurs.
-- `get moyconso4 ()` retourne la moyenne _journalière_ de la consommation sur le mois en cours et les 3 précédents et -1 si celle-ci n'est pas représentative (moins de 7 jours d'existence).
-- `get crqc ()` retourne le rapport `CR/QC` de la consommation réelle / quota de consommation, calculés sur le mois en cours et le précédent.
+- `get consoj ()` retourne la moyenne _journalière_ de la consommation des mois M et M-1. Pour M le nombre de jours est le jour du mois, pour M-1 c'est le nombre de jours du mois.
+- `get consoj4M ()` retourne la moyenne _journalière_ de la consommation sur le mois en cours et les 3 précédents. Si le nombre de jours d'existence est inférieur à 30, retourne `consoj`.
+- `get qcj ()` retourne le quota `qc` ramené à la journée pour comparaison avec `consoj`.
 
 Le getter `get serial ()` retourne la sérialisation de l'objet afin de l'écrire dans la propriété `compteurs` de `comptas`.
 
-**En session,** `stats` est recalculé,
+**En session,** `compteurs` est recalculé,
 - par `compile()` à la connexion et en synchro,
 - explicitement a l'occasion d'une simulation en passant comme arguments `qv` et `conso`.
 
-**En serveur,** des opérations peuvent faire évoluer `qv` de `comptas` de manière incrémentale. L'objet compteurs est construit (avec un qv) puis sa sérialisation est enregistrée dans `comptas`:
+**En serveur,** des opérations peuvent faire évoluer `qv` de `comptas` de manière incrémentale. L'objet `compteurs` est construit (avec un `qv` -et `conso` s'il enregistre une consommation) puis sa sérialisation est enregistrée dans `comptas`:
 - création / suppression d'une note ou d'un chat: incrément / décrément de nn / nc.
 - prise / abandon d'hébergement d'un groupe: delta sur nn / nc / v2.
 - création / suppression de fichiers: delta sur v2.
@@ -1356,48 +1368,72 @@ Le Comptable peut afficher le `compteurs` de n'importe quel compte A ou O.
 
 Les sponsors d'une tranche ne peuvent faire afficher les `compteurs` _que_ des comptes de leur tranche.
 
-A la connexion d'un compte O, trois compteurs statistiques sont remontés de `stats` dans la tribu:
-- le volume V1 effectivement utilisé,
-- le volume V2 effectivement utilisé,
-- le rapport `crqc` de la consommation réelle / quota de consommation, calculés sur le mois en cours et le précédent.
+A la connexion d'un compte O, trois compteurs statistiques sont remontés de `compteurs` dans la tribu:
+- `v1`: le volume V1 effectivement utilisé,
+- `v2`: le volume V2 effectivement utilisé,
+- `cj`: la consommation moyenne journalière (`consoj`).
 
-Toutefois ces compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue par la tribu.
+Les compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue par la tribu.
 
 ### Classe `Credits`
-La propriété credits n'existe dans comptas que pour un compte A:
-- elle est cryptée par la clé K du compte qui est seule à y accéder.
+La propriété `credits` n'existe dans `comptas` que pour un compte A:
+- elle est cryptée par la clé K du compte qui est seul à y accéder.
 - toutefois elle est cryptée par la clé publique du compte juste après l'opération de passage d'un compte O à A.
 
 **Propriétés:**
-- total : total des crédits encaissés.
-- tickets: liste des numéro de ticket générés par le compte et en attente d'enregistrement.
+- `total` : total des crédits encaissés.
+- `tickets`: liste des numéro de ticket (raccourcis, sans le `ns`) générés par le compte et en attente d'enregistrement.
 
-**Intégration de `stats`:** `const sc = s.integrer(stats, dh)`
-- intègre les montants des mois postérieurs à `aaaamm`, mais pas le mois courant ce qui met à jour à la fois `m` et `aaaamm`. 
-- retourne le solde _courant_ : `m` - le montant du mois en cours. C'est le solde instantané.
+## Tickets
 
-**Intégration d'un crédit (don, virement) ou d'un débit:** `const sc = s.dbcr(m)`
-- contrainte: ne doit pas amener le solde _courant_ à négatif.
-- crédite / débite le montant `m` en l'ajoutant / retranchant à `m`.
-- retourne le solde _courant_ après intégration: si -1 l'opération a été rejetée.
+Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
+- `ns` : numéro d'espace,
+- `aaaammjj` : jour d'émission
+- `nnnn`: numéro d'ordre d'émission dans le jour.
+- `c` : clé d'auto-contrôle.
 
+### Documents `tickets`
+Il y a un document ticket par ticket de paiement reçu et pas encore _enregistré ou traité_.
 
+**Propriétés:**
+- `id`: numéro de ticket.
+- `dh`: date-heure d'enregistrement.
+- `m`: montant.
+- `infoK`: texte facultatif du Comptable pour un ticket qu'il considère comme _à traiter_ plus tard, à vérifier, etc.
+- `cr`: 0: pas encore crédité par le compte, 1: crédité par le compte.
+
+Normalement un ticket est détruit quand il est cumulé à ses crédité par le compte, SAUF s'il existe une `infoK` qui indique que le Comptable souhaite le conserver encore. Dans ce cas l'indicateur `cr` est mis à 1.
+
+Le Comptable peut mettre à jour `infoK` et le supprimer, ce qui entraînera la suppression du ticket si `cr` est à 1.
 
 ### Passage d'un compte A à O
 - le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
 - Le Comptable ou un sponsor désigne le compte dans ses contacts et cite cette phrase. Si elle est conforme, ça lance une opération qui:
   - inscrit le compte dans une tribu,
-  - créer son soldeO,
-  - détruit son soldeA,
+  - effectue une remise à zéro dans compteurs du compte du total abonnement et consommation des mois antérieurs (razma()):
+    - l'historique des compteurs et de leurs valorisations reste intact.
+    - les montants du mois courant et des 17 mois antérieurs sont inchangés,
+    - MAIS les deux compteurs aboma et consoma qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de quota de consommation _d'avance_
   - efface `oko`.
 
 ### Rendre _autonome_ un compte O
 C'est une opération du Comptable et/ou d'un sponsor selon la configuration de l'espace, qui n'a besoin de l'accord du compte (dans `oko` comme ci-dessus) que si la configuration de l'espace l'a rendu obligatoire.
-- le `soldeO` est détruit,
 - il est retiré de sa tribu.
+- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs.
+- oko est effacé.
+- un objet Ticket est créé avec:
+  - un total muni d'une somme forfaitaire correspondant à un mois d'abonnement / consommation avec lss quotas à 1 (minimaux).
+  - une liste tickets vide.
+  - l'objet est crypté par la clé publique du compte.
 
-Sur synchronisation, ou à la prochaine connexion, en l'absence de `soldeO` et de `soldeA` dans comptas,
-un `soldeA` est créé avec un montant égal à `unmois` du minimum de `q1 q2 dot`.
+### Sponsoring d'un compte O
+Rien de particulier : compteurs est initialisé, sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
+
+### Sponsoring d'un compte A
+Un objet Ticket est créé avec:
+- un total muni d'une somme forfaitaire correspondant à un mois d'abonnement / consommation avec lss quotas à 1 (minimaux).
+- une liste tickets vide.
+- l'objet est crypté par la clé K du compte à l'acceptation du sponsoring.
 
 # Maintien de la cohérence
 
