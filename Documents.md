@@ -528,7 +528,7 @@ _data_ :
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
 - `credits` : pour un compte A seulement:
-  - `total`: cumuls des crédits reçus depuis le début e la vie du compte.
+  - `total`: cumuls des crédits reçus depuis le début de la vie du compte.
   - `tickets`: liste des tickets en attente d'enregistrement.
   -crypté par la clé K sauf après une conversion de compte O ou c'est crypté par la clé publique de l'avatar principal du compte.
 - `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
