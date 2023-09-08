@@ -374,47 +374,27 @@ Le serveur recherche l'`id` du compte par `hps1` (index de `comptas`)
 # Détail des documents
 
 ### Sous-objet `notification`
-Les notifications servent à transmettre une information importante aux comptes avec plusieurs niveaux :
-- **notification simple** d'information importante dont le compte doit tenir compte, typiquement pour réduire son volume, contacter le Comptable, etc.
-- **notification bloquante**, une procédure de blocage est engagée:
-  - **1-écritures bloquées** : compte avec un comportement de mode _avion_ mais pouvant toutefois chatter avec le comptable et ses sponsors.
-  - **2-lectures et écritures bloquées** : le compte ne peut plus **que** chatter avec ses sponsors ou le Comptable et n'a plus accès à ses autres données.
+Une notification a les propriétés suivantes:
+- `dh` : date-heure de création.
+- `type`: type de la notification
+  - 1 : de l'espace
+  - 2 : d'une tribu
+  - 3 : d'un compte
+  - 4 : _par convention_ désigne le _dépassement de quotas_
+  - 5 : _par convention_ désigne une _alerte de solde / consommation_
+- `texte`: texte de la notification crypté selon son type par 1) la clé du Comptable, 2-3) la clé de la tribu.
+- `idSource`: id du sponsor ayant créé cette notification pour un type 3.
+- `r`: 
+  - 0 : pas de restriction
+  - 1 : espace figé
+  - 2 : espace bloqué
+  - 3 : accès en lecture seule
+  - 4 : accès minimal
+  - 5 : actions accroissant le volume interdites.
 
-**Enfin le compte est bloqué** (connexion impossible): la procédure a conduit à la disparition des comptes concernés. Cet état n'est pas observable que dans la situation particulière d'une tribu _bloquée_, la création de comptes par le comptable y étant interdite.
+Un _dépassement de quotas Q1 / Q2_ entraîne une restriction  (5).
 
-**Le Comptable a un degré de liberté** supérieur aux autres comptes:
-- en niveau 1 et 2 il peut: 
-  - gérer les tranches de quotas, création, gestion de quotas, gestion des comptes et de leurs quotas,
-  - chatter avec les comptes,
-  - gérer les notifications aux tribus et comptes.
-- en niveau bloqué, il ne peut plus rien faire. 
-
-On trouve des notifications aux niveaux suivants :
-- **G-niveau global** d'un espace, émise par l'Administrateur (cryptée par la clé du Comptable) à destination de **tous** les comptes.
-- **T-niveau tranche** à destination de **tous** les comptes de la tranche. Cryptée par la clé de la tribu et émise :
-  - soit par le Comptable,
-  - soit par un sponsor de la tranche : toutefois quand il existe une notification du Comptable elle ne peut pas être modifiée par un sponsor.
-- **C-niveau compte** à destination d'un seul compte. Cryptée par la clé de sa tribu et émise :
-  - soit par le Comptable,
-  - soit par un sponsor de la tranche : toutefois quand il existe une notification du Comptable elle ne peut pas être modifiée par un sponsor.
-
-Un compte peut donc faire l'objet de 0 à 3 notifications :
-- le niveau applicable au jour J est le plus dégradé (le plus élevé).
-- les 3 textes sont lisibles, avec leur source (Administrateur, Comptable, Sponsor).
-- un compte ayant un niveau de blocage positif ne _signe plus_ ses connexions, ceci le conduira à sa disparition si la situation persiste un an.
-
-**_data_ d'une notification :**
-- `idSource`: id court de la source, du Comptable ou du sponsor, par convention 0 pour l'administrateur.
-- `jbl` : jour de déclenchement de la procédure de blocage sous la forme `aaaammjj`, 0 s'il n'y a pas de procédure de blocage en cours.
-- `nj` : en cas de procédure ouverte, nombre de jours après son ouverture avant de basculer en niveau 2.
-- `texte` : texte informatif, pourquoi, que faire ...
-- `dh` : date-heure de dernière modification (informative).
-
-**Le _niveau_ d'un blocage dépend du jour d'observation**. On en déduit aussi:
-- le nombre de jours restant avant d'atteindre le niveau **2-lectures et écritures bloquées** quand on est au niveau **1-écritures bloquées**.
-- le nombre de jours avant disparition du compte, connexion impossible (niveau **3-compte bloqué**).
-
-> Une autre forme de notification est gérée : le taux maximum d'utilisation du volume V1 ou V2 par rapport à son quota.
+Un _solde négatif (compte A)_ ou _une consommation excessive (compte O)_ entraîne une restriction (4). 
 
 > Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
 
@@ -850,13 +830,22 @@ _data_:
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
 - `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
 - `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
-  - `sta`: statut d'activité: 1: contact, 2:invité, 3:actif
+  - `sta`: statut d'activité: 1: contact, 2:invité, 3:actif, 4:résilié
   - `laa`: 1:lecteur, 2:auteur, 3:animateur.
 - `nag` : table des 'hcmg' hash de la clé de l'avatar membre cryptée par la clé du groupe. Les index dans nag et ast correspondent.
 - `ln` : liste noire des 'hcmg' des avatars interdits de redevenir contact. 
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
 - `ardg` : ardoise cryptée par la clé du groupe.
+
+**Statut d'activité:** 
+- `0` : **disparu / oublié**
+- `1` : **contact**. Le membre existe, il est connu des autres membres du groupe mais son avatar l'ignore. Dans son lgr, son item n'existe pas.
+- `2` : **invité**. L'avatar _invité_ est au courant de son état, dans son lgr, le groupe a une entrée. L'avatar peut lire l'ardoise du groupe et connaît les autres membres.
+- `3` : **actif**. L'avatar a accès aux notes du groupe et peut attacher un commentaire personnel au groupe.
+- `4` : **résilié**. L'avatar connaît ce statut, n'a plus accès ni autres membres du groupe, ni aux notes. Il peut encore éditer son commentaire à propos du groupe. Il n'a pour seule capacité d'action que celle de _se faire oublier_ retombant au statut 0.
+
+Pour un compte le _nombre de participations aux groupes_ décompte toutes celles de statut 3 et 4.
 
 **Remarque sur `ardg`**
 - texte libre que tous les membres du groupe actifs et invités peuvent lire et écrire.
@@ -875,9 +864,9 @@ Un document `membres` est créé à la déclaration d'un avatar comme _contact_ 
 - dans `ddi dda dfa` subsistent les traces de la dernière vie de l'avatar dans le groupe.
 
 Le document `membres` est détruit,
-- par une opération ayant l'option effacament / oubli qui met le statut à 0.
+- par une opération d'oubli qui met le statut à 0.
 - par la destruction de son groupe lors de la résiliation du dernier membre actif.
-- par le GC détectant par la dlv que l'avatar a disparu (il ne signe plus dans cette dlv) et q'il est le dernier membre _actif_ de son groupe.
+- par le GC détectant par la `dlv` que l'avatar a disparu (il ne signe plus dans cette dlv) et q'il est le dernier membre _actif_ de son groupe.
 
 _data_:
 - `id` : id du groupe.
@@ -908,17 +897,18 @@ _data_:
 - invitation:
   - _invité_ -> `ast[im]`. 
   - `laa` à (1 2 3), `ddi` remplie.
-  - inscription dans `lgrk` de l'avatar: c'est ça qui inscrira le groupe dans la liste des groupes en session (s'il n'y était pas déjà).
+  - inscription dans `lgrk` de l'avatar: c'est ça qui inscrira le groupe dans la liste des groupes en session (s'il n'y était pas déjà). L'item est crypté par la clé publique de l'avatar.
 - vote d'invitation (en mode _unanime_): 
   - `laa` à (1 2 3)
   - si tous les animateurs ont voté,
     - _invité_ -> `ast[im]`, `ddi` remplie.
     - inscription dans `lgrk` de l'avatar (comme ci-dessus).
   - si le vote change le `laa` actuel, les autres votes sont annulés.
-- effacement par un animateur:
+- effacement (oubli) par un animateur:
   - (0) -> `ast[im]`.
   - le document `membres` est détruit.
   - option _liste noire_: voir ci-dessus.
+  - l'item dans `lgrk` de l'avatar est supprimé.
 
 **Depuis _invité_ (2):**
 - refus d'invitation par le compte:
@@ -928,20 +918,20 @@ _data_:
   - _contact_ -> `ast[im]`. `dda` est remplie.
   - dans `comptas`, le compteur `ng` est incrémenté.
 - retrait d'invitation par un animateur:
-  - option _liste noire_: voir ci-dessus, sinon _contact_ -> `ast[im]`.
-    - dans `lgrk` de l'invité le statut de résiliation `str` est mis à 1.
+  - option _oubli / liste noire_: voir ci-dessus, sinon _contact_ -> `ast[im]`.
+    - dans `lgrk` de l'invité son item est supprimé.
 
 **Depuis _actif_ (3):**
-- résiliation par un animateur (le membre n'est ni _animateur_, ni _hébergeur_):
-  - dans `lgrk` de l'avatar le statut de résiliation `str` est mis à 2. **Ceci déclenchera en session**, en synchro ou connexion, une opération `AlignerComptas` qui décrémentera `ng` de `comptas` et détruira l'item dans `lgrk`.
-  - option _liste noire_: voir ci-dessus, sinon,
-    - _contact_ -> `ast[im]`. `dfa` est remplie.
+- résiliation par un animateur:
+  - _résilié_ -> `ast[im]`. `dfa` est remplie.
 - auto-résiliation:
-  - dans le `comptas` de son compte, le compteur `ng` est incrémenté (du moins _peut_ l'être).
-  - suppression de son entrée dans `lgrk` de l'avatar.
-  - option _liste noire_: voir ci-dessus, sinon,
-    - _contact_ -> `ast[im]`. `dfa` est remplie.
-  - si le membre était le dernier _actif_, le groupe disparaît. Toutefois il peut rester des _invités_. Pour chacun, dans leur `lgrk` le statut de résiliation `str` est mis à 1 (retrait d'invitation).
+  - option _oubli / liste noire_: voir ci-dessus, sinon _contact_ -> `ast[im]`. `dfa` est remplie.
+  - si le membre était le dernier _actif_, le groupe disparaît. Toutefois il peut rester des _invités_. Pour chacun, leur item dans `lgrk` est supprimé.
+
+**Depuis _résilié_ (4):**
+- demande d'oubli par l'avatar.
+  - 0 ->ast[im], item dans lgrk supprimé.
+  - si option _liste noire_ voir ci-dessus.
 
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
@@ -1447,11 +1437,10 @@ Un objet Ticket est créé avec:
   - (a) le groupe survit. 0 -> `groupes.sta`. L'incohérence avec `avatars.lgr` de son avatar n'a pas d'importance, le compte est mort.
   - (b) le groupe est détruit: il n'avait pas d'hébergeur et que des invités.
     - (C2) cohérence entre groupe mort (son `versions` est _zombi_) et les avatars _invités_ dont `avatars.lgr` de leur avatar est effacé.
-- résiliation d'un membre `im`, refus d'invitation
-  - (C4a) `groupes.ast[im]` vaut 0 ou 1, et son `avatars.lgr[ni]` est effacé.
-  - (C6) `comptas.ng` est faux d'une unité.
-- invitation / acceptation
-  - (C4b) cohérence entre `avatars.lgr` et `groupes.ast[im]`
+- invitation / résiliation d'un membre `im`
+  - (C4a) `groupes.ast[im]` vaut 4.
+- acceptation, auto-résiliation, oubli demandé par le membre
+  - (C4b) cohérence entre `avatars.lgr` et `groupes.ast[im]`. Le nombre de groupes `ng` dans comptas est correct.
 - création / suppression de notes, changements de fichiers
   - (C5) cohérence entre `notes` et `comptas.nn v2`
 
@@ -1471,15 +1460,11 @@ Un objet Ticket est créé avec:
 (C5) cohérence entre `notes` et `comptas.nn v2`
 - Option comme pour (C1) confiance dans `comptas`, on ne rapproche pas les deux.
 
-> On _pourrait_ imaginer en début de session de recalculer `nn nc ng v2`. En l'absence bugs, la divergence devrait être faible ou null et se rétablir très vite. S'il y a de fortes divergence, c'est qu'un bug a sévi: on peut envisager un _reset brutal_ de `comptas`.
-
 (C2) groupe mort / `avatars.lgr` existe
 - Option: c'est toujours le groupe mort qui a raison, il ne redeviendra pas vivant. Aligner `avatars.lgr` par suppression du terme.
 
-(C4a) dans `groupes.ast[im]` vaut 0 ou 1, son `avatars.lgr[ni]` existe.
-(C4b) dans `groupes.ast[im]` vaut 2 ou 3, son `avatars.lgr[ni]` n'existe pas.
+(C4a) dans `groupes.ast[im]` vaut 2 ou 4, son `avatars.lgr[ni]` existe.
+(C4b) dans `groupes.ast[im]` vaut 0 ou 4, son `avatars.lgr[ni]` n'existe pas.
+- `ng` dans comptas _finira_ par être à jour.
 - qui a de l'avance sur l'autre ?
-- Option: opération de réconciliation. Sur le serveur `groupes` et `avatars` sont cohérents: on retournera, l'un, l'autre ou les deux à jour dans leur dernière version.
-
-(C6) le nombre d'avatars _actifs_ dans un groupe n'est pas possible à tenir à jour en temps réel sur le serveur. `comptas.ng` est imprécis.
-- Option: à chaque envoi d'une opération d'enregistrement d'une consommation, ng est calculé par la session et envoyé aussi. Ca reste imprécis, mais moins et ça va finir par être exact.
+- **Option: opération de réconciliation**. Sur le serveur `groupes` et `avatars` sont cohérents: on retournera, l'un, l'autre ou les deux à jour (et alignés / cohérents) dans leur dernière version.
