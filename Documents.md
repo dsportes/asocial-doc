@@ -136,9 +136,9 @@ La déclaration d'une tranche par le Comptable d'un espace consiste à définir 
 - une clé de cryptage `clet` générée aléatoirement à la création de la tranche :
   - **les 2 premiers bytes donnent l'id de la tribu**, son numéro d'ordre de création par le Comptable partant de de 1,
 - un très court texte `info` signifiant pour le Comptable,
-- les sous-quotas `q1` et `q2` attribués.
+- les sous-quotas `qc q1 q2` attribués.
 
-`clet` est immuable, `info q1 q2` peuvent être mis à jour par le comptable.
+`clet` est immuable, `info qc q1 q2` peuvent être mis à jour par le comptable.
 
 #### Comptes _sponsors_
 Les quotas `q1 q2` attribués à chaque compte sont prélevés sur une tranche, en d'autres termes, tout compte fait partie d'une _tribu_.
@@ -374,23 +374,27 @@ Le serveur recherche l'`id` du compte par `hps1` (index de `comptas`)
 # Détail des documents
 
 ### Sous-objet `notification`
+De facto un objet notification est immuable: en cas de _mise à jour_ il est remplacé par un autre.
+
+Il est crypté selon son type par 1) la clé du Comptable, 2-3) la clé de la tribu.
+
 Une notification a les propriétés suivantes:
-- `dh` : date-heure de création.
-- `type`: type de la notification
+- `t`: type de la notification
   - 1 : de l'espace
   - 2 : d'une tribu
   - 3 : d'un compte
-  - 4 : _par convention_ désigne le _dépassement de quotas_
-  - 5 : _par convention_ désigne une _alerte de solde / consommation_
-- `texte`: texte de la notification crypté selon son type par 1) la clé du Comptable, 2-3) la clé de la tribu.
-- `idSource`: id du sponsor ayant créé cette notification pour un type 3.
-- `r`: 
+  - 4 : _par convention_ le code 4 désigne le _dépassement de quotas_
+  - 5 : _par convention_ le code 5 désigne une _alerte de solde / consommation_.
+- `r`: restriction d'accès: 
   - 0 : pas de restriction
   - 1 : espace figé
   - 2 : espace bloqué
   - 3 : accès en lecture seule
   - 4 : accès minimal
   - 5 : actions accroissant le volume interdites.
+- `dh` : date-heure de création.
+- `texte`: texte de la notification.
+- `idSource`: id du sponsor ayant créé cette notification pour un type 3.
 
 Un _dépassement de quotas Q1 / Q2_ entraîne une restriction  (5).
 
@@ -403,14 +407,14 @@ _data_ :
 - `id` : de l'espace de 10 à 89.
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
-- `opt`: `xy`
+- `opt`: `xy` - 0 10  11 20 21
   - x : 0: l'organisation n'autorise pas les comptes A.
   - x : 1: comptes A autorisés sous contrôle du Comptable.
   - x : 2: comptes A autorisés sous contrôle du Comptable ou d'un sponsor.
   - y : 0: l'accord du compte n'est pas nécessaire pour passer de O à A
-  - y : 0: l'accord du compte est requis pour passer de O à A.
+  - y : 1: l'accord du compte est requis pour passer de O à A.
 - `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
-- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un couple de quotas `q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se conceter avec l'administrateur technique.
+- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
 
 ### Documents `tickets`
 Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
@@ -508,17 +512,17 @@ _data_ :
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
 - `credits` : pour un compte A seulement:
-  - `total`: cumuls des crédits reçus depuis le début de la vie du compte.
+  - `total`: cumul des crédits reçus depuis le début de la vie du compte.
   - `tickets`: liste des tickets en attente d'enregistrement.
-  -crypté par la clé K sauf après une conversion de compte O ou c'est crypté par la clé publique de l'avatar principal du compte.
+  - crypté par la clé K sauf après une conversion de compte O ou c'est crypté par la clé publique de l'avatar principal du compte.
 - `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
 
 **Pour le Comptable seulement**
--`atr` : table des tribus : `{clet, info, q1, q2}` crypté par la clé K du comptable.
+-`atr` : table des tribus : `{clet, info, qc, q1, q2}` crypté par la clé K du comptable.
   - `clet` : clé de la tribu (donne aussi son id, index dans `act / astn`).
   - `info` : texte très court pour le seul usage du comptable.
   - `qc q1 q2` : quotas globaux de la tribu.
-- `astn` : table des restriction d'accès des notifications des tribus _0:aucune 1:lecture seule 2:minimal_.
+- `astn` : table des restriction d'accès des notifications des tribus _0:aucune, 1:lecture seule, 2:accès minimal_.
 
 La première tribu d'`id` 1 est la tribu _primitive_, celle du comptable et est indestructible.
 
