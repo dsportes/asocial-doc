@@ -378,14 +378,15 @@ De facto un objet notification est immuable: en cas de _mise à jour_ il est rem
 
 Il est crypté selon son type par 1) la clé du Comptable, 2-3) la clé de la tribu.
 
+Type des notifications:
+- 0 : de l'espace
+- 1 : d'une tribu
+- 2 : d'un compte
+- 3 : dépassement de quotas
+- 4 : alerte de solde / consommation
+
 Une notification a les propriétés suivantes:
-- `t`: type de la notification
-  - 1 : de l'espace
-  - 2 : d'une tribu
-  - 3 : d'un compte
-  - 4 : _par convention_ le code 4 désigne le _dépassement de quotas_
-  - 5 : _par convention_ le code 5 désigne une _alerte de solde / consommation_.
-- `r`: restriction d'accès: 
+- `nr`: restriction d'accès: 
   - 0 : pas de restriction
   - 1 : espace figé
   - 2 : espace bloqué
@@ -396,7 +397,9 @@ Une notification a les propriétés suivantes:
 - `texte`: texte de la notification.
 - `idSource`: id du sponsor ayant créé cette notification pour un type 3.
 
-Un _dépassement de quotas Q1 / Q2_ entraîne une restriction  (5).
+**Remarque:** une notification `{ dh: ... }` correspond à la suppression de la notification antérieure (ni restriction, ni texte).
+
+Un _dépassement de quotas Q1 / Q2_ entraîne une restriction (5).
 
 Un _solde négatif (compte A)_ ou _une consommation excessive (compte O)_ entraîne une restriction (4). 
 
