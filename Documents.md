@@ -556,28 +556,22 @@ _data_:
 - `cva` : carte de visite cryptée par la clé _CV_ de l'avatar `{v, photo, info}`.
 - `lgrk` : map :
   - _clé_ : `ni` : _numéro d'invitation_ hash de la clé inversée du groupe crypté par la  clé de l'avatar.
-  - _valeur_ : couple `[sta, ref]`
-    - `sta`: statut d'activité: 2:résilié, 3:invité, 4:ré-invité, 5:actif
-    - `ref`: `[nomg, cleg, im]`
-      - crypté par la clé publique RSA de l'avatar.
-      - ré-encrypté par la clé K du compte par l'opération d'acceptation d'une invitation.
+  - _valeur_ : `[nomg, cleg, im]`
+    - crypté par la clé publique RSA de l'avatar.
+    - ré-encrypté par la clé K du compte par l'opération d'acceptation d'une invitation.
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
 - `napc` : `[nom, cle]` de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 **Remarques:**  
-- pour inviter l'avatar, un animateur en connaît le `[nom, clé]` et `im` qui sont dans la liste des membres en tant que simple contact. Il en calcule `ni` et peut définir `[sta, ref]`.
-- le groupe n'est décompté dans le nombre de groupes `ng` de `comptas` que quand `sta` vaut 4.
-- **la liste des membres du groupe en session** dépend du plus haut `sta` des avatars du compte:
-  - (2): seulement les membres correspondant aux avatars du compte.
-  - (3 4 5): tous les membres.
+- pour inviter l'avatar, un animateur en connaît le `[nom, cle]` et `im` qui sont dans la liste des membres en tant que simple contact. Il en calcule `ni` et peut définir `[nomg, cleg, im]`.
 
 ### Cartes de visites
 La création / mise à jour s'opère dans le document `avatars`.
 
 **Mises à jour des cartes de visite des membres**
 - la première inscription se fait à l'ajout de l'avatar comme _contact_ du groupe.
-- en session, lorsque la page listant les membres d'un groupe est ouverte, elle envoie une requête au serveur donnant la liste des couples `[id, v]` des `ids` des membres et de leur version de carte de visite détenue dans le document `membre`.
-- pour chacune ayant une version postérieure, le serveur la met à jour dans `membre`.
+- en session, lorsque la page listant les membres d'un groupe est ouverte, elle envoie une requête au serveur donnant la liste des couples `[id, v]` des `ids` des membres et de leur version de carte de visite détenue dans le document `membres`.
+- pour chacune ayant une version postérieure, le serveur la met à jour dans `membres`.
 - ceci permet de voir en session des cartes de visite toujours à jour et d'éviter d'effectuer une opération longue à chaque mise à jour des cartes de visite par un avatar pour tous les groupes dont il est membre.
 
 **Mise à jour dans les chats**
@@ -614,14 +608,18 @@ Un chat est décompté des chats par compte quand il est _en ligne_. Exemple:
 - il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
 - écrire et raccrocher : correspond à un message final _au revoir_.
 
-Chaque exemplaire du chat, par exemple I, ne se _détruit_ que:
-- soit parce que son avatar s'est auto-résilié: son document `versions` devient _zombi_.
-- soit parce que s'étant adressé à E, I a récupéré que E était détruit. Le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
-- soit parce que I a fait rafraîchir les cartes de visite dans sa session et que ça lui a retourné l'information de la disparition de son _contact_.
+Quand son avatar s'est auto-résilié, son document `versions` devient _zombi_. Le document `chats` a été détruit.
+
+S'étant adressé à E, I a récupéré que E était détruit. 
+- si le chat I était raccroché, le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
+- sinon, le statut `r` passe à 2. I conserve le dernier contenu échangé, mais,
+  - il ne peut plus le changer,
+  - il ne peut que _raccrocher_, ce qui rendra le chat _zombi_.
+
+I a fait rafraîchir les cartes de visite dans sa session et ça lui a retourné l'information de la disparition de son _contact_:
+- comme ci-dessus.
 
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
-
-RAZ du contenu: `contc` est `null`. Le chat ne compte plus dans V1.
 
 _data_:
 - `id`: id de A,
@@ -630,7 +628,7 @@ _data_:
 - `dlv`
 - `vcv` : version de la carte de visite.
 
-- `r` : 0:raccroché, 1:en ligne
+- `r` : 0:raccroché, 1:en ligne, 2:en ligne mais E est mort
 - `mc` : mots clés attribués par l'avatar au chat.
 - `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé de _l'autre_.
 - `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I.
@@ -640,15 +638,15 @@ _data_:
   - `dh`  : date-heure de dernière mise à jour.
   - `txt` : texte du chat. '' quand le compte a raccroché (ce qui ne _vide_ pas l'autre exemplaire.)
 
-### _Contact direct_ entre A et B
-Supposons que B veuille ouvrir un chat avec A mais n'en connaît pas le nom / clé.
+### Établir un _contact direct_ entre A et B
+Supposons que B veuille ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas le nom / clé.
 
 A peut avoir communiqué à B sa _phrase de contact_ qui ne peut être enregistrée par A que si elle est, non seulement unique, mais aussi _pas trop proche_ d'une phrase de contact déjà déclarée.
 
 B peut écrire un chat à A à condition de fournir cette _phrase de contact_:
 - l'avatar A a mis à disposition son nom complet `[nom, cle]` crypté par le PBKFD de la phrase de contact.
-- muni de ces informations, B peut écrire un chat à A.
-- le chat comportant le `[nom cle]` de B, A est également en mesure d'écrire sur ce chat, même s'il ignorait avant le nom complet de B.
+- muni de ces informations, B peut écrire un chat à A qui fait désormais partie de ses contacts (et réciproquement une fois le chat de B reçu par A).
+- le chat comportant le `[nom cle]` de B, A est en mesure d'écrire sur ce chat, même s'il ignorait auparavant le nom complet de B.
 
 ## Documents `sponsorings`
 P est le parrain-sponsor, F est le filleul-sponsorisé.
@@ -667,12 +665,10 @@ _data_:
   - `na` : `[nom, cle]` de P.
   - `cv` : `{ v, photo, info }` de P.
   - `naf` : `[nom, cle]` attribué au filleul.
-  - Si c'est un compte O:
-    - `clet` : clé de sa tribu.
-    - `sp` : vrai si le filleul est lui-même sponsor.
-  - Si c'est un compte A:
-    - `m` : montant du _don_ de l'organisation au nouveau compte.
-  - `quotas` : `[v1, v2]` quotas attribués par le sponsor.
+  - `sp` : vrai si le filleul est lui-même sponsor.
+  - `clet` : clé de sa tribu, si c'est un compte O
+  - `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
+    - pour un compte A `[0, 1, 1]`. Un compte A n'a pas de qc et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
 - `ardx` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring
 
 **Remarques**
@@ -720,7 +716,6 @@ _data_:
   - `aaaammjj` date limite de validité pour un _temporaire_.
 - `im` : exclusivité dans un groupe. L'écriture et la gestion de la protection d'écriture sont restreintes au membre du groupe dont `im` est `ids`. 
 - `p` : _0: pas protégé, 1: protégé en écriture_.
-- `v1` : volume du texte.
 - `v2` : volume total des fichiers attachés.
 - `mc` :
   - note personnelle : vecteur des index de mots clés.
@@ -836,7 +831,7 @@ _data_:
 - `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
   - `sta`: statut d'activité: 1: contact, 2:invité, 3:actif, 4:résilié
   - `laa`: 1:lecteur, 2:auteur, 3:animateur.
-- `nag` : table des 'hcmg' hash de la clé de l'avatar membre cryptée par la clé du groupe. Les index dans nag et ast correspondent.
+- `nag` : table des 'hcmg' (hash de la clé de l'avatar membre cryptée par la clé du groupe). Les index dans `nag` et `ast` correspondent.
 - `ln` : liste noire des 'hcmg' des avatars interdits de redevenir contact. 
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
