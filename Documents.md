@@ -514,10 +514,10 @@ _data_ :
   - _valeur_ : couple `[nom clé]` de l'avatar crypté par la clé K du compte.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
-- `credits` : pour un compte A seulement:
+- `credits` : pour un compte A seulement crypté par la clé K:
   - `total`: cumul des crédits reçus depuis le début de la vie du compte.
   - `tickets`: liste des tickets en attente d'enregistrement.
-  - crypté par la clé K sauf après une conversion de compte O ou c'est crypté par la clé publique de l'avatar principal du compte.
+  - juste après une conversion de compte O en A, `credits` est égal à `true`, une convention pour une création vierge.
 - `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
 
 **Pour le Comptable seulement**
@@ -1402,29 +1402,30 @@ Le Comptable peut mettre à jour `infoK` et le supprimer, ce qui entraînera la 
 - le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
 - Le Comptable ou un sponsor désigne le compte dans ses contacts et cite cette phrase. Si elle est conforme, ça lance une opération qui:
   - inscrit le compte dans une tribu,
-  - effectue une remise à zéro dans compteurs du compte du total abonnement et consommation des mois antérieurs (razma()):
+  - effectue une remise à zéro dans compteurs du compte du total abonnement et consommation des mois antérieurs (`razma()`):
     - l'historique des compteurs et de leurs valorisations reste intact.
     - les montants du mois courant et des 17 mois antérieurs sont inchangés,
-    - MAIS les deux compteurs aboma et consoma qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de quota de consommation _d'avance_
+    - MAIS les deux compteurs `aboma` et `consoma` qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de consommation _d'avance_
   - efface `oko`.
 
 ### Rendre _autonome_ un compte O
 C'est une opération du Comptable et/ou d'un sponsor selon la configuration de l'espace, qui n'a besoin de l'accord du compte (dans `oko` comme ci-dessus) que si la configuration de l'espace l'a rendu obligatoire.
 - il est retiré de sa tribu.
-- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs.
-- oko est effacé.
-- un objet Ticket est créé avec:
-  - un total muni d'une somme forfaitaire correspondant à un mois d'abonnement / consommation avec lss quotas à 1 (minimaux).
-  - une liste tickets vide.
-  - l'objet est crypté par la clé publique du compte.
+- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs. Un _découvert_ est déclaré pour laisser le temps au compte d'enregistrer son premier crédit.
+- `oko` est effacé.
+- un objet `ticket` est créé avec:
+  - un `total` nul.
+  - une liste `tickets` vide.
 
 ### Sponsoring d'un compte O
-Rien de particulier : compteurs est initialisé, sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
+Rien de particulier : `compteurs` est initialisé, sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
 
 ### Sponsoring d'un compte A
-Un objet Ticket est créé avec:
-- un total muni d'une somme forfaitaire correspondant à un mois d'abonnement / consommation avec lss quotas à 1 (minimaux).
-- une liste tickets vide.
+`compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _découvert_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
+
+Un objet `ticket` est créé dans `comptas` avec:
+- un `total` nul.
+- une liste `tickets` vide.
 - l'objet est crypté par la clé K du compte à l'acceptation du sponsoring.
 
 # Maintien de la cohérence

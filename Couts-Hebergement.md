@@ -2,35 +2,33 @@
 
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
-Ci-dessous on considère le coût mensuel pour un compte.
-
 #### Abonnement
 Il correspond aux coûts récurrents mensuels pour un compte même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
-- **(V1) Volume des données sur la base de données**. Il est calculé proportionnellement à la somme des nombres de,
+- **(V1) Volume des données sur la base de données**. Il est calculé par la multiplication d'un volume forfaitaire par la somme des nombres de,
   - **(nn) notes** personnelles et notes d'un groupe hébergé par le compte,
   - **(nc) chats** en ligne, 
   - **(ng) participations aux groupes**.
-- **(V2) Volume des fichiers attachés aux notes** ci-dessus stockés sur un _Storage_.
+- **(V2) Volume des fichiers attachés aux notes** stocké sur un _Storage_.
 
-Pour obtenir le coût d'abonnement à ces deux volumes, il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _quotas_ Q1 et Q2** choisis par le compte, c'est à dire **l'espace maximal** auquel il s'abonne et qui a été réservé à cet effet.
+Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _volumes maximaux_** fixés pour le compte et qui lui est réservé.
 
 _L'ordre de grandeur_ des prix du marché, donne les coûts suivants en centimes d'euro annuel:
 
-    'un' Q1 : 250 notes chats / groupes -> 0,45c/an
-    'un' Q2 : 100Mo                     -> 0,10c/an
+    Unité u1 : 250 notes chats / groupes -> 0,45c/an
+    Unité u2 : 100Mo                     -> 0,10c/an
 
-    Pour un compte XXS ( 1 Q1 :   250n /  1 Q2 :  100Mo) ->   1,6 c/an
-    Pour un compte MD  ( 8 Q1 :  2000n /  8 Q2 :  800Mo) ->  13,0 c/an
-    Pour un compte XXL (64 Q1 : 16000n / 64 Q2 : 6,4Go ) -> 102,0 c/an
+    Pour un compte XXS ( 1 u1 :   250n /  1 u2 :  100Mo) ->   1,6 c/an
+    Pour un compte MD  ( 8 u1 :  2000n /  8 u2 :  800Mo) ->  13,0 c/an
+    Pour un compte XXL (64 u1 : 16000n / 64 u2 : 6,4Go ) -> 102,0 c/an
 
 > Les volumes V1 apparaissent environ 25 fois plus coûteux au méga-octet que les volumes V2, mais comme les fichiers peuvent être très volumineux, le coût d'utilisation dépend de ce que chacun met en textes des notes et en fichiers attachés.
 
-> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les quotas attribués, sauf dans le cas où les quotas ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
+> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les volumes maximaux de l'abonnement, sauf dans le cas où ceux-ci ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
 
 #### Consommation de calcul
 
-Ces coûts de _calcul_ correspondent directement à l'activité d'une session d'un compte, et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
-- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc. **Lu** signifie _extrait de la base de données_: 
+Ces coûts de _calcul_ correspondent directement à l'usage fait de l'application quand une session d'un compte est ouverte. Ils dépendent de _l'activité_ du titulaire du compte et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
+- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc. **Lu** signifie extrait de la base de données.
   - en utilisant un mode _synchronisé_ la très grande majorité des données étant déjà présentes sur l'appareil du titulaire du compte, les _lectures_ se résument à celles des données ayant changé ou ayant été créés depuis la fin de la session précédente. 
   - pour un même service apparent, le coût des _lectures_ peut varier, par exemple par rafraîchissement systématique des cartes de visite, ou en gardant un chat en ligne au lieu de raccrocher ...
   - en mode _avion_ le nombre de lectures est par principe nul.
@@ -49,9 +47,12 @@ _L'ordre de grandeur_ des prix de marché donne les coûts unitaires suivants en
 > Les estimations d'un coût annuel pour un compte sont arbitraires car très dépendantes de l'usage de chacun et en particulier de la fréquence des sessions.
 
 ### Coût total
-C'est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `q1*u1 + q2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
-- `q1` = _quota_ maximal de la somme des nombres de notes (`nn`), de chats (_nc_) et de participations aux groupes (`ng`).
-- les coûts d'abonnement (quotas q1 / q2) sont calculés au prorata du temps d'existence du compte dans le mois et de la durée elle-même du mois.
+Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `m1*u1 + m2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
+- `m1` = _volume maximal_ de la somme `nn + nc + ng`
+- `m2` = _volume maximal_ des fichiers attachés aux notes.
+- `nl ne` : nombres de lectures et d'écritures,
+- `vd vm` : volume descendant et montant.
+- les coûts d'abonnement `m1 m2` sont calculés au prorata du temps d'existence du compte dans le mois et de la durée elle-même du mois.
 
 Un compte peut consulter à tout instant, en particulier:
 - le détail des coûts _exacts_ cumulés pour le mois en cours et les 3 précédents,
@@ -61,61 +62,52 @@ Un compte peut consulter à tout instant, en particulier:
 
 >_L'ordre de grandeur_ d'un coût total par compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible. Ce n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement pour un millier de comptes ...
 
-#### Solde monétaire d'un compte
-Chaque compte a un _solde_ qui résulte,
-- **en crédit :** 
-  - soit de ce qu'il a versé ou fait verser monétairement au comptable de l'organisation,
-  - soit de ce que lui a crédité automatiquement l'organisation chaque seconde quand celle-ci prend en charge le coût de fonctionnement du compte.
-- **en débit :** les coûts de calcul de chaque opération, PLUS, le coût d'abonnement sur chaque seconde.
-
-**A chaque instant le compte peut consulter son solde** : les variations peuvent être infimes d'une heure à l'autre.
-
 ## Le Comptable, les comptes _A_ et _O_
 
 ### Le compte du "Comptable"
 _Le Comptable_ désigne une personne plus ou moins virtuelle, voire un petit groupe de personnes physiques qui:
 - a négocié avec un hébergeur représenté par le terme _administrateur technique_ les conditions et le prix de l'hébergement.
-- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour certains comptes.
+- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour les comptes O, pris en charge par l'organisation.
 
 Le compte **Comptable** ne peut pas être supprimé, a un numéro fixe reconnaissable, a pour nom d'avatar principal `Comptable`, n'a pas de carte de visite mais est connu de tous les comptes.
 
-C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. **Il a le privilège important de gérer les quotas gratuits**.
+C'est un compte _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. **Il a le privilège important de gérer les forfaits gratuits**.
 
 A l'installation de l'hébergement d'une organisation, l'administrateur technique s'est concerté avec le Comptable de cette organisation qui lui a donné une _phrase secrète provisoire_. Le compte du **Comptable** est créé: ce dernier se connecte et change la phrase secrète pour une nouvelle, qui, elle, sera inconnue de l'administrateur technique.
 
 > Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
 
 ### Compte _autonome_ "A"
-Un compte _autonome_ **fixe lui-même ses quotas Q1 et Q2** et peut les changer à son gré, mais pas en-dessous des volumes qu'il occupe effectivement. 
-- En cas de dépassement ponctuel de Q1 / Q2 par les volumes réels, le compte est _restreint_, les opérations augmentant le volume étant bloquées.
+Un compte _autonome_ fixe lui-même, son niveau d'abonnement, c'est à dire ses _volumes maximum V1 et V2_ et peut les changer à son gré, mais pas en-dessous des volumes qu'il occupe effectivement.
 
-> **Nul ne peut bloquer / résilier un compte _autonome_**, mais le compte peut se bloquer lui-même s'il ne couvre pas les frais d'utilisation de son compte
+> **Nul ne peut bloquer / résilier un compte _autonome_**, mais le compte peut se bloquer lui-même s'il n'a pas été crédité suffisamment pour couvrir ses coûts d'abonnement et de consommation.
 
-> Un compte A gère ses crédits et comment il en ajoute. Le principe est qu'un compte A est _bloqué_ si la somme de ses crédits depuis sa création est inférieure à la somme des coûts d'abonnement et de consommation comptabilisés depuis sa création.
+Il dispose à cet effet d'un compteur de **crédits** qui lui donne le cumul de tous les crédits qu'il a récupérés et enregistrés depuis l'ouverture de son compte ou depuis qu'il est devenu compte _autonome_.
 
 #### Gestion des crédits
 Les crédits sont exprimés en _unité monétaire_ (signe €).
 
 L'enregistrement `credit` de son compte est **crypté par la clé du compte**: lui-seul peut y accéder. Il comporte deux propriétés:
-- `total` : total de tous les crédits _reçus_ depuis la création du compte.
+- `total` : total de tous les crédits _reçus_ depuis la création du compte où depuis qu'il a changé de statut _A/O_.
 - `tickets` : liste des _tickets_ des ligne de crédits _en attente_ de réception et d'enregistrement par le Comptable.
 
 **Opérations de crédit:**
-- (I) **le titulaire du compte génère un _ticket_** qui est stocké dans la liste de ses _tickets en attente_ dans son enregistrement credits (donc crypté).
+- (I) **le titulaire du compte génère un _ticket_** qui est stocké dans la liste de ses _tickets en attente_ dans son enregistrement `credit` (donc crypté).
 - (II) il le cite en référence d'un _paiement_ qu'il effectue lui-même, soit le communique à un tiers qui effectue le _paiement_ en citant le ticket.
 - (III) le Comptable reçoit un _paiement_, typiquement un virement d'une banque, mais aussi tout autre procédé accepté par l'organisation. Il enregistre le ticket cité en référence du paiement avec son montant, la date de réception et un commentaire facultatif.
 - (IV) le compte se connecte, ou appui sur un bouton ad hoc dans sa session et ceci récupère tous les tickets en attente dans tickets et enregistrés par le Comptable. 
-  - dans son enregistrement credit le total est incrémenté et la liste des tickets en attente réduite des tickets reçus.
+  - dans son enregistrement `credit` le total est incrémenté et la liste des tickets en attente réduite des tickets reçus.
   - dans la liste des tickets enregistrés par le Comptable, le ticket est effacé (sauf si le Comptable y a laissé un commentaire qu'il pourra d'ailleurs mettre à jour et / ou supprimer).
 
-> Les _tickets_ étant enregistré crypté par la clé des comptes, aucune corrélation ne peut être faite entre la source d'un _paiement_ et le compte qui en bénéficie.
-
-> Au sponsoring d'un compte, le sponsor inscrit un faible montant _cadeau_ qui permet au compte de se connecter et de disposer d'un délai pour alimenter son credit avec une somme réaliste. 
+> Les _tickets_ étant enregistrés cryptés par la clé des comptes, aucune corrélation ne peut être faite entre la source d'un _paiement_ et le compte qui en bénéficie.
 
 #### Solde crédits - coûts _négatif_: accès _minimal 
 A la connexion d'un compte, mais ensuite en session, un _solde_ est calculé : total de son crédit MOINS total de ses coûts d'abonnement et de consommation. 
 
 S'il est négatif, l'accès du compte à l'application est  **minimal** (voir le détail ci-après): en gros il ne peut plus que gérer son crédit, en consulter l'état de consommation et chatter avec le Comptable (mais ne peut ni consulter ses données, ni les modifier).
+
+Toutefois, le Comptable peut _autoriser un découvert_ d'un montant de son choix qui prendra fin N jours (de son choix) après la déclaration d'autorisation.
+- A la création d'un compte par _sponsoring_, le compte créé bénéficie d'un _découvert_ minimal qui lui laisse le temps d'effectuer quelques opérations avant d'avoir enregistré son premier crédit.
 
 > Avant de devenir _négatif_ le solde d'un compte a été _faiblement positif_. Le compte en est averti lors de sa connexion avec le nombre de jours _estimé_ avant de devenir négatif si son profil de consommation reste voisin de celui des mois antérieurs.
 
@@ -123,12 +115,8 @@ S'il est négatif, l'accès du compte à l'application est  **minimal** (voir le
 
 ### Compte _d'organisation_ "O"
 **Un compte _d'organisation_ bénéficie _gratuitement_**:
-- _d'un _abonnement_ c'est à dire de quotas Q1 / Q2 de notes / chats et de volume de fichiers.
-  - En cas de dépassement ponctuel de Q1 / Q2 par les volumes réels, le compte est _restreint_, les opérations augmentant le volume étant bloquées.
-- _d'un quota de consommation_ renouvelée à chaque instant et destiné à couvrir les coûts de _lectures / écritures de notes, chats, etc._ et de _transfert_ de fichiers.
-  - si la consommation sur le mois courant et le mois antérieur dépasse le quota de consommation sur cette période, le compte est mis en accès **minimal**: il ne peut plus que consulter l'état de sa consommation et chatter avec le Comptable ou ses sponsors (mais ne peut ni consulter ses données, ni les modifier).
-
-> Avant que la consommation dépasse son quota, elle _s'en approche_: le compte en est averti.
+- _d'un _abonnement_ c'est à dire d'un _nombre maximal total_ de notes / chats / groupes et d'un _volume maximal total_ pour les fichiers attachés aux notes.
+- _d'une limite de coûts annuelle de calcul_ destinée à couvrir les coûts de _lectures / écritures de notes, chats, etc._ et de _transfert_ de fichiers. **Le compte subit une restriction d'accès** si sa consommation sur le mois en cours et le précédent (rapportée à l'année) dépasse cette limite.
 
 > **Un compte O peut être bloqué par l'organisation**, en n'ayant plus qu'un accès _en lecture seulement_, voire un accès _minimal_ (consultation de sa consommation et chats avec l'organisation).
 
@@ -136,26 +124,29 @@ S'il est négatif, l'accès du compte à l'application est  **minimal** (voir le
 
 Le Comptable est le premier compte O et ne peut, ni être bloqué, ni devenir _autonome_: bref il est garanti toujours vivant.
 
-### Gestion des quotas par _tranche_
-Le Comptable dispose de quotas globaux Q1 / Q2 et d'un _quota de consommation_ global pour l'ensemble des comptes _O_. 
+### Gestion des abonnements et limites de calcul par _tranche_
+Le Comptable dispose pour distribution aux comptes _O_,
+- d'un _volume maximal total_ pour les notes, chats, groupes,
+- d'un _volume maximal total_ pour les fichiers attachés aux notes,
+- d'une _limite maximale totale des coûts annuels de calcul_. 
 
-**Il découpe ces quotas en _tranches_** et est en charge d'en ajuster la répartition au fil du temps.
-
-Tout compte O _d'organisation_ est créé dépendant d'une tranche de laquelle ses quotas ont été prélevés.
+**Il découpe ces _volumes et limites_ en _tranches_** et est en charge de les ajuster au fil du temps.
+- dans chaque _tranche_ le Comptable a des _comptes sponsors_ à qui il délègue la distribution des _volumes maximaux et limites de calcul_ aux comptes rattachés à la tranche.
+- tout compte O _d'organisation_ est attachée à **une tranche**.
 
 #### Sponsor d'une tranche
 Le Comptable peut attribuer / enlever le rôle de **_sponsor de sa tranche_** à un compte O:
-- un _sponsor_ peut sponsoriser un nouveau compte en lui attribuant des quotas prélevés sur la tranche qu'il gère: il peut aussi déclarer à ce moment le nouveau compte lui-même _sponsor_ de cette tranche.
-- un `sponsor` peut augmenter / réduire les quotas des comptes liés à la tranche qu'il gère.
+- un _sponsor_ peut sponsoriser un nouveau compte en lui attribuant des volumes maximaux et une limite de calcul prélevés sur la tranche qu'il gère: il peut aussi déclarer à ce moment le nouveau compte lui-même _sponsor_ de cette tranche.
+- un `sponsor` peut augmenter / réduire les volumes maximaux et limites de calcul des comptes liés à la tranche qu'il gère.
 - le Comptable peut déclarer plus d'un compte _sponsor_ pour une tranche donnée.
 - le Comptable peut aussi passer un compte _d'organisation_ d'une tranche à une autre.
 
-> La gestion des quotas des comptes 0 _d'organisation_ s'effectue à deux niveaux en déléguant la maîtrise fine de ceux-ci aux sponsors de chaque tranche.
+> La gestion des forfaits gratuits des comptes 0 _d'organisation_ s'effectue à deux niveaux en déléguant la maîtrise fine de ceux-ci aux sponsors de chaque tranche.
 
 **Quelques règles :**
 - un compte _non sponsor_ de sa tranche en connaît les sponsors, leurs carte de visite, et peut chatter avec eux (et avec le Comptable).
 - un compte _sponsor_ de sa tranche :
-  - connaît tous les autres comptes dont les quotas sont imputés à sa tranche, mais n'en connaît la _carte de visite_ que si son avatar principal est un de ses _contacts_ (il l'a sponsorisé, a ouvert un chat avec lui, ou participe à un même groupe). Sinon il n'en connaît que le numéro.
+  - connaît tous les autres comptes dont les volumes maximaux et limite de coût calcul sont imputés à sa tranche, mais n'en connaît la _carte de visite_ que si son avatar principal est un de ses _contacts_ (il l'a sponsorisé, a ouvert un chat avec lui, ou participe à un même groupe). Sinon il n'en connaît que le numéro.
   - peut en lire les compteurs d'abonnement et de consommation.
 - aucun compte, pas même le Comptable, ne peut connaître les avatars secondaires des comptes et n'a aucun moyen d'accéder à leurs notes et chats.
 
@@ -166,12 +157,12 @@ Le Comptable dispose de la liste des tranches (puisqu'il les as créées) et pou
 - Le Comptable peut lever cette interdiction et en autoriser la création,
   - soit réservé à lui-même,
   - soit la déléguer aux sponsors.
-  - spécifie s'il faut l'accord d'un compte O pour le rendre _autonome_ ou si la décision peut s'imposer à lui.
-- Il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+- il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+- enfin il précise si le passage de compte O à compte A est soumis à l'accord du compte.
 
 > Il faut TOUJOURS l'accord explicite d'un compte A pour le rendre O: un compte A peut parfaitement refuser le risque de se faire bloquer par l'organisation et continuer à payer ses coûts d'hébergement.
 
-> L'accord explicite d'un compte O pour être rendu A n'est requis que si c'est spécifié dans la configuration de l'espace par le Comptable. L'organisation peut, si sa charte le lui permet, ne plus supporter les coûts d'un compte sans son accord en sachant qu'après cela elle ne peut plus le _bloquer_.
+> L'accord explicite d'un compte O pour être rendu A n'est requis que si c'est spécifié dans la configuration de l'espace par le Comptable. L'organisation peut, si sa charte le lui permet, ne plus vouloir supporter les coûts d'un compte sans son accord en sachant qu'après cela elle ne peut plus le _bloquer_.
 
 > Si un compte A paie lui-même son activité, en contre-partie il ne peut pas être bloqué par l'organisation: ceci dépend vraiment du profil de chaque organisation.
 
@@ -199,7 +190,9 @@ L'administrateur technique a ainsi les moyens:
 - de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).
 
 ### Notification pour les comptes O: accès _lecture seule_ et _minimal_ 
-Ces notifications peuvent être émises par le Comptable et des sponsors. Ce peut être une simple information ponctuelle et ciblée plus ou moins large, ne soumettant pas les comptes à des restrictions d'accès.
+Ces notifications peuvent être émises par le Comptable et des sponsors. Ce peut être une simple information ponctuelle et ciblée plus ou moins large, ne soumettant pas les comptes à des restrictions d'accès, mais elle peut aussi être porteuse d'une _restriction_:
+- Restriction d'accès en _lecture seulement_,
+- Restriction d'accès _minimal_.
 
 Ces notifications peuvent avoir deux portées:
 - _tous_ les comptes O d'une tranche,
@@ -208,41 +201,45 @@ Ces notifications peuvent avoir deux portées:
 **Restriction d'accès en _lecture seulement_**
 - les données ne peuvent être que lues, pas mises à jour, avec les exceptions suivantes:
   - les chats sont possibles avec le Comptable et les sponsors,
-  - les opérations de crédit / gestion des quotas pour un compte A restent autorisées.
+  - les opérations de crédit / gestion des volumes maximaux pour un compte A restent autorisées.
 
 **Restriction d'accès _minimal_**
 - les données ne peuvent ni être lues, ni être écrites avec les exceptions suivantes:
   - les chats sont possibles avec le Comptable et les sponsors,
-  - les opérations de crédit / gestion des quotas pour un compte A restent autorisées.
+  - les opérations de crédit / gestion des volumes maximaux pour un compte A restent autorisées.
   - **les connexions du compte ne le maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, le compte disparaîtra.
 
 ### Notification automatique par surveillance de la consommation
 - pour un compte A: solde (crédits - coûts).
-- pour un compte O: comparaison entre `consoj` la _consommation journalière_ moyenne sur le mois en cours et le précédent, et le quota de consommation `qcj` (ramené à la journée).
+- pour un compte O: comparaison entre la consommation sur le mois en cours et le précédent (rapportée à une année) et la limite de consommation.
 
 **Notification sans restriction d'accès quand,** 
-- **compte A) le solde est _faiblement positif_**: le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance récente de consommation est inférieur à un seuil d'alerte (60 jours).
-- **compte O) la consommation journalière moyenne est _importante_**, dépasse 80% du quota de consommation.
+- **compte A) le solde est _faiblement positif_**: le nombre de jours ou le solde devrait rester positif en cas de poursuite de la tendance de consommation des 4 derniers mois est inférieur à un seuil d'alerte (60 jours).
+- **compte O) la consommation du mois en cours et précédent est _importante_**, rapportée à l'année, elle dépasse 80% de la _limite de consommation_.
 
 Pas de restrictions d'accès, mais une pop-up à la connexion et une icône _d'attention_ en barre d'entête.
 
 **Notification avec accès _minimal_ quand,**
-- **compte A) le solde est _négatif_**, 
-- **compte O) la consommation journalière moyenne est _excessive_**, dépasse 100% du quota de consommation.
+- **compte A) le solde est _négatif_**.
+  - Toutefois, le Comptable peut _autoriser un découvert_ d'un montant de son choix qui prendra fin N jours (de son choix) après la déclaration d'autorisation.
+- **compte O) la consommation journalière moyenne est _excessive_**, rapportée à l'année, elle dépasse la _limite de consommation_.
+  - Toutefois, le Comptable peut _autoriser un découvert_ de X% (de son choix) qui prendra fin N jours (de son choix) après la déclaration d'autorisation.
 
 **Les connexions du compte ne le maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, le compte disparaîtra.
 
 Une pop-up apparaît à la connexion et une icône _d'alerte_ figure en barre d'entête.
 
-### Notification automatique par surveillance des dépassements des quotas Q1 et Q2
+### Notification de la surveillance automatique des dépassements des volumes maximaux
 Cette notification s'applique aux comptes O et A.
+- Notification sans restriction d'accès quand les volumes maximaux sont _approchés_.
+- Notification avec restriction aux opérations diminuant les volumes quand les maximum sont dépassés.
 
-**Notification sans restriction d'accès quand les quotas Q1 / Q2 sont _approchés_**
-- Le nombre de notes et chats effectivement existantes est à moins de 10% du quota Q1.
-- Le volume des fichiers existant effectivement est à moins de 10% du quota Q2.
+**Notification sans restriction d'accès quand les volumes maximaux sont _approchés_**
+- Le nombre de notes et chats effectivement existantes est à moins de 10% du nombre maximal déclaré.
+- Le volume des fichiers existant effectivement est à moins de 10% du volume maximal des fichiers.
 - pas de restrictions d'accès, mais une pop-up à la connexion et une icône _d'attention_ en barre d'entête.
 
-**Notification avec restriction aux opérations _décroissantes_ quand les quotas sont dépassée**
+**Notification avec restriction aux opérations _décroissantes_ quand les volumes maximaux sont dépassée**
 - Les opérations _diminuant_ le nombre de notes, chats, participation aux groupes sont libres.
 - Les opérations _augmentant_ le volume des fichiers (création / mise à jour en extension) sont bloquées.
 
@@ -252,10 +249,10 @@ Cette notification s'applique aux comptes O et A.
 - M : _minimal_ :
   - pour les seuls comptes O, par le Comptable ou un sponsor,
   - pour tous les comptes, du fait d'un solde négatif,
-- D : _décroissant_ par dépassement des quotas
+- D : _décroissant_ par dépassement des volumes maximaux.
 
     F L M D
-    O O O O   gestion du solde
+    O O O O   gestion du crédit et des volumes maximaux
     N O O O   chats avec le Comptable et les sponsors
     O O N O   lecture des données
     N N N -   mises à jour
@@ -267,6 +264,20 @@ Source des notifications pour un compte:
 - une par tranche du Comptable ou d'un des sponsors de la tranche
 - une par compte du Comptable ou d'un des sponsors de la tranche
 - une de surveillance du niveau du solde
-- une de surveillance de non dépassement des quotas
+- une de surveillance de non dépassement des volumes maximaux.
 
 > Le compte le plus _notifié_ peut avoir jusqu'à 5 notifications à un instant donné, l'amenant au pire à cumuler plusieurs restrictions.
+
+### Passage d'un compte A à O
+Un compte A a demandé à passer O. Son accord est traduit par une _phrase d'accord_ transmise au Comptable ou au sponsor par un chat.
+
+Le Comptable ou un sponsor désigne le compte dans ses contacts et cite cette phrase. Si elle est conforme le compte est inscrit dans une tranche avec des volumes maximaux et une limite de coût calcul.
+
+Il peut poursuivre son activité sans risquer un blocage du fait d'un historique de consommation transitoire peu significatif.
+
+### Rendre _autonome_ un compte O
+C'est une opération du Comptable et/ou d'un sponsor selon la configuration de l'espace, qui n'a besoin de l'accord du compte que si la configuration de l'espace l'a rendu obligatoire.
+
+L'accord du compte est marqué comme ci-avant par une _phrase d'accord_ transmise au Comptable ou au sponsor par un chat.
+
+Le compte bénéficie d'un _découvert_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
