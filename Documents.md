@@ -484,7 +484,7 @@ _data_:
 - `atr` : table des synthèses des tribus de l'espace. L'indice dans cette table est l'id court de la tribu. Chaque élément est la sérialisation de:
   - `qc q1 q2` : quotas de la tribu.
   - `ac a1 a2` : sommes des quotas attribués aux comptes de la tribu.
-  - `cj v1 v2` : somme des consommations journalières et des volumes effectivement utilisés.
+  - `ca v1 v2` : somme des consommations journalières et des volumes effectivement utilisés.
   - `ntr0` : nombre de notifications tribu sans restriction d'accès.
   - `ntr1` : nombre de notifications tribu avec restriction d'accès _lecture seule_.
   - `ntr2` : nombre de notifications tribu avec restriction d'accès _minimal_.
