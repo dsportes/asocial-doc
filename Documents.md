@@ -524,7 +524,7 @@ _data_ :
 -`atr` : table des tribus : `{clet, info, qc, q1, q2}` crypté par la clé K du comptable.
   - `clet` : clé de la tribu (donne aussi son id, index dans `act / astn`).
   - `info` : texte très court pour le seul usage du comptable.
-  - `qc q1 q2` : quotas globaux de la tribu.
+  - `q` : `[qc, q1, q2]` : quotas globaux de la tribu.
 - `astn` : table des restriction d'accès des notifications des tribus _0:aucune, 1:lecture seule, 2:accès minimal_.
 
 La première tribu d'`id` 1 est la tribu _primitive_, celle du comptable et est indestructible.
