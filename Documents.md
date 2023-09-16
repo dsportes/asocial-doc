@@ -389,7 +389,7 @@ Une notification a les propriétés suivantes:
 - `nr`: restriction d'accès: 
   - 0 : pas de restriction
   - 1 : espace figé
-  - 2 : espace bloqué
+  - 2 : espace clos
   - 3 : accès en lecture seule
   - 4 : accès minimal
   - 5 : actions accroissant le volume interdites.
