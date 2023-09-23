@@ -605,6 +605,7 @@ Un chat est décompté des chats par compte quand il est _en ligne_. Exemple:
 - E écrit à I: 0 / 1 -> même texte sur I et E
 - E écrit à I: 0 / 1 -> même texte sur I et E
 - E raccroche: 0 / 0 -> aucun texte sur I ni E
+- I accepte sponsoring de E: 1 / 0
 
 **Remarques:**
 - le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
