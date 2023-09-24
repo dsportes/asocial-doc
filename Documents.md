@@ -410,21 +410,23 @@ _data_ :
 - `id` : de l'espace de 10 à 89.
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
-- `opt`: `xy` - 0 10  11 20 21
-  - x : 0: l'organisation n'autorise pas les comptes A.
-  - x : 1: comptes A autorisés sous contrôle du Comptable.
-  - x : 2: comptes A autorisés sous contrôle du Comptable ou d'un sponsor.
-  - y : 0: l'accord du compte n'est pas nécessaire pour passer de O à A
-  - y : 1: l'accord du compte est requis pour passer de O à A.
+- `opt`:
+  - 0: 'Pas de comptes "autonomes"',
+  - 1: 'Le Comptable peut rendre un compte "autonome" sans son accord',
+  - 2: 'Le Comptable NE peut PAS rendre un compte "autonome" sans son accord',
 - `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
 - `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
+- `dtk` : `{j, n}`
+  - `j` : aaaammjj du dernier ticket attribué,
+  - `n` : numéro d'ordre
+  - `c` : clé d'auto-contrôle
 
 ### Documents `tickets`
-Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
+Un ticket est un entier de 15 chiffres de la forme `ns aaaammjj nnnn c`
 - `ns` : numéro d'espace,
 - `aaaammjj` : jour d'émission
 - `nnnn`: numéro d'ordre d'émission dans le jour.
-- `c` : clé d'auto-contrôle.
+- `c` : clé d'auto-contrôle (SANS ns).
 
 Il y a un document `tickets` par ticket de paiement reçu et pas encore _crédité ou traité_.
 
@@ -1425,7 +1427,7 @@ Rien de particulier : `compteurs` est initialisé, sa consommation est nulle, de
 `compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _découvert_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
 
 Un objet `ticket` est créé dans `comptas` avec:
-- un `total` nul.
+- un `total` de 2 centimes.
 - une liste `tickets` vide.
 - l'objet est crypté par la clé K du compte à l'acceptation du sponsoring.
 
