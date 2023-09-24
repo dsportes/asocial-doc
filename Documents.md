@@ -434,7 +434,7 @@ _data_:
 - `id`: numéro de ticket.
 - `dh`: date-heure d'enregistrement.
 - `m`: montant.
-- `infoK`: texte facultatif du Comptable pour un ticket qu'il considère comme _à traiter_ plus tard, à vérifier, etc.
+- `infoK`: texte facultatif du Comptable pour un ticket qu'il soit considéré comme _à traiter_ plus tard, à vérifier, etc.
 - `cr`: 0: pas encore crédité par le compte, 1: crédité par le compte.
 
 Normalement un ticket est détruit quand il est cumulé à ses crédité par le compte, SAUF s'il existe une `infoK` qui indique que le Comptable souhaite le conserver encore. Dans ce cas l'indicateur `cr` est mis à 1.
