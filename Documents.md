@@ -432,14 +432,52 @@ Il y a un document `tickets` par ticket de paiement reçu et pas encore _crédit
 
 _data_:
 - `id`: numéro de ticket.
-- `dh`: date-heure d'enregistrement.
-- `m`: montant.
-- `infoK`: texte facultatif du Comptable pour un ticket qu'il soit considéré comme _à traiter_ plus tard, à vérifier, etc.
-- `cr`: 0: pas encore crédité par le compte, 1: crédité par le compte.
+- `st` : statut 1:en attente 2:réceptionné 3:crédit incorporé
+- `ma`: montant déclaré émis par le compte A.
+- `mc` : montant déclaré reçu par le Comptable.
+- `refa` : texte court (32c) facultatif du compte A à l'émission.
+- `refc` : texte court (32c) facultatif du Comptable à la réception.
+- `dr`: date de réception.
+- `dc`: jour où le crédit a été incorporé par le compte A dans son solde.
 
-Normalement un ticket est détruit quand il est cumulé à ses crédité par le compte, SAUF s'il existe une `infoK` qui indique que le Comptable souhaite le conserver encore. Dans ce cas l'indicateur `cr` est mis à 1.
+#### Cycle de vie
+**Émission d'un ticket (annonce de paiement) par le compte A**
+- le compte A déclare,
+  - un montant `ma` celui qu'il affirme avoir payé / viré.
+  - une référence `refa` textuelle libre facultative à un dossier de _litige_, typiquement un _avoir_ correspondant à une erreur d'enregistrement antérieure.
+- un ticket est généré et enregistré dans `tickets` avec un statut _en attente_.
 
-Le Comptable peut mettre à jour `infoK` et le supprimer, ce qui entraînera la suppression du ticket si `cr` est à 1.
+**Effacement d'un de ses tickets par le compte A**
+- en cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ d'être toujours _en attente_. Le ticket est physiquement effacé de `tickets` et dans la liste `comptas.tickets`.
+
+**Réception d'un paiement par le Comptable**
+- le Comptable ne peut _que_ compléter un ticket _en attente_ (qui n'a pas déjà été réceptionnée) depuis moins d'un an.
+- sur le ticket correspondant le Comptable peut remplir:
+  - le montant `mc` du paiement reçu, sauf indication contraire par défaut égal au montant `ma`.
+  - une référence textuelle libre justifiant une différence entre `ma` et `mc`. Ce peut être un numéro de dossier de _litige_ qui pourra être repris ensuite entre le compte A et le Comptable.
+- la date de réception `dr` est inscrite, le ticket est _réceptionné_.
+
+**Incorporation du crédit dans le solde du compte A**
+- l'opération est automatique à la prochaine connexion du compte A postérieure à une _réception de paiement_. En cours de session, un bouton permet d'activer cette incorporation.
+- elle consiste à intégrer au solde du compte le montant d'un ticket _réceptionné_ (mais pas encore _incorporé au solde_)
+- les tickets plus vieux d'un an ne peuvent plus être incorporés au solde du compte.
+- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.credits`. En cas de différence de montants, une alerte s'affiche.
+
+#### Listes disponibles en session
+Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut.
+
+Le Comptable peut obtenir en session la liste des tickets _en attente_. La première demande cette liste abonne la session du Comptable aux mises à jour de tickets, la session recevant alors les évolutions de statuts de ceux-ci et les nouveaux tickets _en attente_ (jusqu'à la fin de la session).
+
+Un ticket spécifique peut être demandé, quelque soit son statut.
+
+#### Purges
+Les tickets de plus de 2 ans sont purgés par le GC.
+
+#### Arrêtés mensuels
+Un arrêté mensuel des tickets s'effectue d'après leur mois de réception:
+- le résultat est un _fichier_ **CSV** dont le nom est le mois de l'arrêté.
+
+Le Comptable peut en obtenir le téléchargement.
 
 ## Documents `gcvols`
 _data_ :
@@ -1242,10 +1280,9 @@ Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chif
 ## Classe `Tarif`
 Un tarif correspond à,
 - `am`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
-- `cu` : un tableau de 7 coûts unitaires `[uc, u1, u2, ul, ue, um, ud]`
-  - `uc` : 365 jours de quota qc de calcul
-  - `u1`: 365 jours de quota q1 (250 notes / chats)
-  - `u2`: 365 jours de quota q2 (100Mo)
+- `cu` : un tableau de 7 coûts unitaires `[u1, u2, ul, ue, um, ud]`
+  - `u1`: 30 jours de quota q1 (250 notes / chats)
+  - `u2`: 30 jours de quota q2 (100Mo)
   - `ul`: 1 million de lectures
   - `ue`: 1 million d'écritures
   - `um`: 1 GB de transfert montant.
@@ -1388,18 +1425,7 @@ Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
 - `c` : clé d'auto-contrôle.
 
 ### Documents `tickets`
-Il y a un document ticket par ticket de paiement reçu et pas encore _enregistré ou traité_.
-
-**Propriétés:**
-- `id`: numéro de ticket.
-- `dh`: date-heure d'enregistrement.
-- `m`: montant.
-- `infoK`: texte facultatif du Comptable pour un ticket qu'il considère comme _à traiter_ plus tard, à vérifier, etc.
-- `cr`: 0: pas encore crédité par le compte, 1: crédité par le compte.
-
-Normalement un ticket est détruit quand il est cumulé à ses crédité par le compte, SAUF s'il existe une `infoK` qui indique que le Comptable souhaite le conserver encore. Dans ce cas l'indicateur `cr` est mis à 1.
-
-Le Comptable peut mettre à jour `infoK` et le supprimer, ce qui entraînera la suppression du ticket si `cr` est à 1.
+Voir ci-avant la section correspondante.
 
 ### Passage d'un compte A à O
 - le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
