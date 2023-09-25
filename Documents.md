@@ -65,11 +65,11 @@ Chaque collection a un document par `id` (clé primaire en SQl, second terme du 
   - `id` (sans le ns) est un numéro séquentiel `1..N`.
   - Clé primaire : `id`. Path : `tribus/0...x`
 - `comptas` : un document par compte donnant les informations d'entête d'un compte (dont l'`id` est celui de son avatar principal). L'`id` courte sur 14 chiffres est le numéro du compte :
-  - `10...0` : pour le comtable.
+  - `10...0` : pour le comptable.
   - `2x...y` : pour un compte, `x...y` est un nombre aléatoire sur 13 chiffres.
   - Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
 - `avatars` : un document par avatar donnant les informations d'entête d'un avatar. L'`id` courte sur 14 chiffres est le numéro d'un avatar du compte :
-  - `10...0` : pour l'avatar principal du Comtable.
+  - `10...0` : pour l'avatar principal du Comptable.
   - `2x...y` : pour un avatar d'un autre compte que le Comptable, `x...y` est un nombre aléatoire sur 13 chiffres.
   - Clé primaire : `id`. Path : `avatars/10...0` `avatars/2x...y`
 - `groupes` : un document par groupe donnant les informations d'entête d'un groupe. L'`id` courte sur 14 chiffres est le numéro d'un groupe :
@@ -99,7 +99,6 @@ La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 - son document `versions` ayant un statut de _zombi_, indiquant que l'avatar ou le groupe a disparu,
 - la purge effective de son document `avatars` ou `groupes` et de sa sous-collection de `notes transferts chats sponsorings membres`. Cette purge peut être temporellement différée, la _vraie_ marque de disparition est l'état _zombi_ de leur document `versions`.
 - la purge effective d'un document `versions` intervient un an après son passage en état _zombi_, le temps que toutes les connexions des comptes actifs aient pu prendre connaissance de cet état.
-
 
 ### L'administrateur technique
 Il a pour rôle majeur de gérer les espaces:
@@ -219,7 +218,7 @@ En Firestore :
 - c'est la session qui détient la liste de ses abonnemnts, le serveur n'en dispose pas.
 - la session pose un _écouteur_ sur chacun de ces documents.
 
-Dans les deux cas c'est en session la même séquence qui traite les modifications reçues, sans distinction de comment elles ont été captées (message WebSocket ou activatio d'un écouteur).
+Dans les deux cas c'est en session la même séquence qui traite les modifications reçues, sans distinction de comment elles ont été captées (message WebSocket ou activation d'un écouteur).
 
 ### Attributs externalisés hors de _data_
 #### `id` et `ids` (quand il existe)
@@ -432,20 +431,19 @@ Il y a un document `tickets` par ticket de paiement reçu et pas encore _crédit
 
 _data_:
 - `id`: numéro de ticket.
-- `st` : statut 1:en attente 2:réceptionné 3:crédit incorporé
+- `dr`: date de réception. Si 0 le ticket est _en attente_.
 - `ma`: montant déclaré émis par le compte A.
 - `mc` : montant déclaré reçu par le Comptable.
 - `refa` : texte court (32c) facultatif du compte A à l'émission.
 - `refc` : texte court (32c) facultatif du Comptable à la réception.
-- `dr`: date de réception.
-- `dc`: jour où le crédit a été incorporé par le compte A dans son solde.
+- `di`: date d'incorporation du crédit par le compte A dans son solde.
 
 #### Cycle de vie
 **Émission d'un ticket (annonce de paiement) par le compte A**
 - le compte A déclare,
   - un montant `ma` celui qu'il affirme avoir payé / viré.
   - une référence `refa` textuelle libre facultative à un dossier de _litige_, typiquement un _avoir_ correspondant à une erreur d'enregistrement antérieure.
-- un ticket est généré et enregistré dans `tickets` avec un statut _en attente_.
+- un ticket est généré et enregistré dans `tickets` avec un statut _en attente_ (`dr` à 0).
 
 **Effacement d'un de ses tickets par le compte A**
 - en cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ d'être toujours _en attente_. Le ticket est physiquement effacé de `tickets` et dans la liste `comptas.tickets`.
@@ -466,9 +464,9 @@ _data_:
 #### Listes disponibles en session
 Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut.
 
-Le Comptable peut obtenir en session la liste des tickets _en attente_. La première demande cette liste abonne la session du Comptable aux mises à jour de tickets, la session recevant alors les évolutions de statuts de ceux-ci et les nouveaux tickets _en attente_ (jusqu'à la fin de la session).
+Le Comptable peut obtenir en session la liste des tickets _en attente_. La première demande de cette liste abonne la session du Comptable aux mises à jour de tickets, la session recevant alors les évolutions de ceux-ci et les nouveaux tickets (jusqu'à la fin de la session).
 
-Un ticket spécifique peut être demandé, quelque soit son statut.
+Un ticket spécifique peut être demandé par son numéro (quelque soit son statut).
 
 #### Purges
 Les tickets de plus de 2 ans sont purgés par le GC.
@@ -1204,7 +1202,7 @@ En cas d'exception de l'un deux, une seule relance est faite après une attente 
 ## SQL
 `sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
 
-Rien de particulier : sont indexés les colonnes requérant un filtrage ou un accès direct par la valeur de la colonne.
+Rien de particulier : sont indexées les colonnes requérant un filtrage ou un accès direct par la valeur de la colonne.
 
 ## Firestore
 `firestore.index.json` donne le schéma des index: le désagrément est que pour tous les attributs il faut indiquer s'il y a ou non un index et de quel type, y compris pour ceux pour lesquels il n'y en a pas.
@@ -1213,7 +1211,7 @@ Rien de particulier : sont indexés les colonnes requérant un filtrage ou un ac
 
 _data_ n'est jamais indexé.
 
-Il n'y a pas _d'index composite_. Mais en fait dans l'esprit les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont bel et bien des pseudo index composites mais simplement déclarés comme index:
+Sauf sur `tickets` il n'y a pas _d'index composite_. Mais en fait dans l'esprit les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont bel et bien des pseudo index composites mais simplement déclarés comme index:
 - `id_v` est un string `id/v` où `id` est sur 16 chiffres et `v` sur 9 chiffres.
 - `id_vcv` est un string `id/vcv` où `id` est sur 16 chiffres et `vcv` sur 9 chiffres.
 
@@ -1237,6 +1235,12 @@ Autres index:
 - `hps1` sur `comptas`: accès à la connexion par phrase secrète.
 - `hpc` sur `avatars`: accès direct par la phrase de contact.
 - `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
+- `tickets`: 
+  - l'accès à un ticket se fait par son path.
+  - la liste des tickets _en attente_ utilise un **index composite**:
+    - sur `id` pour filtrer par ns (qui est en tête de id),
+    - sur `dr` avec test à 0.
+  - le filtrage des tickets réceptionnés d'un mois (l'arrêté mensuel) utilise un index simple sur dr, MAIS, comme il faut filtrer sur une valeur du ns aussi, une propriété _technique_ `nsdr` est générée qui fait précéder la date dr du ns. _Remarque_: on peut aussi avoir un index composite dr + ns mais ça fait déclarer une propriété ns distincte ne servant qu'à ça.
 
 # IndexedDB dans les session UI
 
