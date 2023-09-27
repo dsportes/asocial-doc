@@ -5,8 +5,8 @@ Les données persistantes sont gérées selon deux implémentations :
 - **Firestore** : chaque table SQL correspond à une **collection de documents**, chaque document correspondant à un **row** de la table SQL de même nom que la collection.
 
 Les _colonnes_ d'une table SQL correspondent aux _attributs / propriétés_ d'un document.
-- en SQL la _clé primaire_ est un attribut ou un couple d'attribut,
-- en Firestore le _path_ d'un document contient cet attribut ou couple d'attributs
+- en SQL la _clé primaire_ est une propriété attribut ou un couple de propriétés,
+- en Firestore le _path_ d'un document contient cette propriété ou couple de propriétés.
 
 ## Table / collection `singletons`
 La collection singletons a un seul document `checkpoint` ayant les attributs suivants:
@@ -16,7 +16,7 @@ La collection singletons a un seul document `checkpoint` ayant les attributs sui
 
 Son _path_ en Firestore est `singletons/1`.
 
-Le document checkpoint est réécrit totalement à chaque exécution du GC.
+Le document `checkpoint` est réécrit totalement à chaque exécution du GC.
 - son existence n'est jamais nécessaire et d'ailleurs lors de la première exécution il n'existe pas.
 - il ne sert qu'à l'administrateur technique pour s'informer, en cas de doutes, du bon fonctionnement du traitement GC en délivrant quelques compteurs, traces d'exécution, traces d'erreurs.
 
@@ -24,8 +24,8 @@ Le document checkpoint est réécrit totalement à chaque exécution du GC.
 Tous les autres documents comportent une colonne / attribut `id` dont la valeur détermine un partitionnement en _espaces_ cloisonnés : dans chaque espace aucun document ne référence un document d'un autre espace.
 
 Un espace est identifié par `ns`, **un entier de 10 à 69**. Chaque espace à ses données réparties dans les collections / tables suivantes:
-- `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL)a pour valeur le `ns` de l'espace. Path pour le ns 24 par exemple : `espaces/24` `syntheses/24`.
-- tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le ns de leur espace. Les données de ces documents peuvent citer l'id d'autres documents mais sous la forme d'une _id courte_ dont les deux premiers chiffres ont été enlevés.
+- `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL) a pour valeur le `ns` de l'espace. Path pour le `ns` 24 par exemple : `espaces/24` `syntheses/24`.
+- tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le `ns` de leur espace. Les propriétés des documents peuvent citer l'id d'autres documents mais sous la forme d'une _id courte_ dont les deux premiers chiffres ont été enlevés.
 
 ### Exportation / purge d'un espace
 Un utilitaire permet, en se basant exclusivement sur la valeur de l'attribut `id` des documents:
@@ -50,7 +50,7 @@ A la déclaration d'un espace sur un serveur, l'administrateur technique déclar
   - Clé primaire : `id`. Path : `syntheses/24`
 
 #### Gestion de volumes disparus : `gcvols fpurges`
-- `gcvols` : son `id` est celui de l'avatar principal d'un compte dont la disparition vient d'être détectée. Ses données donnent, cryptées pour le Comptable, les références permettant de restituer les volumes V1 et V2 de facto libérés par la disparition du compte `id`. 
+- `gcvols` : son `id` est celui de l'avatar principal d'un compte dont la disparition vient d'être détectée. Ses données donnent, cryptées pour le Comptable, les références permettant de restituer les volumes V1 et V2 de facto libérés par la disparition d'un compte O `id`. 
   - Clé primaire : `id`. Path : `gcvols/{id}`
 - `fpurges` : son `id` est aléatoire, les deux premiers chiffres étant le `ns` de l'espace. Un document correspond à un ordre de purge dans le Storage des fichiers, soit d'un _répertoire_ entier (correspondant à un avatar ou un groupe), soit dans ce répertoire à une liste fermée de fichiers.
   - Clé primaire : `id`. Path : `fpurges/{id}`
@@ -60,7 +60,7 @@ Ces documents sont écrits une fois et restent immuables jusqu'à leur traitemen
 - prochain GC, étape `GCfpu`, pour les `fpurges`.
 
 #### Collections / tables _majeures_ : `tribus comptas avatars groupes versions`
-Chaque collection a un document par `id` (clé primaire en SQl, second terme du path en Firesore).
+Chaque collection a un document par `id` (clé primaire en SQl, second terme du path en Firestore).
 - `tribus` : un document par _tranche de quotas / tribu_ décrivant comment sont distribués les quotas de la tranche entre les comptes.
   - `id` (sans le ns) est un numéro séquentiel `1..N`.
   - Clé primaire : `id`. Path : `tribus/0...x`
@@ -70,7 +70,7 @@ Chaque collection a un document par `id` (clé primaire en SQl, second terme du 
   - Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
 - `avatars` : un document par avatar donnant les informations d'entête d'un avatar. L'`id` courte sur 14 chiffres est le numéro d'un avatar du compte :
   - `10...0` : pour l'avatar principal du Comptable.
-  - `2x...y` : pour un avatar d'un autre compte que le Comptable, `x...y` est un nombre aléatoire sur 13 chiffres.
+  - `2x...y` : pour un autre avatar que l'avatar principal du Comptable, `x...y` est un nombre aléatoire sur 13 chiffres.
   - Clé primaire : `id`. Path : `avatars/10...0` `avatars/2x...y`
 - `groupes` : un document par groupe donnant les informations d'entête d'un groupe. L'`id` courte sur 14 chiffres est le numéro d'un groupe :
   - `3x...y` : `x...y` est un nombre aléatoire sur 13 chiffres.
@@ -78,14 +78,14 @@ Chaque collection a un document par `id` (clé primaire en SQl, second terme du 
 - `versions` : un document par avatar et par groupe donnant le numéro de version, numéro d'ordre de la dernière mise à jour pour l'avatar ou le groupe et toutes leurs sous-collections.
   - Clé primaire : `id`. Path : `versions/10...0` `versions/2x...y` `versions/3x...y`
 
-#### Sous-collections de `versions`: `notes transferts sponsorings chats membres`
+#### Sous-collections de `versions`: `notes transferts sponsorings chats membres tickets`
 Pour un document `versions/2x...y` il existe,
-- pour une version _d'avatar_ (id: 1... ou 2...), 4 sous-collections de documents: `notes transferts sponsorings chats`
+- pour une version _d'avatar_ (id: 1... ou 2...), 4 sous-collections de documents: `notes transferts sponsorings chats` et pour le seul Comptable une cinquième `tickets`.
 - pour une version _de groupe_ (id: 3...), 3 sous-collections de documents: `notes transferts membres`.
 
-Dans chaque sous-collection, ids est un identifiant relatif à id. 
+Dans chaque sous-collection, `ids` est un identifiant relatif à `id`. 
 - en SQL les clés primaires sont `id,ids`
-- en Firestore les paths sont (par exemple pour la sous-collection note) : `versions/2.../notes/z...t`, `id` est le second terme du path, `ids` le quatième.
+- en Firestore les paths sont (par exemple pour la sous-collection note) : `versions/2.../notes/z...t`, `id` est le second terme du path, `ids` le quatrième.
 
 - `notes` : un document représente une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire.
 - `transferts` : un document représente un transfert (upload) en cours d'un fichier d'une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire. Un document transfert est créé immuable: il est détruit quand le transfert a été un succès ou constaté abandonné par le GC.
@@ -94,6 +94,7 @@ Dans chaque sous-collection, ids est un identifiant relatif à id.
   - l'un sous-document de A a pour identifiant secondaire `ids` un hash des clés de B et A.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
+- tickets: un document par ticket de crédit généré par un compte A. ids est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
 La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 - son document `versions` ayant un statut de _zombi_, indiquant que l'avatar ou le groupe a disparu,
@@ -103,9 +104,11 @@ La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 ### L'administrateur technique
 Il a pour rôle majeur de gérer les espaces:
 - les créer / les détruire,
-- définir leurs quotas à disposition du Comptable de chaque espace: il existe deux quotas,
+- définir leurs quotas à disposition du Comptable de chaque espace: il existe trois quotas,
   - `q1` : volume maximal autorisé des textes des notes,
   - `q2` : volume total autorisé des fichiers attachés aux notes.
+  - `qc` : quota de calcul mensuel total en monétaires.
+- ces quotas sont _indicatifs_ mais sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
 
 Ses autres rôles sont :
 - la gestion d'une _notification / blocage_ par espace, sauf pour information technique importante, soit pour figer un espace avant sa migration vers une autre base (ou sa destruction).
@@ -115,13 +118,13 @@ Ses autres rôles sont :
 ### Comptable de chaque espace
 Pour un espace, `24` par exemple, il existe un compte `2410000000000000` qui est le **Comptable** de l'espace. 
 
-Le Comptable dispose des quotas globaux de l'espace attribués par l'administrateur technique. Il définit un certain nombre de **tranches de quotas** et confie chacune de ses tranches à des comptes _sponsors_ qui peuvent les distribuer aux comptes qu'ils ont sponsorisé.
+Le Comptable dispose des quotas globaux de l'espace attribués par l'administrateur technique. Il définit un certain nombre de **tranches de quotas** et confie chacune de ses tranches à des comptes _sponsors_ qui peuvent les distribuer aux comptes O qu'ils ont sponsorisé.
 
-Par convention on dénomme `tribu` l'ensemble des comptes partageant une même tranche de quotas.
+Par convention on dénomme `tribu` l'ensemble des comptes O partageant une même tranche de quotas.
 
 Le rôle principal d'un _Comptable_ est de:
 - définir des tranches de quotas et d'en ajuster les quotas,
-- de déclarer les _sponsors_ de chaque tranche, le cas échéant de retirer ou d'ajouter la qualité de _sponsor_ a un compte.
+- de déclarer les _sponsors_ de chaque tranche, le cas échéant de retirer ou d'ajouter la qualité de _sponsor_ a un compte O.
 - gérer des _notifications / blocages_ s'appliquant à des comptes spécifiques ou à tous les comptes d'une tranche.
 
 Le Comptable :
@@ -140,33 +143,34 @@ La déclaration d'une tranche par le Comptable d'un espace consiste à définir 
 `clet` est immuable, `info qc q1 q2` peuvent être mis à jour par le comptable.
 
 #### Comptes _sponsors_
-Les quotas `q1 q2` attribués à chaque compte sont prélevés sur une tranche, en d'autres termes, tout compte fait partie d'une _tribu_.
+Les quotas `qc q1 q2` attribués à chaque compte sont prélevés sur une tranche, en d'autres termes, tout compte O fait partie d'une _tribu_.
 
-Un compte est créé par _sponsoring_,
-- soit d'un compte existant,
-  - _sponsor_ : le compte créé à des quotas prélevés dans la tranche de son sponsor.
-  - _NON sponsor_ : le compte créé à des quotas prélevés dans la tranche de son sponsor, MAIS les quotas de ce dernier sont amputés des quotas _donnés_ au sponsorisé.
-- soit du Comptable : le compte créé à des quotas prélevés dans la tranche choisie par le Comptable.
+Un compte O ou A est créé par _sponsoring_,
+- soit d'un compte existant _sponsor_ : 
+  - pour un compte O, ses quotas sont prélevés dans la tranche de son sponsor.
+  - un compta A définit lui-même ses quotas `q1` et `q2` (mais il les paye en tant qu'abonnement) et n'a pas de quotas `qc` (il paye sa consommation).
+- soit du Comptable : pour un compte O c'est le Comptable qui a choisi de quelle tranche il relève.
 
 Les comptes ayant un pouvoir de **sponsor** peuvent:
 - sponsoriser la création de nouveaux comptes, _sponsor_ eux-mêmes ou non,
-- gérer la répartition des quotas entre les comptes de leur tranche,
-- gérer une _notification / blocage_ pour les comptes de leur tranche.
+- pour les comptes O seulement,
+  - gérer la répartition des quotas entre les comptes de leur tranche,
+  - gérer une _notification / blocage_ pour les comptes de leur tranche.
 
 ## Détail des tables / collections
 
-Tous les documents, ont un attribut _data_ qui porte toutes les informations sérialisées du document.
+Tous les documents, ont une propriété _data_ qui porte toutes les informations sérialisées du document.
 
-Certains de ces attributs sont externalisés hors de _data_,
+Certaines de ces propriétés sont externalisées hors de _data_,
 - soit parce que faisant partie de la clé primaire `id ids` en SQL, ou du path en Firestore,
-- soit parce qu'ils sont utilisés dans des index.
+- soit parce qu'elles sont utilisées dans des index.
 
 **En Firestore** les documents des collections _majeures_ `tribus comptas avatars groupes versions` ont un ou deux attributs _techniques_ calculés et NON présents en _data_:
 - `id_v` : un string `id/v` ou `id` est l'id sur 16 chiffres et `v` la version du document sur 9 chiffres.
 - `id_vcv` pour les documents `avatars` seulement: un string `id/vcv` ou `id` est l'id sur 16 chiffres et `vcv` la version de la carte de visite de l'avatar sur 9 chiffres.
 
 ### Gestion des versions dans `versions`
-- un document `avatar` d'id `ida` et les documents de ses sous collections `chats notes transferts sponsorings` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
+- un document `avatar` d'id `ida` et les documents de ses sous collections `chats notes transferts sponsorings tickets` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
 - idem pour un document `groupe` et ses sous-collections `membres notes transferts`.
 - toute mise à jour du document maître (avatar ou groupe) et de leur sous-documents provoque l'incrémentation du numéro de version dans `versions` et l'inscription de cette valeur comme version du (sous) document mis à jour.
 
@@ -174,10 +178,10 @@ Un document `versions` gère :
 - `v` : sa version (celle de l'avatar / groupe et leurs sous-collections).
 - `dlv` : la date de fin de vie de son avatar ou groupe.
 - en _data_ pour un groupe :
-  - `v1 q1` : volume et quota dee textes des notes du groupe.
-  - `v2 q2` : volume et quota dee fichiers des notes du groupe.
+  - `v1 q1` : nombre de notes du groupe (actuel et maximal).
+  - `v2 q2` : volume et quota des fichiers des notes du groupe.
 
-Quand la dlv est non 0 et inférieure ou égale à la date du jour,
+Quand la `dlv` est non 0 et inférieure ou égale à la date du jour,
 - le document est en état _zombi_ et traduit le fait que l'avatar ou le groupe a disparu.
 - sa _data_ est null.
 - sa version `v` ne changera plus.
@@ -191,7 +195,7 @@ L'état en session est conservé à niveau en _s'abonnant_ à un certain nombre 
 - (2) le document `tribus` de l'id de leur tribu, tirée de (1)
 - (3) les documents `avatars` des avatars du compte - listé par (1)
 - (4) les documents `groupes` des groupes dont les avatars sont membres - listés par (3)
-- (5) les sous-collections `notes chats sponsorings` des avatars - listés par (3)
+- (5) les sous-collections `notes chats sponsorings tickets` des avatars - listés par (3)
 - (6) les sous-collections `membres notes` des groupes - listés par (4)
 - (7) le document `espaces` de son espace.
 - le comptable, en plus d'être abonné à sa tribu, peut temporairement s'abonner à **une** autre tribu _courante_.
@@ -212,26 +216,26 @@ Une session a une liste d'ids abonnées :
 - en **FireStore** ce n'est pas possible : la session pose un écouteur sur des objets `espaces comptas tribus versions` individuellement, l'ordre d'arrivée des modifications ne peut pas être garanti entre objets majeurs.
 
 En SQL :
-- c'est le serveur qui détient la liste des abonnemnts de chaque session: les mises à jour stransmises par WebSocket.
+- c'est le serveur qui détient la liste des abonnements de chaque session: les mises à jour transmises par WebSocket.
 
 En Firestore :
-- c'est la session qui détient la liste de ses abonnemnts, le serveur n'en dispose pas.
+- c'est la session qui détient la liste de ses abonnements, le serveur n'en dispose pas.
 - la session pose un _écouteur_ sur chacun de ces documents.
 
 Dans les deux cas c'est en session la même séquence qui traite les modifications reçues, sans distinction de comment elles ont été captées (message WebSocket ou activation d'un écouteur).
 
-### Attributs externalisés hors de _data_
+### Propriétés externalisées hors de _data_
 #### `id` et `ids` (quand il existe)
-Ces attributs sont externalisés et font partie de la clé primaire (en SQL) ou du path (en Firestore).
+Ces propriétés sont externalisées et font partie de la clé primaire (en SQL) ou du path (en Firestore).
 
-Pour un `sponsorings` l'attribu `ids` est le hash de la phrase de reconnaissance :
-- l'attribut est indexé.
+Pour un `sponsorings` la propriété `ids` est le hash de la phrase de reconnaissance :
+- elle est indexé.
 - en Firestore l'index est `collection_group` afin de rendre un sponsorings accessible par index sans connaître son _parent_ le sponsor.
 
 #### `v` : version d'un document
-Tous les docuements sont _versionnés_,
+Tous les documents sont _versionnés_,
 - **SAUF** `gcvols fpurges transferts` qui sont créés immuable et détruits par le premier traitement qui les lit (dont le GC). Ces documents ne sont pas synchronisés en sessions UI.
-- **singletons syntheses** : v est une estampille (date-heure) et n'a qu'un rôle informatif : ces documents ne sont pas synchronisés en sessions UI.
+- **singletons syntheses** : `v` est une estampille (date-heure) et n'a qu'un rôle informatif : ces documents ne sont pas synchronisés en sessions UI.
 - **tous les autres documents ont un version de 1..n**, incrémentée de 1 à chaque mise à jour de son document, et pour `versions` de leurs sous-collections.
 
 En session UI pour chaque document ou sous-collection d'un document, le fait de connaître sa version permet,
@@ -239,7 +243,7 @@ En session UI pour chaque document ou sous-collection d'un document, le fait de 
 - à réception d'un row synchronisé de ne mettre à jour l'état en mémoire que s'il est effectivement plus récent que celui détenu.
 
 #### `vcv` : version de la carte de visite
-Cet attribut est la version `v` du document au moment de la dernière mise à jour de la carte de visite. `vcv` est définie pour `avatars chats membres` seulement.
+Cette propriété est la version `v` du document au moment de la dernière mise à jour de la carte de visite. `vcv` est définie pour `avatars chats membres` seulement.
 
 #### `dlv` : **date limite de validité** 
 Ces dates sont données en jour `aaaammjj` (UTC) et apparaissent dans : 
@@ -259,7 +263,7 @@ Un document ayant une `dlv` **antérieure au jour courant** est un **zombi**, co
 **Sur _membres_ :**
 - **jour auquel l'avatar sera officiellement considéré comme _disparu ou ne participant plus au groupe_**.
 - la `dlv` (indexée) est reculée à l'occasion de l'ouverture d'une session pour _prolonger_ la participation de l'avatar correspondant au groupe.
-- les `dlv` permettent au GC de récupérer tous les _participations disparues_ et in fine de détecter la disparition des groupes quand tous les participants actifs ont disparu.
+- les `dlv` permettent au GC de récupérer toutes les _participations disparues_ et in fine de détecter la disparition des groupes quand tous les participants actifs ont disparu.
 - en Firestore l'index est `collection_group` afin de s'appliquer aux membres de tous les groupes.
 
 **Sur _versions des groupes_ :**
@@ -284,10 +288,10 @@ La **date de fin d'hébergement** sur un groupe permet de détecter le jour où 
 A dépassement de la `dfh` d'un groupe, le GC fait disparaître le groupe inscrivant une `dlv` du jour dans son document `versions`.
 
 #### `hpc` : hash de la phrase de contact sur un document `avatars`
-Cet attribut de avatars est indéxé de manière à pouvoir accéder à un avatar en connaissant sa phrase de contact.
+Cette propriété de `avatars` est indexée de manière à pouvoir accéder à un avatar en connaissant sa phrase de contact.
 
 #### `hps1` : hash du début de la phrase secrète sur un document `comptas`
-Cet attribut de comptas est indéxé de manière à pouvoir accéder à un compte en connaissant sa phrase secrète (connexion).
+Cette propriété de `comptas` est indexée de manière à pouvoir accéder à un compte en connaissant sa phrase secrète (connexion).
 
 #### Cache locale des `espaces comptas versions avatars groupes tribus` dans une instance d'un serveur
 - les `comptas` sont utilisées à chaque mise à jour de notes.
@@ -298,7 +302,7 @@ Cet attribut de comptas est indéxé de manière à pouvoir accéder à un compt
 
 En Firestore l'attribut calculé `id_v` permet d'effectuer ce filtrage (alors qu'en SQL l'index composé id / v est utilisable).
 
-La mémoire cache est gérée par LRU (tous types de documents confondus)
+La mémoire cache est gérée par LRU (tous types de documents confondus).
 
 ## Généralités
 **Les clés AES et les PBKFD** sont des bytes de longueur 32. Un texte crypté a une longueur variable :
@@ -350,7 +354,7 @@ Une `sessionId` est tirée au sort par la session juste avant tentative de conne
 
 > **En mode SQL**, un WebSocket est ouvert et identifié par le `sessionId` qu'on retrouve sur les messages afin de s'assurer qu'un échange entre session et serveur ne concerne pas une session antérieure fermée.
 
-> **En mode Firestore**, le serveur peut s'interrompre sans interrompre la session UI: les abonnements sont gérés dans la session UI, il n'y a pas de WebSocket et le token d'authentification permet d'indentifier la session UI. En revanche le serveur du Firestore ne doit pas tomber.
+> **En mode Firestore**, le serveur peut s'interrompre sans interrompre la session UI: les abonnements sont gérés dans la session UI, il n'y a pas de WebSocket et le token d'authentification permet d'identifier la session UI. En revanche le serveur du Firestore ne doit pas tomber.
 
 Toute opération porte un `token` portant lui-même le `sessionId`:
 - si le serveur retrouve dans la mémoire cache l'enregistrement de la session `sessionId` :
@@ -367,7 +371,7 @@ Toute opération porte un `token` portant lui-même le `sessionId`:
 - `hps1` : hash du PBKFD du début de la phrase secrète.
 
 Le serveur recherche l'`id` du compte par `hps1` (index de `comptas`)
-- vérifie que le SHA de `shax` est bien celui enregistré dans `compta` en `shay`.
+- vérifie que le SHA de `shax` est bien celui enregistré dans `comptas` en `shay`.
 - inscrit en mémoire `sessionId` avec l'`id` du compte et un `ttl`.
 
 # Détail des documents
@@ -402,7 +406,7 @@ Un _dépassement de quotas Q1 / Q2_ entraîne une restriction (5).
 
 Un _solde négatif (compte A)_ ou _une consommation excessive (compte O)_ entraîne une restriction (4). 
 
-> Le document `compta` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
+> Le document `comptas` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
 
 ## Documents `espaces`
 _data_ :
@@ -415,67 +419,6 @@ _data_ :
   - 2: 'Le Comptable NE peut PAS rendre un compte "autonome" sans son accord',
 - `notif` : notification de l'administrateur, cryptée par la clé du Comptable.
 - `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
-- `dtk` : `{j, n}`
-  - `j` : aaaammjj du dernier ticket attribué,
-  - `n` : numéro d'ordre
-  - `c` : clé d'auto-contrôle
-
-### Documents `tickets`
-Un ticket est un entier de 15 chiffres de la forme `ns aaaammjj nnnn c`
-- `ns` : numéro d'espace,
-- `aaaammjj` : jour d'émission
-- `nnnn`: numéro d'ordre d'émission dans le jour.
-- `c` : clé d'auto-contrôle (SANS ns).
-
-Il y a un document `tickets` par ticket de paiement reçu et pas encore _crédité ou traité_.
-
-_data_:
-- `id`: numéro de ticket.
-- `dr`: date de réception. Si 0 le ticket est _en attente_.
-- `ma`: montant déclaré émis par le compte A.
-- `mc` : montant déclaré reçu par le Comptable.
-- `refa` : texte court (32c) facultatif du compte A à l'émission.
-- `refc` : texte court (32c) facultatif du Comptable à la réception.
-- `di`: date d'incorporation du crédit par le compte A dans son solde.
-
-#### Cycle de vie
-**Émission d'un ticket (annonce de paiement) par le compte A**
-- le compte A déclare,
-  - un montant `ma` celui qu'il affirme avoir payé / viré.
-  - une référence `refa` textuelle libre facultative à un dossier de _litige_, typiquement un _avoir_ correspondant à une erreur d'enregistrement antérieure.
-- un ticket est généré et enregistré dans `tickets` avec un statut _en attente_ (`dr` à 0).
-
-**Effacement d'un de ses tickets par le compte A**
-- en cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ d'être toujours _en attente_. Le ticket est physiquement effacé de `tickets` et dans la liste `comptas.tickets`.
-
-**Réception d'un paiement par le Comptable**
-- le Comptable ne peut _que_ compléter un ticket _en attente_ (qui n'a pas déjà été réceptionnée) depuis moins d'un an.
-- sur le ticket correspondant le Comptable peut remplir:
-  - le montant `mc` du paiement reçu, sauf indication contraire par défaut égal au montant `ma`.
-  - une référence textuelle libre justifiant une différence entre `ma` et `mc`. Ce peut être un numéro de dossier de _litige_ qui pourra être repris ensuite entre le compte A et le Comptable.
-- la date de réception `dr` est inscrite, le ticket est _réceptionné_.
-
-**Incorporation du crédit dans le solde du compte A**
-- l'opération est automatique à la prochaine connexion du compte A postérieure à une _réception de paiement_. En cours de session, un bouton permet d'activer cette incorporation.
-- elle consiste à intégrer au solde du compte le montant d'un ticket _réceptionné_ (mais pas encore _incorporé au solde_)
-- les tickets plus vieux d'un an ne peuvent plus être incorporés au solde du compte.
-- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.credits`. En cas de différence de montants, une alerte s'affiche.
-
-#### Listes disponibles en session
-Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut.
-
-Le Comptable peut obtenir en session la liste des tickets _en attente_. La première demande de cette liste abonne la session du Comptable aux mises à jour de tickets, la session recevant alors les évolutions de ceux-ci et les nouveaux tickets (jusqu'à la fin de la session).
-
-Un ticket spécifique peut être demandé par son numéro (quelque soit son statut).
-
-#### Purges
-Les tickets de plus de 2 ans sont purgés par le GC.
-
-#### Arrêtés mensuels
-Un arrêté mensuel des tickets s'effectue d'après leur mois de réception:
-- le résultat est un _fichier_ **CSV** dont le nom est le mois de l'arrêté.
-
-Le Comptable peut en obtenir le téléchargement.
 
 ## Documents `gcvols`
 _data_ :
@@ -484,11 +427,11 @@ _data_ :
 - `cletX` : clé de la tribu cryptée par la clé K du Comptable.
 - `it` : index d'enregistrement du compte dans cette tribu.
 
-Un document gcvols est créé par le GC à la détection de la disparition d'un compte, son document `versions` étant _zombi_. Il accède à son document `comptas`, et y récupère `cletX it`. Après création du `gcvols`, le document `comptas`, désormais inutile, est purgé.
+Un document `gcvols` est créé par le GC à la détection de la disparition d'un compte, son document `versions` étant _zombi_. Il accède à son document `comptas`, et y récupère `cletX it`. Après création du `gcvols`, le document `comptas`, désormais inutile, est purgé.
 
-Le Comptable lors de sa prochaine ouverture de session, récupère tous les gcvols et les traite :
+Le Comptable lors de sa prochaine ouverture de session, récupère tous les `gcvols` et les traite :
 - il obtient l'`id` de la tribu en décryptant `cletX`, `it` lui donne l'indice du compte disparu dans la table `act` de cette tribu. 
-- l'item `act[it]` est y détruit, ce qui de facto accroît les quotas attribuables.
+- l'item `act[it]` est y détruit, ce qui de facto accroît les quotas attribuables aux autres.
 - la synthèse de la tribu est mise à jour.
 
 ## Documents `tribu`
@@ -554,7 +497,7 @@ _data_ :
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
 - `credits` : pour un compte A seulement crypté par la clé K:
   - `total`: cumul des crédits reçus depuis le début de la vie du compte.
-  - `tickets`: liste des tickets en attente d'enregistrement.
+  - `tickets`: liste des tickets (`{ids, v, dg, dr, ma, mc, refa, refc, di}`).
   - juste après une conversion de compte O en A, `credits` est égal à `true`, une convention pour une création vierge.
 - `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
 
@@ -618,6 +561,84 @@ La création / mise à jour s'opère dans le document `avatars`.
 **Mise à jour dans les chats**
 - à la mise à jour d'un chat, les cartes de visites des deux côtés sont rafraîchies (si nécessaire).
 - en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant `vcv` en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
+
+## Documents `tickets`
+Ce sont des sous-documents de avatars qui n'existent **que** pour l'avatar principal du Comptable.
+
+Il y a un document `tickets` par ticket de crédit généré par un compte A annonçant l'arrivée d'un paiement correspondant. Chaque ticket est dédoublé:
+- un exemplaire dans la sous-collection `tickets` du Comptable,
+- un exemplaire dans le documents `comptas` du compte A qui l'a généré, dans la liste `credits.tickets`, donc crypté par la clé K du compte A.
+
+_data_:
+- `id`: id du Comptable.
+- `ids` : numéro du ticket
+- `v` : version du ticket.
+
+- `dg` : date de génération.
+- `dr`: date de réception. Si 0 le ticket est _en attente_.
+- `ma`: montant déclaré émis par le compte A.
+- `mc` : montant déclaré reçu par le Comptable.
+- `refa` : texte court (32c) facultatif du compte A à l'émission.
+- `refc` : texte court (32c) facultatif du Comptable à la réception.
+- `di`: date d'incorporation du crédit par le compte A dans son solde.
+
+#### Cycle de vie
+**Génération d'un ticket (annonce de paiement) par le compte A**
+- le compte A déclare,
+  - un montant `ma` celui qu'il affirme avoir payé / viré.
+  - une référence `refa` textuelle libre facultative à un dossier de _litige_, typiquement un _avoir_ correspondant à une erreur d'enregistrement antérieure.
+- le ticket est généré et enregistré en deux exemplaires.
+
+**Effacement d'un de ses tickets par le compte A**
+- en cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ d'être toujours _en attente_ (ne pas avoir de date de réception). Le ticket est physiquement effacé de `tickets` et de la liste `comptas.tickets`.
+
+**Réception d'un paiement par le Comptable**
+- le Comptable ne peut _que_ compléter un ticket _en attente_ (pas de date de réception) dans le mois d'émission du ticket ou le précédent. Au delà le ticket est _auto-détruit_.
+- sur le ticket correspondant le Comptable peut remplir:
+  - le montant `mc` du paiement reçu, sauf indication contraire par défaut égal au montant `ma`.
+  - une référence textuelle libre `refc` justifiant une différence entre `ma` et `mc`. Ce peut être un numéro de dossier de _litige_ qui pourra être repris ensuite entre le compte A et le Comptable.
+- la date de réception `dr` est inscrite, le ticket est _réceptionné_.
+- le ticket est mise à jour dans `tickets` mais PAS dans la liste `comptas.credits.tickets` du compte A (le Comptable n'a pas la clé K du compte A).
+
+**Lorsque le compte A va sur sa page de gestion de ses crédits,** 
+- les tickets dont il possède une version plus ancienne que celle détenue dans tickets du Comptable sont mis à jour.
+- les tickets émis un mois M toujours non réceptionnés avant la fin de M+1 sont supprimés.
+- les tickets de plus de 2 ans sont supprimés. 
+
+**Incorporation du crédit dans le solde du compte A**
+- l'opération est automatique à la prochaine connexion du compte A postérieure à une _réception de paiement_. En cours de session, un bouton permet d'activer cette incorporation.
+- elle consiste à intégrer au solde du compte le montant d'un ticket _réceptionné_ (mais pas encore _incorporé au solde_)
+- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.credits`. En cas de différence de montants, une alerte s'affiche.
+- la date d'incorporation `di` est mise à jour dans l'exemplaire du compte mais PAS par dans `tickets` du Comptable (qui donc ignore la propriété `di`).
+
+**Remarques:**
+- de facto dans `tickets` un document ne peut avoir qu'au plus deux versions.
+- la version de création qui créé le ticket et lui donne soon identifiant secondaire et inscrit les propriétés `ma` et éventuellement `refa` désormais immuables.
+- la version de réception par le Comptable qui inscrit les propriétés `dr mc` et éventuellement `refc`. Le ticket devient immuable dans `tickets`.
+- les propriétés sont toutes immuables.
+- la mise à jour ultime qui inscrit `di` à titre documentaire ne concerne que l'exemplaire du compte A.
+
+#### Listes disponibles en session
+Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut, sauf ceux auto-détruits parce que non réceptionnés avant fin M+1 de leur génération.
+
+Le Comptable peut obtenir en session la liste des tickets détenus dans tickets. Cette liste est _synchronisée_ (comme pour tous les sous-documents).
+
+#### Arrêtés mensuels
+Le Comptable effectue des arrêtés mensuels. Chaque arrêté mensuel d'un mois M,
+- récupère tous les tickets générés à M-1 et les efface de la liste `tickets`,
+- les stocke dans un _fichier_ **CSV** dans la note `Tickets` du Comptable.
+
+Pour rechercher un ticket particulier, par exemple pour traiter un _litige_ ou vérifier s'il a bien été réceptionné, le Comptable,
+- dispose de l'information en ligne pour tout ticket de M et M-1,
+- dans le cas contraire, ouvre l'arrêté mensuel correspondant au mois du ticket cherché qui est un fichier CSV basique.
+
+#### Numérotation des tickets
+La génération par un compte A d'un ticket produit un code aléatoire à 6 lettres majuscules.
+- toutefois la première lettre a une signification et donne le mois de génération du ticket : A-L pour les mois de janvier à décembre si l'année est paire et M-X pour les mois de janvier à décembre si l'année est impaire.
+
+Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+1 de sa date de génération.
+
+> **Personne, pas même le Comptable,** ne peut savoir quel compte A a généré quel ticket. Cette information n'est accessible qu'au compte A lui-même et est cryptée par sa clé K.
 
 ## Documents `chats`
 Un chat est une ardoise dont le texte est commun à deux avatars I et E:
@@ -1211,7 +1232,7 @@ Rien de particulier : sont indexées les colonnes requérant un filtrage ou un a
 
 _data_ n'est jamais indexé.
 
-Sauf sur `tickets` il n'y a pas _d'index composite_. Mais en fait dans l'esprit les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont bel et bien des pseudo index composites mais simplement déclarés comme index:
+Il n'y a pas _d'index composite_, mais en fait dans l'esprit les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont des pseudo index composites mais simplement déclarés comme index:
 - `id_v` est un string `id/v` où `id` est sur 16 chiffres et `v` sur 9 chiffres.
 - `id_vcv` est un string `id/vcv` où `id` est sur 16 chiffres et `vcv` sur 9 chiffres.
 
@@ -1235,12 +1256,6 @@ Autres index:
 - `hps1` sur `comptas`: accès à la connexion par phrase secrète.
 - `hpc` sur `avatars`: accès direct par la phrase de contact.
 - `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
-- `tickets`: 
-  - l'accès à un ticket se fait par son path.
-  - la liste des tickets _en attente_ utilise un **index composite**:
-    - sur `id` pour filtrer par ns (qui est en tête de id),
-    - sur `dr` avec test à 0.
-  - le filtrage des tickets réceptionnés d'un mois (l'arrêté mensuel) utilise un index simple sur dr, MAIS, comme il faut filtrer sur une valeur du ns aussi, une propriété _technique_ `nsdr` est générée qui fait précéder la date dr du ns. _Remarque_: on peut aussi avoir un index composite dr + ns mais ça fait déclarer une propriété ns distincte ne servant qu'à ça.
 
 # IndexedDB dans les session UI
 
@@ -1253,7 +1268,8 @@ Un certain nombre de documents sont stockés en session UI dans la base locale I
 - sponsorings: '[id+ids]',
 - groupes: 'id',
 - membres: '[id+ids]',
-- notes: '[id+ids]'.
+- notes: '[id+ids]',
+- tickets: '[id+ids]'.
 
 La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée en base 64 URL.
 
@@ -1271,15 +1287,15 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 
 # Décomptes des coûts et crédits
 
-On compte **sur le serveur le nombre de lectures et d'écritures** effectué dans chaque opération et c'est remonté à la session où:
-- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta).
+On compte **sur le serveur le nombre de lectures et d'écritures** effectués dans chaque opération et c'est remonté à la session où:
+- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta par rapport à l'enregistrement précédent).
 - la session envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` au bout de M minutes sans envoi (avec un minimum de R2 rows).
 
 On compte **en session les downloads / uploads soumis au Storage**.
 
 Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
 
-Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ... D'un autre côté, le serveur considère les volumes utilisés en base alors que V1 va être décompté sur des quotas (des maximum rarement atteints).
+Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ... D'un autre côté, le serveur considère les volumes utilisés en base alors que V1 / V2 vont être décomptés sur des quotas (des maximum rarement atteints).
 
 ## Classe `Tarif`
 Un tarif correspond à,
@@ -1292,7 +1308,7 @@ Un tarif correspond à,
   - `um`: 1 GB de transfert montant.
   - `ud`: 1 GB de transfert descendant.
 
-En configuration un tableau ordonné par `aaaammjj` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. 
+En configuration un tableau ordonné par `aaaamm` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. 
 
 L'initialisation de la classe `Tarif.init(...)` est faite depuis la configuration (UI comme serveur).
 
@@ -1374,7 +1390,7 @@ Pour chaque mois M à M-3, il y a un **vecteur** de 14 (X1 + X2 + X2 + 3) compte
   - CA : coût de l'abonnement pour le mois
   - CC : coût de la consommation pour le mois
   
-### Méthodes et getter publiques:
+### Méthodes et getter publiques: TODO
 - `cadeau (c)` : déclaration d'un "cadeau" de dépannage de la part du Comptable ou d'un sponsor pour permettre au compte de surmonter un excès transitoire de consommation.
 - `razma ()` : lors de la transition O <-> A il faut remettre à 0 les coûts d'abonnement / consommation passés (en pratique ceux des mois antérieurs).
 - `get totalAbo ()` retourne le coût d'abonnement en additionnant ceux du mois courant et des mois antérieurs.
@@ -1404,7 +1420,7 @@ Le Comptable peut afficher le `compteurs` de n'importe quel compte A ou O.
 
 Les sponsors d'une tranche ne peuvent faire afficher les `compteurs` _que_ des comptes de leur tranche.
 
-A la connexion d'un compte O, trois compteurs statistiques sont remontés de `compteurs` dans la tribu:
+A la connexion d'un compte O, trois compteurs statistiques sont remontés de `compteurs` dans sa tribu:
 - `v1`: le volume V1 effectivement utilisé,
 - `v2`: le volume V2 effectivement utilisé,
 - `cj`: la consommation moyenne journalière (`consoj`).
@@ -1418,15 +1434,7 @@ La propriété `credits` n'existe dans `comptas` que pour un compte A:
 
 **Propriétés:**
 - `total` : total des crédits encaissés.
-- `tickets`: liste des numéro de ticket (raccourcis, sans le `ns`) générés par le compte et en attente d'enregistrement.
-
-## Tickets
-
-Un ticket est un entier de 13 chiffres de la forme `ns aaaammjj nnnn c`
-- `ns` : numéro d'espace,
-- `aaaammjj` : jour d'émission
-- `nnnn`: numéro d'ordre d'émission dans le jour.
-- `c` : clé d'auto-contrôle.
+- `tickets`: liste des tickets générés par le compte.
 
 ### Documents `tickets`
 Voir ci-avant la section correspondante.
