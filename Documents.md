@@ -621,7 +621,7 @@ _data_:
 #### Listes disponibles en session
 Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut, sauf ceux auto-détruits parce que non réceptionnés avant fin M+1 de leur génération.
 
-Le Comptable peut obtenir en session la liste des tickets détenus dans tickets. Cette liste est _synchronisée_ (comme pour tous les sous-documents).
+Le Comptable dispose en session de la liste des tickets détenus dans tickets. Cette liste est _synchronisée_ (comme pour tous les sous-documents).
 
 #### Arrêtés mensuels
 Le Comptable effectue des arrêtés mensuels. Chaque arrêté mensuel d'un mois M,
@@ -633,10 +633,16 @@ Pour rechercher un ticket particulier, par exemple pour traiter un _litige_ ou v
 - dans le cas contraire, ouvre l'arrêté mensuel correspondant au mois du ticket cherché qui est un fichier CSV basique.
 
 #### Numérotation des tickets
-La génération par un compte A d'un ticket produit un code aléatoire à 6 lettres majuscules.
-- toutefois la première lettre a une signification et donne le mois de génération du ticket : A-L pour les mois de janvier à décembre si l'année est paire et M-X pour les mois de janvier à décembre si l'année est impaire.
+L'ids d'un ticket est un entier de la forme : `aammrrrrrrrrrr`
+- `aa` : année de génération,
+- `mm` : mois de génération,
+- `r...r` : aléatoire.
 
-Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+1 de sa date de génération.
+Un code à 6 lettres majuscules en est extrait afin de le joindre comme référence de _paiement_.
+- la première lettre  donne le mois de génération du ticket : A-L pour les mois de janvier à décembre si l'année est paire et M-X pour les mois de janvier à décembre si l'année est impaire.
+- les autres lettres correspondent à `r...r`.
+
+Le Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+1 de sa date de génération à partir d'un code à 6 lettres désigné par un compte pour audit éventuel de l'enregistrement.
 
 > **Personne, pas même le Comptable,** ne peut savoir quel compte A a généré quel ticket. Cette information n'est accessible qu'au compte A lui-même et est cryptée par sa clé K.
 
@@ -667,7 +673,7 @@ Un chat est décompté des chats par compte quand il est _en ligne_. Exemple:
 - I accepte sponsoring de E: 1 / 0
 
 **Remarques:**
-- le principe de gestion des chats permet de ne pas pénaliser ceux qui reçoivent des chats non sollicités, ni ceux qui raccrochent.
+- ce principe de gestion des chats évite de pénaliser ceux qui reçoivent des chats non sollicités et qui les _effacent_ sans y répondre (en raccrochant).
 - il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
 - écrire et raccrocher : correspond à un message final _au revoir_.
 
@@ -679,8 +685,7 @@ S'étant adressé à E, I a récupéré que E était détruit.
   - il ne peut plus le changer,
   - il ne peut que _raccrocher_, ce qui rendra le chat _zombi_.
 
-I a fait rafraîchir les cartes de visite dans sa session et ça lui a retourné l'information de la disparition de son _contact_:
-- comme ci-dessus.
+I a fait rafraîchir les cartes de visite dans sa session et ça lui a retourné l'information de la disparition de son _contact_.
 
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
 
