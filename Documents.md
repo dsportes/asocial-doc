@@ -94,7 +94,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
   - l'un sous-document de A a pour identifiant secondaire `ids` un hash des clés de B et A.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
-- tickets: un document par ticket de crédit généré par un compte A. ids est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
+- `tickets`: un document par ticket de crédit généré par un compte A. ids est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
 La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 - son document `versions` ayant un statut de _zombi_, indiquant que l'avatar ou le groupe a disparu,
@@ -551,14 +551,18 @@ _data_:
   - _valeur_: `[nomg, cleg, im]` cryptée par la clé publique RSA de l'avatar.
     - `nomg`: nom du groupe,
     - `cleg`: clé du groupe,
-    - `im`: indice du membre dans la table ast du groupe.
+    - `im`: indice du membre dans la table `ast` du groupe.
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
 - `napc` : `[nom, cle]` de l'avatar cryptée par le PBKFD de la phrase de contact.
+- `memos` : map des couples `{mc, memo}` à propos des contacts (avatars) et groupes:
+  - _cle_: `id` crypté par la clé K du compte,
+  - _valeur_ : `{ mc, memo }` crypté par la clé K du compte.
+    - `mc` : mots clés de l'avatar à propos du groupe.
+    - `memo` : commentaire de l'avatar à propos du groupe.
 
-**Remarques:**  
-- pour inviter l'avatar, un animateur en connaît le `[nom, cle]` et `im` qui sont dans la liste des membres en tant que simple contact. Il en calcule `ni` et peut définir `[nomg, cleg, im]`.
+> **Mémos d'un avatar**. Un avatar peut attacher une liste de mots-clés et un mémo connu de lui seul à n'importe quel avatar (sauf à lui-même) : ceci lui permet de filtrer des _contacts_ des _chats_ et des _groupes_ mais aussi d'y noter ce qu'il veut quelque soit le statut d'activité du contact ou du groupe.
 
-### Cartes de visites
+### Cartes de visites des avatars
 La création / mise à jour s'opère dans le document `avatars`.
 
 **Mises à jour des cartes de visite des membres**
@@ -656,64 +660,77 @@ Le Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket 
 > **Personne, pas même le Comptable,** ne peut savoir quel compte A a généré quel ticket. Cette information n'est accessible qu'au compte A lui-même et est cryptée par sa clé K.
 
 ## Documents `chats`
-Un chat est une ardoise dont le texte est commun à deux avatars I et E:
+Un chat est une suite d'items de texte communs à deux avatars I et E:
 - vis à vis d'une session :
   - I est l'avatar _interne_,
   - E est un avatar _externe_ connu comme _contact_.
-- pour être écrite par I :
-  - I doit connaître le `[nom, cle]` de E : membre du même groupe, chat avec un autre avatar du compte, ou obtenu en ayant fourni la phrase de contact de E.
-  - le chat est dédoublé, une fois sur I et une fois sur E.
-- un chat a une clé de cryptage `cc` propre générée à sa création (première écriture):
-  - cryptée par la clé K,
-  - ou cryptée par la clé publique de l'avatar I (par exemple) : dans ce cas la première écriture de contenu de I remplacera cette clé par celle cryptée par K.
-- un chat a un comportement d'ardoise : l'écriture de l'un _écrase_ les deux exemplaires. Un numéro séquentiel détecte les écritures croisées risquant d'ignorer la mise à jour de l'un par celle de l'autre.
-- si I essaie d'écrire à E et que le chat E a disparu, le chat I revient en _zombi_ : la session est informé de la destruction du chat.
+- un item est défini par :
+  - le côté qui l'a écrit (I ou E),
+  - sa date-heure d'écriture qui l'identifie pour son côté,
+  - son texte crypté par une clé de cryptage connue seulement par I et E.
 
-> Un chat est _en ligne_ du côté I quand la dernière opération (par I) était un _envoi sans raccrocher_.
+Un chat est dédoublé avec un exemplaire I et un exemplaire E:
+- à son écriture, un item est ajouté des deux côtés.
+- le texte d'un item écrit par I peut être effacé par I des deux côtés (mais pas modifié).
+- I (resp. E) **peut effacer tous les items** I comme E de son côté: ceci n'impacte pas l'existence de ceux de l'autre côté.
+- _de chaque côté_ la taille totale des textes de tous les items est limitée à 5000c. Les plus anciens items sont effacés afin de respecter cette limite.
 
-Un chat est décompté des chats par compte quand il est _en ligne_. Exemple:
-- I écrit à E: 1 / 0 -> même texte sur I et E
-- E répond : 1 / 1 -> même texte sur I et E
-- I raccroche: 0 / 1 -> pas de texte sur I, texte inchangé sur E
-- E raccroche: 0 / 0 -> aucun texte sur I ni E
-- E écrit à I: 0 / 1 -> même texte sur I et E
-- E écrit à I: 0 / 1 -> même texte sur I et E
-- E raccroche: 0 / 0 -> aucun texte sur I ni E
-- I accepte sponsoring de E: 1 / 0
+Pour ajouter un item sur un chat, I doit connaître le `[nom, cle]` de E : membre du même groupe, chat avec un autre avatar du compte, ou obtenu en ayant fourni la phrase de contact de E.
 
-**Remarques:**
-- ce principe de gestion des chats évite de pénaliser ceux qui reçoivent des chats non sollicités et qui les _effacent_ sans y répondre (en raccrochant).
-- il n'y a que l'initiative d'écrire (créer / écrire depuis un texte vide / répondre sans raccrocher) qui se décompte dans Q1.
-- écrire et raccrocher : correspond à un message final _au revoir_.
+La clé du chat `cc` a été générée à l'écriture du premier item:
+- côté I, cryptée par la clé K de I,
+- côté E, cryptée par la clé publique de E. Dans ce cas à la première écriture de E celle-ci sera ré-encryptée par la clé K de E.
 
-Quand son avatar s'est auto-résilié, son document `versions` devient _zombi_. Le document `chats` a été détruit.
+**Décompte des nombres de chats par compte**
+- un chat est compté pour 1 pour I quand la dernière opération qu'il a effectué est un ajout: si cette dernière opération est un _raz_, le chat est dit _passif_ et compte pour 0.
+- ce principe de gestion évite de pénaliser ceux qui reçoivent des chats non sollicités et qui les _effacent_.
+
+Quand son avatar E s'est auto-résilié, son document `versions` devient _zombi_. Son document `chats` a été détruit.
 
 S'étant adressé à E, I a récupéré que E était détruit. 
-- si le chat I était raccroché, le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
-- sinon, le statut `r` passe à 2. I conserve le dernier contenu échangé, mais,
+- si le chat I était _passif_, le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
+- sinon, le statut `r E` passe à 2. I conserve le dernier état de l'échange, mais,
   - il ne pourra plus le changer,
-  - il ne pourra que _raccrocher_, ce qui rendra le chat _zombi_.
+  - il ne pourra qu'effectuer un _raz_, ce qui rendra le chat _zombi_: de facto E n'écrira plus dessus et ça ne sert à rien d'écrire à un _disparu_.
 
-I a fait rafraîchir les cartes de visite dans sa session et ça lui a retourné l'information de la disparition de son _contact_.
+Quand I a fait rafraîchir les cartes de visite dans sa session, ça lui retourne l'information de la disparition éventuelle de son _contact_.
 
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
 
-_data_:
+_data_ (de l'exemplaire I):
 - `id`: id de A,
-- `ids`: hash du cryptage de `idA_court/idB_court` par la clé de A.
+- `ids`: hash du cryptage de `idI_court/idE_court` par la clé de I.
 - `v`: 1..N.
-- `dlv`
-- `vcv` : version de la carte de visite.
+- `vcv` : version de la carte de visite de E.
 
-- `r` : 0:raccroché, 1:en ligne, 2:en ligne mais E est mort
-- `mc` : mots clés attribués par l'avatar au chat.
-- `cva` : `{v, photo, info}` carte de visite de _l'autre_ au moment de la création / dernière mise à jour du chat, cryptée par la clé de _l'autre_.
-- `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I.
-- `seq` : numéro de séquence de changement du texte.
-- `contc` : contenu crypté par la clé `cc` du chat.
-  - `na` : `[nom, cle]` de _l'autre_.
-  - `dh`  : date-heure de dernière mise à jour.
-  - `txt` : texte du chat. '' quand le compte a raccroché (ce qui ne _vide_ pas l'autre exemplaire.)
+- `r` : deux chiffres `I E`
+  - I : 0:passif, 1:actif
+  - E : 0:passif, 1:actif, 2:disparu
+- `cva` : `{v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat, cryptée par la clé de E.
+- `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I (quand le chat vient d'être créé par E).
+- `nacc` : `[nom, cle]` de E crypté par la clé du chat.
+- `items` : liste des items `[{a, dh, l t}]`
+  - `a` : 0:écrit par I, 1: écrit par E
+  - `dh` : date-heure d'écriture.
+  - `l` : taille du texte.
+  - `t` : texte crypté par la clé du chat (vide s'il a été supprimé).
+
+**Actions possibles (par I)**
+- _ajout d'un item_
+  - si le chat n'existait pas, 
+    - il est créé avec ce premier item dans `items`.
+    - le nombre de chats dans `comptas.qv.nc` est incrémenté.
+    - `r` de I vaut 10 et `r` de E vaut 01.
+  - l'item apparaît dans `items` de E (son `a` est inversé).
+- _effacement du texte d'un item de I_
+  - le texte de l'item est effacé des deux côtés.
+  - il n'est pas possible pour I d'effacer le texte d'un item écrit par E.
+- _raz_
+  - `items` est vidée du côté I.
+  - `r` de I vaut `01` et `r` de E vaut `10` ou `00`.
+  - le chat est dit _passif_ du côté I et ne redeviendra _actif_ qu'au prochain ajout d'un item par I.
+
+> Un chat _passif_ pour un avatar est un chat _écouté_, les items écrits par E arrivent, mais sur lequel I n'écrit pas. Il redevient _actif_ pour I dès que I écrit un item et ne redevient _passif_ que quand il fait un _raz_.
 
 ### Établir un _contact direct_ entre A et B
 Supposons que B veuille ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas le nom / clé.
@@ -847,12 +864,12 @@ Un groupe est caractérisé par :
 - la liste de ses membres : des documents `membres` de sa sous-collection `membres`.
 
 ### Membres d'un groupe: identifications [id, im] nag ni 
-- **`im / ids`**: quand un membre est créé en étant déclaré _contact_ du groupe par un animateur, il lui est affecté un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution. Pour un groupe id, un membre est identifié par le couple id / ids (où ids est l'indice membre im). Le premier membre est celui du créateur du groupe a pour indice 1.
+- **`im / ids`**: un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution. Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
   - le statut de chaque membre d'index `im` est stocké dans `ast[im]`.
 - **`nag`** : numéro d'avatar dans le groupe. Hash du cryptage par la clé du groupe de la clé de l'avatar.
   - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, être résilié, y être à nouveau invité et actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `nag` du groupe (même indice im que pour ast).
-  - ceci permet aussi de ne pas avoir attribuer deux membres avec deux indices différents pour le même avatar.
-- **`ni`** : numéro d'invitation (1). hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar invité. Ce numéro permet à un animateur d'annuler une invitation faite et pas encore acceptée ou refusées.
+  - ceci permet aussi de ne pas avoir deux membres avec deux indices différents pour le même avatar.
+- **`ni`** : numéro d'invitation. hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar invité. Ce numéro permet à un animateur d'annuler une invitation faite et pas encore acceptée ou refusée.
 - `npgk` : numéro de participation à un groupe: hash du cryptage par la clé K du compte de `idg / idav`. Ce numéro est la clé du membre dans la map `mpgk` de `comptas` du compte.
 
 ### Oubli et disparition
@@ -862,15 +879,15 @@ Un groupe est caractérisé par :
   - son row `membres` `id, im` est purgé.
 - _l'oubli_ a été explicitement demandé par le membre lui-même ce qui,
   - détruit son document `membres`.
-  - ast[im] vaut 0.
-  - pour un oubli _simple_, nag[im] vaut 0. En conséquence le même avatar peut être ré-invité dans le futur, avec un autre indice: sa _seconde_ vie est distincte de la première et ses signatures dans les notes apparaissent avec son nom pour la vie la plus récente mais avec un numéro anonyme pour les vies antérieures.
-  - pour un oubli _définitif_, nag[im] est conservé. Cet avatar ne pourra plus avoir d'autre vie dans le groupe.
+  - `ast[im]` vaut 0.
+  - pour un oubli _simple_, `nag[im]` vaut 0. En conséquence le même avatar peut être ré-invité dans le futur, avec un autre indice: sa _seconde_ vie est distincte de la première et ses signatures dans les notes apparaissent avec son nom pour la vie la plus récente mais avec un numéro anonyme pour les vies antérieures.
+  - pour un oubli _définitif_, `nag[im]` est conservé. Cet avatar ne pourra plus jamais avoir d'autre vie dans le groupe.
 - un membre _oublié / disparu_ n'apparaît plus dans les notes que par #99 où 99 était son indice: la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
 - après un _oubli simple_ si le membre est de nouveau inscrit comme _contact_, il récupère un nouvel indice et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours un numéro #99 (_inconnu_).
 
 ### Modes d'invitation
-- _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par un animateur (un suffit).
-- _unanime_ : dans ce mode il faut que _tous_ les animateurs aient validé l'invitation (le dernier ayant validé provoque la validation).
+- _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par UN animateur (un seul suffit).
+- _unanime_ : dans ce mode il faut que _tous_ les animateurs aient validé l'invitation (le dernier ayant validé provoque l'invitation).
 - pour passer en mode _unanime_ il suffit qu'un seul animateur le demande.
 - pour revenir au mode _simple_ depuis le mode _unanime_, il faut que tous les animateurs aient validé ce retour.
 - une invitation est enregistrée dans la map `invits` de l'avatar invité:
@@ -921,21 +938,20 @@ _data_:
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
 - `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
 - `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
-  - `sta`: statut d'activité: 1: contact, 2:invité, 3:ré-invité, 4:actif, 5:résilié
+  - `sta`: statut d'activité: 1: contact, 2:invité, 3:ré-invité, 4:résilié, 9:actif
   - `laa`: 1:lecteur, 2:auteur, 3:animateur (pour `sta` 2 3 4).
 - `nag` : table des `nag` (hash de la clé de l'avatar membre cryptée par la clé du groupe). Les index dans `nag` et `ast` correspondent.
 - `ln` : liste noire des `im`. 
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
-- `ardg` : ardoise cryptée par la clé du groupe.
 
 **Statut d'activité:**
 - `0` : **disparu / oublié**
-- `1` : **contact**. Le membre existe, il est connu des autres membres du groupe mais son avatar l'ignore. Pas d'item dans le `lgrk` de son avatar.
-- `2` : **invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire l'ardoise du groupe et connaît les autres membres mais n'a pas accès aux notes. Il n'a _jamais_ été actif, n'a pas d'entrée dans `comptas.mpgk` de son compte.
-- `3` : **ré-invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire l'ardoise du groupe et connaît les autres membres mais n'a pas accès aux notes. Il a _déjà_ été actif, a une entrée dans `comptas.mpgk` de son compte.
-- `4` : **actif**. L'avatar a accès aux notes du groupe et peut attacher un commentaire personnel au groupe.
-- `5` : **résilié**. L'avatar connaît ce statut, n'a plus accès ni autres membres du groupe, ni aux notes. Il peut encore éditer son commentaire à propos du groupe. Il n'a pour seule capacité d'action que celle de _se faire oublier_ retombant au statut 0. Un animateur peut le _ré-inviter_ ou non s'il l'oubli est _définitif_.
+- `1` : **contact**. Le membre existe, il est connu des autres membres du groupe mais son avatar l'ignore. Pas d'item dans le `comptas.mpgk` du compte de son avatar.
+- `2` : **invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire la carte de visite du groupe mais n'a accès ni aux autres membres ni aux notes. Il n'a _jamais_ été actif, n'a pas d'entrée dans `comptas.mpgk` de son compte.
+- `3` : **ré-invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire la carte de visite du groupe mais n'a accès ni aux autres membres ni aux notes. Il a _déjà_ été actif, a une entrée dans `comptas.mpgk` de son compte.
+- `4` : **résilié**. L'avatar connaît ce statut, n'a plus accès ni autres membres du groupe, ni aux notes. Il n'a plus pour seule capacité d'action que celle de _se faire oublier_ retombant au statut 0. Un animateur peut le _ré-inviter_ si l'oubli n'était pas _définitif_.
+- `9` : **actif**. L'avatar a accès aux notes et aux autres membres du groupe.
 
 **Dès qu'un avatar a accepté une fois une invitation**, son statut reste supérieur à 2 et il a une entrée dans la liste des participations aux groupes (`mpgk`) dans comptas de son compte.
 - seul l'avatar peut alors décider de tomber dans l'oubli, avec un statut à 0 et la suppression de son entrée dans `mpgk`.
@@ -943,16 +959,6 @@ _data_:
   - par acceptation d'invitation le compte maîtrise lui-même le passage de 2 à 3 (l'accroissement de son nombre de groupes).
   - par demande d'oubli, il maîtrise la décroissance de son nombre de participations aux groupes.
 - la disparition d'un groupe détectée en session (synchro ou connexion) par son `versions` _zombi, provoque la disparition de son ou ses entrées dans `mpgk` et la décroissance correspondante de `qv.ng` (nombre de participations aux groupes).
-
-**Remarque sur l'ardoise du groupe `ardg`**
-- c'est un texte libre que tous les membres du groupe actifs et invités peuvent lire et écrire.
-- un invité qui refuse son invitation peut écrire sur l'ardoise une explication.
-- on peut y trouver typiquement,
-  - une courte présentation d'un nouveau contact, voire quelques lignes de débat (si c'est un vrai débat un note du groupe est préférable),
-  - un mot de bienvenue pour un nouvel invité,
-  - un mot de remerciement d'un nouvel invité.
-  - des demandes d'explication de la part d'un invité.
-- le texte de présentation du groupe à destination des invités est plutôt dans la carte de visite du groupe mais peut aussi figurer sur l'ardoise mais alors le texte peut en être modifié par tous et pas seulement les animateurs.
 
 ## Documents `membres`
 Un document `membres` est créé à la déclaration d'un avatar comme _contact_. Le compte ne _signe_ pas à la connexion dans son document membres tant qu'il est _contact_, sa `dlv` reste 0.
@@ -975,30 +981,21 @@ _data_:
 - `ddi` : date de la _dernière_ invitation.
 - `dda` : date de début d'activité (jour de la _première_ acceptation).
 - `dfa` : date de fin d'activité (jour de la _dernière_ suspension).
-- `inv` : niveau de validation de l'invitation en cours:
-  - `null` : le membre n'a pas été invité où le mode d'invitation du groupe était _simple_ au moment de l'invitation.
-  - `[ids]` : liste des indices des animateurs ayant validé l'invitation.
-- `mc` : mots clés du membre à propos du groupe.
-- `infok` : commentaire du membre à propos du groupe crypté par la clé K du membre.
+- `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
 - `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
 
 #### Transitions d'état d'un membre:
-**Option _liste noire_:**
-- son `im` est mis dans `ln`,
-- `nag[im]` est mis à 0.
-- `ast[im]` est mis à 0.
-- le document `membres` est détruit.
 
 **Création: inscription comme contact**
-- recherche de l'indice `im` dans la table `nag` du groupe pour le nag de l'avatar.
+- recherche de l'indice `im` dans la table `nag` du groupe pour le `nag` de l'avatar.
 - SI `im` n'existe pas,
   - c'est une première vie OU une nouvelle vie après oubli de la précédente.
   - un nouvel indice `im` lui est attribué en séquence:
     - _contact_ -> `ast[im]`
-    - nag -> `nag[im]`
+    - `nag` -> `nag[im]`
   - un row `membres` est créé.
-- SI `im` existe, _inscription en contact_ en échec:
+- SI `im` existe, _l'inscription en contact_ est en échec:
   - si `ast[im]` est non zéro, l'avatar existe déjà comme membre (une double d'un avatar à un instant donné est interdite).
   - si `ast[im]` est 0, l'avatar avait demandé un _oubli définitif_ interdisant la possibilité de l'inscrire à nouveau comme _contact_.
 
@@ -1026,7 +1023,7 @@ _data_:
   - son item dans `invits` de son avatar est effacé.
 - acceptation d'invitation par le compte:
   - dans `comptas`,
-    - un item est ajouté dans `mpgk`
+    - un item est ajouté dans `mpgk`,
     - le compteur `ng` est incrémenté.
   - _actif_ -> `ast[im]`. 
   - `dda` est remplie.
@@ -1051,7 +1048,7 @@ _data_:
 - retrait d'invitation par un animateur (_résiliation_):
   - _résilié_ -> `ast[im]`.
 
-**Depuis _actif_ (3):**
+**Depuis _actif_ (9):**
 - résiliation par un animateur:
   - _résilié_ -> `ast[im]`. `dfa` est remplie dans `membres`.
 - auto-résiliation:
@@ -1067,13 +1064,13 @@ _data_:
     - m'oublier: _oubli_ -> ast[im], 0 -> nag[im]. Entrée dans `mpgk` du compte supprimée.
     - m'oublier définitivement: _oubli_ -> ast[im]. Entrée dans `mpgk` du compte supprimée.
   - dans `comptas`, le compteur `ng` est décrémenté.
-- invitation par un animateur:
-  - _invité_ -> `ast[im]`. 
+- ré-invitation par un animateur:
+  - _ré-invité_ -> `ast[im]`. 
   - `laa` à (1 2 3), `ddi` remplie.
 - vote d'invitation (en mode _unanime_):
   - `laa` à (1 2 3)
   - si tous les animateurs ont voté,
-    - _invité_ -> `ast[im]`, `ddi` remplie.
+    - _ré-invité_ -> `ast[im]`, `ddi` remplie.
   - si le vote change le `laa` actuel, les autres votes sont annulés.
 
 **Remarques:**
