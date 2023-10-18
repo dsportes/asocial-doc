@@ -538,7 +538,7 @@ _data_:
     - `nomg`: nom du groupe,
     - `cleg`: clé du groupe,
     - `im`: indice du membre dans la table `ast` du groupe.
-    - `imp` : indice du premier membre du compte inscrit dans le groupe
+    - `imp` : indice du premier membre du compte inscrit dans le groupe.
     - `idav` : id (court) de l'avatar.
 - `mcmemos` : map des couples `{mc, memo}` à propos des contacts (avatars) et groupes connus du compte:
   - _cle_: `id` crypté par la clé K du compte,
