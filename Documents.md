@@ -897,37 +897,55 @@ Un membre ne devient _actif_ que quand son compte a explicitement **validé une 
 
 Un membre _actif_ ne redevient _contact_ que quand lui-même ou animateur a décidé _d'oublier_ le membre dans le groupe.
 
-#### Flags et `nag` du status
+#### Sous-status, flags et `nag` du status
+Majeur:
+- 0: `im` non affecté,
+- 1: oublié,
+- 2: disparu,
+- 3: contact,
+- 4: actif.
+
 Plusieurs _flags_ précisent le statut d'un membre:
-- **est actif**: sinon c'est un contact.
-- **a une invitation en cours**: il n'est pas actif.
-- **a _droit d'accès_ à la liste des membres**: si / quand il est / sera actif.
-- **a _droit d'accès_ aux notes du groupe**: si / quand il est / sera actif.
-- **a _droit d'écriture_ sur les notes du groupe**: si / quand il est / sera actif.
-- **a _pouvoir d'animateur_ du groupe**: si / quand il est / sera actif. `Remarque`: un animateur sans droit d'accès aux notes peut déclarer une invitation et être hébergeur.
-- **a accès aux notes**: c'est le membre qui décide s'il souhaite ou non accéder aux notes quand il en a le droit: un non accès allège sa session.
-- **a eu, un jour, accès aux notes**
-- **a eu, un jour, la possibilité d'écrire une note**
-- **a eu, un jour, accès aux membres**
+- [IN] **a une invitation en cours**
+- _droits_
+  - [DM] **d'accès à la liste des membres**: s'il est invité s'appliquera quand il sera actif.
+  - [DN] **d'accès_ aux notes du groupe**:  s'il est invité s'appliquera quand il sera actif.
+  - [DE] **d'écriture_ sur les notes du groupe**: s'il est invité s'appliquera quand il sera actif.
+- _pouvoir_
+  - [PA] **d'animateur du groupe**: s'il est invité s'appliquera quand il sera actif. _Remarque_: un animateur sans droit d'accès aux notes peut déclarer une invitation et être hébergeur.
+- [AN] **a accès aux notes**: un membre _actif_ décide s'il souhaite ou non accéder aux notes (il faut qu'il en ait le _droit_): un non accès allège sa session.
+- [AM] **a accès aux membres**: un membre _actif_ décide s'il souhaite ou non accéder aux autres membres (il faut qu'il en ait le _droit_): un non accès allège sa session.
+- _historique en état actif_
+  - [HA] **a, un jour, été actif**
+  - [HN] **avec accès aux notes**
+  - [HM] **avec accès aux membres**
+  - [HE] **avec possibilité d'écrire une note**
 
-`nag` du status, numéro d'avatar dans le groupe (hash du cryptage par la clé du groupe de la clé de l'avatar):
-- il est mis quand un avatar est déclaré _contact_ pour la première fois.
-- si la nag est 0, 
-  - l'avatar a été constaté disparu et ne réapparaîtra pas,
-  - son row `membres` a été purgé.
+`nag` : numéro d'avatar dans le groupe (hash du cryptage par la clé du groupe de la clé de l'avatar): il est inscrit à la première déclaration de l'avatar comme contact.
 
-### Oubli et disparition
-- la _disparition_ correspond au fait que l'avatar du membre n'existe plus. Par principe même l'avatar ne ré-apparaîtra plus dans le groupe. Pour un membre `im`
-  - `ast[im]` vaut 0
-  - `anag[im]` vaut 0.
-  - son row `membres` `id, im` est purgé.
-- _l'oubli_ a été explicitement demandé par le membre lui-même ce qui,
-  - détruit son document `membres`.
-  - `ast[im]` vaut 0.
-  - pour un oubli _simple_, `anag[im]` vaut 0. Le même avatar peut être invité dans le futur, avec un autre indice: sa _seconde_ vie est distincte de la première et ses signatures dans les notes apparaissent avec son nom pour la vie la plus récente mais avec un numéro anonyme pour les vies antérieures.
-  - pour un oubli _définitif_, `anag[im]` est conservé. Cet avatar ne pourra plus jamais avoir d'autre vie dans le groupe.
-- un membre _oublié / disparu_ n'apparaît plus dans les notes que par #99 où 99 était son indice: la liste des auteurs peut faire apparaître des membres existants (connus avec nom et carte de visite) ou des membres _disparus / oubliés_ avec juste leur indice.
-- après un _oubli simple_ si le membre est de nouveau inscrit comme _contact_, il récupère un nouvel indice et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours un numéro #99 (_inconnu_).
+### `im` attribués ou libres: oublis et disparitions
+La règle générale est de ne pas ré-attribuer un `im` quand un membre disparaît ou est oublié. Cet indice peut apparaître,
+- dans la liste des auteurs d'une note, la ré-attribution pourrait porter à confusion sur l'auteur d'une note.
+- dans la liste des participations à un groupe d'un compte (`mpgk`).
+
+L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand le sous-status est _contact_ et qu'il n'a jamais été actif (donc que son im n'a pas pu être référencé ailleurs).
+
+**La _disparition_** correspond au fait que l'avatar du membre n'existe plus, soit à sa demande, soit par détection du GC. Par principe même l'avatar ne ré-apparaîtra plus dans le groupe:
+- son row `membres` est purgé.
+- son `nag` est mis à zéro (si son `im` n'a pas été libéré).
+
+**Un _oubli_** est explicitement demandé:
+- par le membre lui-même,
+- par un animateur, a) soit pour un _contact_, b) soit, à l'occasion de l'annulation de son invitation, pour un _invité_ n'ayant jamais été _actif_.
+- son row `membres` est purgé.
+- son `nag` est mis à zéro (si son `im` n'a pas été libéré).
+
+Après un _oubli_ si l'avatar est de nouveau inscrit comme _contact_, il récupère un nouvel indice # 35 et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont réinitialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours l'ancien `im` #12 que rien ne permet de corréler à #35.
+
+### Listes `lna / lnc`: _listes noires des avatars ne pas (ré) inviter_
+`ln` liste les `nag` des avatars qui ne devront plus être invités / ré-invités. Elle est alimentée:
+- par un animateur dans `lna`.
+- par l'avatar lui-même dans `lnc`.
 
 ### Modes d'invitation
 - _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par UN animateur (un seul suffit).
@@ -936,11 +954,15 @@ Plusieurs _flags_ précisent le statut d'un membre:
 - pour revenir au mode _simple_ depuis le mode _unanime_, il faut que tous les animateurs aient validé ce retour.
 
 Une invitation est enregistrée dans la map `invits` de l'avatar invité:
-  - _clé_: `ni`, numéro d'invitation.
-  - _valeur_: `{nomg, cleg, im}` cryptée par la clé publique RSA de l'avatar.
-    - `nomg`: nom du groupe,
-    - `cleg`: clé du groupe,
-    - `im`: indice du membre dans la table ast du groupe.
+- _clé_: `ni`, numéro d'invitation.
+- _valeur_: `{nomg, cleg, im}` cryptée par la clé publique RSA de l'avatar.
+  - `nomg`: nom du groupe,
+  - `cleg`: clé du groupe,
+  - `im`: indice du membre dans la table ast du groupe.
+
+Sauf en mode _avion_, le serveur peut délivrer une _fiche d'invitation_ donnant pour une invitation donnée,
+- la carte de visite du groupe,
+- les cartes de visite et noms du ou des animateurs ayant lancé l'invitation.
 
 ### Hébergement par un membre actif
 L'hébergement d'un groupe est noté par :
@@ -982,32 +1004,21 @@ _data_:
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
 - `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
-- `ast` : table des statuts des membres. Deux chiffres `sta laa` (0: disparu / oublié):
-  - `sta`: statut d'activité: 1: contact, 2:invité, 3:ré-invité, 4:résilié, 9:actif
-  - `laa`: 1:lecteur, 2:auteur, 3:animateur (pour `sta` 2 3 4).
-- `anag` : table des `nag` (hash de la clé de l'avatar membre cryptée par la clé du groupe). Les index dans `anag` et `ast` correspondent.
+- `ast` : table des statuts des membres (sous-status, flags, nag) sur 8 bytes.
+- `lna` : liste noire _animateurs_ des `nag` des avatars à ne pas inviter / ré-inviter.
+- `lnc` : liste noire _comptes_ des `nag` des avatars à ne pas inviter / ré-inviter.
 - `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
 
-**Statut d'activité:**
-- `0` : **disparu / oublié**
-- `1` : **contact**. Le membre existe, il est connu des autres membres du groupe mais son avatar l'ignore. Pas d'item dans le `comptas.mpgk` du compte de son avatar.
-- `2` : **invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire la carte de visite du groupe mais n'a accès ni aux autres membres ni aux notes. Il n'a _jamais_ été actif, n'a pas d'entrée dans `mpgk` de l'avatar principal de son compte.
-- `3` : **ré-invité**. L'avatar _invité_ est au courant de son état et a un item dans la map `invits` de son avatar. L'avatar peut lire la carte de visite du groupe mais n'a accès ni aux autres membres ni aux notes. Il a _déjà_ été actif, a une entrée dans `mpgk` de l'avatar principal de son compte.
-- `4` : **résilié**. L'avatar connaît ce statut, n'a plus accès ni autres membres du groupe, ni aux notes. Il n'a plus pour seule capacité d'action que celle de _se faire oublier_ retombant au statut 0. Un animateur peut le _ré-inviter_.
-- `9` : **actif**. L'avatar a accès aux notes et aux autres membres du groupe.
-
-**Dès qu'un avatar a accepté une fois une invitation**, son statut reste supérieur à 2 et il a une entrée dans la liste des participations aux groupes (`mpgk`) dans l'avatar principal de son compte.
-- seul l'avatar peut alors décider de tomber dans l'oubli, avec un statut à 0 et la suppression de son entrée dans `mpgk`.
-- le _nombre de participations aux groupes_ décompte toutes celles de statut 3 4 9:
-  - par acceptation d'invitation le compte maîtrise lui-même le passage de 2 à 9 (l'accroissement de son nombre de groupes).
-  - par demande d'oubli, il maîtrise la décroissance de son nombre de participations aux groupes.
+**Quand un avatar a accepté une invitation, il devient _actif_**, 
+- il a une entrée dans la liste des participations aux groupes (`mpgk`) dans l'avatar principal de son compte.
+- quand l'avatar décide de tomber dans l'oubli ceci supprime cette entrée.
+- le _nombre de participations aux groupes_ dans compas.qv.ng du compte est le nombre total de ces entrées.
 - la disparition d'un groupe détectée en session (synchro ou connexion) par son `versions` _zombi_, provoque la disparition de son ou ses entrées dans `mpgk` et la décroissance correspondante de `qv.ng` (nombre de participations aux groupes).
 
 ## Documents `membres`
-Un document `membres` est créé à la déclaration d'un avatar comme _contact_. Le compte ne _signe_ pas à la connexion dans son document membres tant qu'il est _contact_, sa `dlv` reste 0.
+Un document `membres` est créé à la déclaration d'un avatar comme _contact_. Le compte ne _signe_ pas à la connexion dans son document membres tant qu'il n'est pas _actif_, sa `dlv` reste non significative 20991231.
 - sa `dlv` reste aussi à 0 en tant qu'invité tant que le membre n'est pas _actif_.
-- les données personnelles de l'avatar à propos du groupe `mc infok` n'existent que quand le membre est _actif_.
 - dans `ddi dda dfa` subsistent les traces de la dernière vie de l'avatar dans le groupe.
 
 Le document `membres` est détruit,
@@ -1024,106 +1035,63 @@ _data_:
 
 - `ddi` : date de la _dernière_ invitation.
 - `dda` : date de début d'activité (jour de la _première_ acceptation).
-- `dfa` : date de fin d'activité (jour de la _dernière_ suspension).
+- `dfa` : date de fin d'activité: n'est pas hébergeur, n'a pas accès aux membres ni aux notes.
 - `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
-- `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
+- `na` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
 
-#### Transitions d'état d'un membre:
+#### Opérations
 
-**Création: inscription comme contact**
-- recherche de l'indice `im` dans la table `nag` du groupe pour le `nag` de l'avatar.
+**Inscription comme contact**
+- si son `nag` est en `lna` ou `lnc`, refus.
+- recherche de l'indice `im` dans la table `ast` du groupe pour le `nag` de l'avatar.
 - SI `im` n'existe pas,
   - c'est une première vie OU une nouvelle vie après oubli de la précédente.
-  - un nouvel indice `im` lui est attribué en séquence:
-    - _contact_ -> `ast[im]`
-    - `nag` -> `nag[im]`
+  - un nouvel indice `im` lui est attribué en séquence (s'il n'y en a pas de disponible):
   - un row `membres` est créé.
-- SI `im` existe, _l'inscription en contact_ est en échec:
-  - si `ast[im]` est non zéro, l'avatar existe déjà comme membre (une double d'un avatar à un instant donné est interdite).
-  - si `ast[im]` est 0, l'avatar avait demandé un _oubli définitif_ interdisant la possibilité de l'inscrire à nouveau comme _contact_.
+- SI `im` existait, _l'inscription en contact_ est en échec (existe déjà).
 
-**Depuis _contact_ (1):** 
-- invitation par un animateur:
-  - _invité_ -> `ast[im]`. 
-  - `laa` à (1 2 3), `ddi` remplie.
-  - inscription dans `invits` de l'avatar.
+**Invitation par un animateur**
+- si son `nag` est en `lna` ou `lnc`, refus.
+- choix des _droits_ et inscription dans `invits` de l'avatar.
 - vote d'invitation (en mode _unanime_):
-  - `laa` à (1 2 3)
-  - si tous les animateurs ont voté,
-    - _invité_ -> `ast[im]`, `ddi` remplie.
-    - inscription dans `linvits` de l'avatar.
-  - si le vote change le `laa` actuel, les autres votes sont annulés.
-- oubli par un animateur:
-  - le document `membres` est détruit.
-  - 0 -> `ast[im]`.
-  - 0 -> `anag[im]`. L'oubli n'est pas _définitif_.
+  - si tous les animateurs ont voté, inscription dans `invits` de l'avatar.
+  - si le vote change les _droits_, les autres votes sont annulés.
+- `ddi` est remplie.
+
+**Annulation d'invitation par un animateur**
+- effacement de l'entrée `ni` dans `invits` de l'avatar.
+
+**Oubli par un animateur**
+- le document `membres` est détruit.
   
-**Depuis _invité_ (2):**
-- refus d'invitation par le compte:
-  - 3 options possibles:
-    - rester en contact: _contact_ -> `ast[im]`.
-    - m'oublier: _oubli_ -> ast[im], 0 -> nag[im].
-    - m'oublier définitivement: _oubli_ -> ast[im].
-  - son item dans `invits` de son avatar est effacé.
-- acceptation d'invitation par le compte:
-  - dans l'avatar principal du compte un item est ajouté dans `mpgk`,
-  - dans `comptas` le compteur `qv.ng` est incrémenté.
-  - _actif_ -> `ast[im]`. 
-  - `dda` est remplie.
-  - son item dans `invits` de son avatar est effacé.
-- retrait d'invitation par un animateur (_résiliation_):
-  - 2 options possibles:      
-    - le laisser en contact: _contact_ -> `ast[im]`.
-    - l'oublier: _oubli_ -> ast[im], 0 -> nag[im].
-  - son item dans `invits` de son avatar est effacé.
+**Refus d'invitation par le compte**
+- 3 options possibles:
+  - rester en contact.
+  - m'oublier,
+  - m'oublier et ne plus m'inviter.
+- son item dans `invits` de son avatar est effacé.
 
-**Depuis _ré-invité_ (3):**
-- refus d'invitation par le compte:
-  - 3 options possibles:
-    - rester en contact: _résilié_ -> `ast[im]`.
-    - m'oublier: _oubli_ -> ast[im], 0 -> nag[im]. Entrée dans `mpgk` du compte supprimée.
-    - m'oublier définitivement: _oubli_ -> ast[im]. Entrée dans `mpgk` du compte supprimée.
-  - son item dans `invits` de son avatar est effacé.
-- acceptation d'invitation par le compte:
-  - _actif_ -> `ast[im]`. 
-  - `dda` est remplie.
-  - son item dans `invits` de son avatar est effacé.
-- retrait d'invitation par un animateur (_résiliation_):
-  - _résilié_ -> `ast[im]`.
+**Acceptation d'invitation par le compte**
+- dans l'avatar principal du compte un item est ajouté dans `mpgk`,
+- dans `comptas` le compteur `qv.ng` est incrémenté.
+- `dda` est remplie.
+- son item dans `invits` de son avatar est effacé.
+- flags `AN AM`: accès aux notes, accès aux autres membres.
 
-**Depuis _actif_ (9):**
-- résiliation par un animateur:
-  - _résilié_ -> `ast[im]`. `dfa` est remplie dans `membres`.
-- auto-résiliation:
-  - 3 options possibles:
-    - rester en contact: _résilié_ -> `ast[im]`. `dfa` est remplie dans `membres`.
-    - m'oublier: _oubli_ -> ast[im], 0 -> nag[im]. Entrée dans `mpgk` du compte supprimée.
-    - m'oublier définitivement: _oubli_ -> ast[im]. Entrée dans `mpgk` du compte supprimée.
-  - si le membre était le dernier _actif_, le groupe disparaît.
+**Modification des droits par un animateur**
+- retour éventuel comme _contact_.
 
-**Depuis _résilié_ (4):**
-- demande d'oubli par l'avatar.
-  - 2 options possibles:
-    - m'oublier: _oubli_ -> ast[im], 0 -> nag[im]. Entrée dans `mpgk` du compte supprimée.
-    - m'oublier définitivement: _oubli_ -> ast[im]. Entrée dans `mpgk` du compte supprimée.
-  - dans `comptas`, le compteur `ng` est décrémenté.
-- ré-invitation par un animateur:
-  - _ré-invité_ -> `ast[im]`. 
-  - `laa` à (1 2 3), `ddi` remplie.
-- vote d'invitation (en mode _unanime_):
-  - `laa` à (1 2 3)
-  - si tous les animateurs ont voté,
-    - _ré-invité_ -> `ast[im]`, `ddi` remplie.
-  - si le vote change le `laa` actuel, les autres votes sont annulés.
+**Modification des accès membres / notes par le compte**
+- flags `AN AM`: accès aux notes, accès aux autres membres.
 
-**Remarques:**
-- l'inscription dans `mpgk` de l'avatar principal du compte de l'avatar ne se fait qu'à la _première_ acceptation d'invitation par l'avatar.
-- cette inscription ne disparaît que :
-  - par _demande d'oubli_ par l'avatar, conjointement avec un `ast` à 0 dans le groupe.
-  - par suppression du groupe, son `versions` étant _zombi_.
-- en session une `versions` de groupe reçu en synchro ou à la connexion en _zombi_ fait supprimer l'item dans la ou les entrées `mpgk` de `comptas` du ou des avatars: le groupe ne reviendra _jamais_ à la vie.
-- la suppression d'un groupe par résiliation du dernier actif ou détection de la disparition par le GC du dernier actif se limite à basculer son `versions` en _zombi_, les rows `groupes, membres, notes` seront purgés ultérieurement dans une phase du GC.
+**Demande d'oubli par un compte**
+- 3 options:
+  - rester en _contact_
+  - m'oublier: Entrée dans `mpgk` du compte supprimée.
+  - m'oublier et ne pas me ré-inviter.
+- si le membre était le dernier _actif_, le groupe disparaît.
+- la participation au groupe disparaît de `mpgk` du compte.
 
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
