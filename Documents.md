@@ -871,13 +871,53 @@ Un groupe est caractérisé par :
 - **`im / ids`**: un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution. Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
   - le statut de chaque membre d'index `im` est stocké dans `ast[im]`.
 - **`nag`** : numéro d'avatar dans le groupe. Hash du cryptage par la clé du groupe de la clé de l'avatar.
-  - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, être résilié, y être à nouveau invité et actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `anag` du groupe (même indice im que pour ast).
-  - ceci permet aussi de ne pas avoir deux membres avec deux indices différents pour le même avatar.
+  - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, être résilié, y être à nouveau invité et actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `ast` du groupe.
+  - c'est aussi utilisé pour empêcher d'avoir à un instant donné deux membres avec deux indices différents pour le même avatar.
 - **`ni`** : numéro d'invitation. hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar invité. Ce numéro permet à un animateur d'annuler une invitation faite et pas encore acceptée ou refusée.
 - `npgk` : numéro de participation à un groupe: hash du cryptage par la clé K du compte de `idg / idav`. Ce numéro est la clé du membre dans la map `mpgk` de `comptas` du compte.
 
+### Status _contact / actif_
+Quand um membre (ayant un row `membres` identifié par `[idg, im]` est un _contact_:
+- son avatar ne le sait pas, son compte n'a pas le groupe dans sa liste de groupes `mpgk` (du moins au titre de cet avatar),
+- la `dlv` de son row `membres` est 20991231 (non significative),
+- sa disparition n'est constatée incidemment que quand un membre actif fait rafraîchir les cartes de visites des membres du groupe et découvre à cette occasion qu'il a disparu.
+- un _contact_ peut avoir une _invitation_ en cours déclarée par un animateur ou tous:
+  - son avatar le sait, cette invitation étant stockée dans la map `invits` du row avatars.
+  - une invitation n'a pas de date limite de validité.
+  - une invitation peut être annulée par un animateur ou l'avatar invité lui-même.
+
+Quand un membre est _actif_:
+- son avatar le sait, son compte a le groupe dans sa liste de groupes `mpgk`,
+- son row `membres` est signé à chaque connexion du compte de son avatar, 
+  - sa `dlv` lui garantit d'être considéré comme vivant un an après sa dernière connexion,
+  - en cas d'auto-résiliation du compte, sa disparition est constatée immédiatement,
+  - le GC détecte un année d'inactivité du compte et la disparition est connue en fin de journée.
+
+Un membre ne devient _actif_ que quand son compte a explicitement **validé une invitation** déclarée par un animateur (ou tous).
+
+Un membre _actif_ ne redevient _contact_ que quand lui-même ou animateur a décidé _d'oublier_ le membre dans le groupe.
+
+#### Flags et `nag` du status
+Plusieurs _flags_ précisent le statut d'un membre:
+- **est actif**: sinon c'est un contact.
+- **a une invitation en cours**: il n'est pas actif.
+- **a _droit d'accès_ à la liste des membres**: si / quand il est / sera actif.
+- **a _droit d'accès_ aux notes du groupe**: si / quand il est / sera actif.
+- **a _droit d'écriture_ sur les notes du groupe**: si / quand il est / sera actif.
+- **a _pouvoir d'animateur_ du groupe**: si / quand il est / sera actif. `Remarque`: un animateur sans droit d'accès aux notes peut déclarer une invitation et être hébergeur.
+- **a accès aux notes**: c'est le membre qui décide s'il souhaite ou non accéder aux notes quand il en a le droit: un non accès allège sa session.
+- **a eu, un jour, accès aux notes**
+- **a eu, un jour, la possibilité d'écrire une note**
+- **a eu, un jour, accès aux membres**
+
+`nag` du status, numéro d'avatar dans le groupe (hash du cryptage par la clé du groupe de la clé de l'avatar):
+- il est mis quand un avatar est déclaré _contact_ pour la première fois.
+- si la nag est 0, 
+  - l'avatar a été constaté disparu et ne réapparaîtra pas,
+  - son row `membres` a été purgé.
+
 ### Oubli et disparition
-- la _disparition_ correspond au fait que l'avatar du membre n'existe plus, soit par non connexion au cours des 365 jours qui précèdent, soit par auto-dissolution. Par principe même l'avatar ne ré-apparaîtra plus dans le groupe (et ne pourra plus être invité). Pour un membre `im`
+- la _disparition_ correspond au fait que l'avatar du membre n'existe plus. Par principe même l'avatar ne ré-apparaîtra plus dans le groupe. Pour un membre `im`
   - `ast[im]` vaut 0
   - `anag[im]` vaut 0.
   - son row `membres` `id, im` est purgé.
