@@ -537,8 +537,7 @@ _data_:
   - _valeur_: `{nomg, cleg, im, idav}` cryptée par la clé K.
     - `nomg`: nom du groupe,
     - `cleg`: clé du groupe,
-    - `im`: indice du membre dans la table `ast` du groupe.
-    - `imp` : indice du premier membre du compte inscrit dans le groupe.
+    - `im`: indice du membre dans la table `flags / anag` du groupe.
     - `idav` : id (court) de l'avatar.
 - `mcmemos` : map des couples `{mc, memo}` à propos des contacts (avatars) et groupes connus du compte:
   - _cle_: `id` crypté par la clé K du compte,
@@ -818,7 +817,7 @@ _data_:
 - `mc` :
   - note personnelle : vecteur des index de mots clés.
   - note de groupe : map sérialisée,
-    - _clé_ : `im` de l'auteur (0 pour les mots clés du groupe),
+    - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe),
     - _valeur_ : vecteur des index des mots clés attribués par le membre.
 - `txts` : crypté par la clé de la note.
   - `d` : date-heure de dernière modification du texte.
@@ -832,8 +831,8 @@ _data_:
 **Mots clés `mc`:**
 - Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
 - Note de groupe : `mc` est une map :
-  - _clé_ : `im`, indice du membre dans le groupe. Par convention 0 désigne le groupe lui-même.
-  - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du membre, ceux du groupe, ceux de l'organisation.
+  - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe). hgc est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
+  - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du compte du membre, ceux du groupe, ceux de l'organisation.
 
 **Map des fichiers attachés :**
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id_court` du groupe / avatar, `idf`
