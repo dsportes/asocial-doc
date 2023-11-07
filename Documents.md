@@ -970,7 +970,7 @@ Dans les deux cas ses `flags` sont à 0.
 Après un _oubli_ si l'avatar est de nouveau inscrit comme _contact_, il récupère un nouvel indice #35 par exemple et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont initialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours l'ancien `im` #12 que rien ne permet de corréler à #35.
 
 ### Listes `lna / lnc`: _listes noires des avatars ne pas (ré) inviter_
-`ln` liste les `nag` des avatars qui ne devront plus être invités / ré-invités. Elle est alimentée:
+liste les `nag` des avatars qui ne devront plus être invités / ré-invités. Elle est alimentée:
 - par un animateur dans `lna`.
 - par l'avatar lui-même dans `lnc`.
 
@@ -1061,13 +1061,12 @@ _data_:
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
 - `dlv` : date de dernière signature + 365 lors de la connexion du compte de l'avatar membre du groupe.
-
 - `ddi` : date de la dernière invitation. 0 s'il n'a jamais été invité.
 - `dpa` : date de la _première_ période d'activité. 0 s'il ne l'a jamais été.
 - `ddp` : date de passivité (entre `dpa` et `dfa`): date la plus élevée depuis que le membre n'est pas hébergeur et n'a ni accès aux membres ni aux notes. 0 s'il est actif et est soit hébergeur ou a accès aux notes ou aux membres.
 - `dfa` : date de la _fin de la dernière_ période d'activité. 0 s'il est toujours actif.
 - `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
-- `na` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
+- `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
 
 #### Opérations
