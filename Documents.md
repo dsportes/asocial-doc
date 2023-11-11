@@ -1065,6 +1065,7 @@ _data_:
 - `dpa` : date de la _première_ période d'activité. 0 s'il ne l'a jamais été.
 - `ddp` : date de passivité (entre `dpa` et `dfa`): date la plus élevée depuis que le membre n'est pas hébergeur et n'a ni accès aux membres ni aux notes. 0 s'il est actif et est soit hébergeur ou a accès aux notes ou aux membres.
 - `dfa` : date de la _fin de la dernière_ période d'activité. 0 s'il est toujours actif.
+- `flagsiv` : flags de l'invitation en cours.
 - `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
 - `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
 - `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
