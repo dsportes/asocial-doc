@@ -1061,10 +1061,12 @@ _data_:
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
 - `dlv` : date de dernière signature + 365 lors de la connexion du compte de l'avatar membre du groupe.
-- `ddi` : date de la dernière invitation. 0 s'il n'a jamais été invité.
-- `dpa` : date de la _première_ période d'activité. 0 s'il ne l'a jamais été.
-- `ddp` : date de passivité (entre `dpa` et `dfa`): date la plus élevée depuis que le membre n'est pas hébergeur et n'a ni accès aux membres ni aux notes. 0 s'il est actif et est soit hébergeur ou a accès aux notes ou aux membres.
-- `dfa` : date de la _fin de la dernière_ période d'activité. 0 s'il est toujours actif.
+- `ddi` : date de l'invitation la plus récente.
+- **dates de début de la première et fin de la dernière période...**
+  - `dac fac` : d'activité
+  - `dln fln` : d'accès en lecture aux notes.
+  - `den fen` : d'accès en écriture aux notes.
+  - `dam fam` : d'accès aux membres.
 - `flagsiv` : flags de l'invitation en cours.
 - `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
 - `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
