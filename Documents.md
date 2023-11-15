@@ -1048,7 +1048,7 @@ _data_:
 ## Documents `membres`
 Un document `membres` est créé à la déclaration d'un avatar comme _contact_. Le compte ne _signe_ pas à la connexion dans son document membres tant qu'il n'est pas _actif_, sa `dlv` reste non significative 20991231.
 - sa `dlv` reste aussi à 0 en tant que contact ayant une invitation, le membre n'étant toujours pas _actif_.
-- traces de la présence de l'avatar dans le groupe: `ddi dpa ddp dfa`.
+- traces de la présence de l'avatar dans le groupe: `dac fac ...`.
 
 Le document `membres` est détruit,
 - par une opération d'oubli.
@@ -1095,6 +1095,7 @@ _data_:
 - effacement de l'entrée `ni` dans `invits` de l'avatar.
 
 **Oubli par un animateur**
+- pour un contact, pas invité, qui n'a jamais été actif: son slot est récupérable.
 - le document `membres` est détruit.
   
 **Refus d'invitation par le compte**
@@ -1107,12 +1108,12 @@ _data_:
 **Acceptation d'invitation par le compte**
 - dans l'avatar principal du compte un item est ajouté dans `mpgk`,
 - dans `comptas` le compteur `qv.ng` est incrémenté.
-- `dda` est remplie.
+- `dac fac ...` sont mises à jour.
 - son item dans `invits` de son avatar est effacé.
 - flags `AN AM`: accès aux notes, accès aux autres membres.
 
 **Modification des droits par un animateur**
-- retour éventuel comme _contact_.
+- flags `PA DM DN DE`
 
 **Modification des accès membres / notes par le compte**
 - flags `AN AM`: accès aux notes, accès aux autres membres.
