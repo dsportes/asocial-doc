@@ -1011,6 +1011,7 @@ L'hébergement d'un groupe est noté par :
 - le groupe peut avoir des contacts et des actifs mais pas d'hébergeur.
 - il met le `versions` du groupe en _zombi_ (`dlv` à la date du jour).
   - au fil des connexions et des synchronisations, ceci provoquera le retrait du groupe des maps `mpgk` des comptes qui le référencent (ce qui peut prendre jusqu'à un an).
+  - les invitations _pendantes_ tomberont lorsqu'elles seront acceptées ou refusées par l'avatar invité.
   - ce document sera purgé par le GC dans 365 jours.
 - les documents `groupe notes membres` sont purgés par le GC.
   
@@ -1031,7 +1032,6 @@ _data_:
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
-- `pe` : _0-en écriture, 1-protégé contre la mise à jour, création, suppression de notes_.
 - `flags` : table des flags des membres (12 bits sur un entier).
 - `anag` : table des nag des membres.
 - `lna` : liste noire _animateurs_ des `nag` des avatars à ne pas inviter / ré-inviter.
@@ -1095,10 +1095,11 @@ _data_:
 - effacement de l'entrée `ni` dans `invits` de l'avatar.
 
 **Oubli par un animateur**
-- pour un contact, pas invité, qui n'a jamais été actif: son slot est récupérable.
+- pour un contact, pas invité: son slot est récupérable.
 - le document `membres` est détruit.
   
 **Refus d'invitation par le compte**
+- le groupe peut avoir disparu depuis le lancement de l'invitation.
 - 3 options possibles:
   - rester en contact.
   - m'oublier,
@@ -1106,6 +1107,7 @@ _data_:
 - son item dans `invits` de son avatar est effacé.
 
 **Acceptation d'invitation par le compte**
+- le groupe peut avoir disparu depuis le lancement de l'invitation.
 - dans l'avatar principal du compte un item est ajouté dans `mpgk`,
 - dans `comptas` le compteur `qv.ng` est incrémenté.
 - `dac fac ...` sont mises à jour.
