@@ -529,6 +529,7 @@ _data_:
 
 **Données n'existant que pour un avatar principal**
 - `mck` : map des mots-clés du compte cryptée par la clé K -la clé est leur code 1-99- ("code": nom@catégorie).
+- `memok` : mémo personnel du compte crypté par la clé K
 - `mavk` : map des avatars du compte. 
   - _clé_ : hash de id court de l'avatar cryptée par la clé K du compte.
   - _valeur_ : couple `[nom clé]` de l'avatar crypté par la clé K du compte.
