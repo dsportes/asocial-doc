@@ -832,7 +832,7 @@ _data_:
 **Mots clés `mc`:**
 - Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
 - Note de groupe : `mc` est une map :
-  - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe). hgc est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
+  - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe). `hgc` est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
   - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du compte du membre, ceux du groupe, ceux de l'organisation.
 
 **Map des fichiers attachés :**
