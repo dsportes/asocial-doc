@@ -78,10 +78,10 @@ Chaque collection a un document par `id` (clé primaire en SQl, second terme du 
 - `versions` : un document par avatar et par groupe donnant le numéro de version, numéro d'ordre de la dernière mise à jour pour l'avatar ou le groupe et toutes leurs sous-collections.
   - Clé primaire : `id`. Path : `versions/10...0` `versions/2x...y` `versions/3x...y`
 
-#### Sous-collections de `versions`: `notes transferts sponsorings chats membres tickets`
+#### Sous-collections de `versions`: `notes transferts sponsorings chats membres chatgrs tickets`
 Pour un document `versions/2x...y` il existe,
 - pour une version _d'avatar_ (id: 1... ou 2...), 4 sous-collections de documents: `notes transferts sponsorings chats` et pour le seul Comptable une cinquième `tickets`.
-- pour une version _de groupe_ (id: 3...), 3 sous-collections de documents: `notes transferts membres`.
+- pour une version _de groupe_ (id: 3...), 3 sous-collections de documents: `notes transferts membres chatgrs`.
 
 Dans chaque sous-collection, `ids` est un identifiant relatif à `id`. 
 - en SQL les clés primaires sont `id,ids`
@@ -94,6 +94,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
   - l'un sous-document de A a pour identifiant secondaire `ids` un hash des clés de B et A.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
+- `chatgrs`: un seul document par groupe. `id` est celui du groupe et `ids` vaut toujours `1`.
 - `tickets`: un document par ticket de crédit généré par un compte A. ids est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
 La _disparition_ d'un avatar ou d'un groupe, se traduit par :
@@ -1128,6 +1129,38 @@ _data_:
   - m'oublier et ne pas me ré-inviter.
 - si le membre était le dernier _actif_, le groupe disparaît.
 - la participation au groupe disparaît de `mpgk` du compte.
+
+## Documents `Chatgrs`
+A chaque groupe est associé **UN** document `Chatgr` qui reprsente le chat des membres d'un groupe. Il est créé avec le groupe et disparaît avec lui.
+
+_data_
+- `id` : id du groupe
+- `ids` : `1`
+- `v` : sa version.
+
+- `items` : liste ordonnée des items de chat `{im, dh, lg, textg}`
+  - `im` : indice membre de l'auteur,
+  - `dh` : date-heure d'enregistrement de l'item,
+  - `lg` : longueur du texte en clair de l'item. 0 correspond à un item effacé.
+  - `t` : texte crypté par la clé du groupe.
+
+#### Opérations
+**Ajout d'un item**
+- autorisé pour tout membre actif ayant droit d'accès aux membres.
+- le texte est limité à 300 signes.
+
+**Effacement d'un item**
+- autorisé pour l'auteur de l'item ou un animateur du groupe.
+
+**Sur invitation par un animateur**
+- le texte d'invitation est enregistré comme item, les autres membres du groupe peuvent ainsi le voir.
+
+**Sur acceptation ou refus d'invitation**
+- le texte explicatif est enregistré comme item.
+
+Un item ne peut pas être corrigé après écriture, juste effacé.
+
+Le chat d'un groupe garde les items dans l'ordre anté chronologique jusqu'à concurrence d'une taille totale de 5000 signes.
 
 ## Mots clés, principes et gestion
 Les mots clés sont utilisés pour :
