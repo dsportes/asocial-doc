@@ -9,7 +9,7 @@ Les _colonnes_ d'une table SQL correspondent aux _attributs / propriétés_ d'un
 - en Firestore le _path_ d'un document contient cette propriété ou couple de propriétés.
 
 ## Table / collection `singletons`
-La collection singletons a un seul document `checkpoint` ayant les attributs suivants:
+La collection `singletons` a un seul document `checkpoint` ayant les attributs suivants:
 - `id` : qui vaut 1 (il _pourrait_ ultérieurement exister d'autres singletons 2 3 ...).
 - `v` : sa version, qui est l'estampille en ms de sa dernière mise à jour.
 - `_data_` : sérialisation non cryptée des données traçant l'exécution du dernier traitement journalier de GC (garbage collector).
@@ -60,9 +60,9 @@ Ces documents sont écrits une fois et restent immuables jusqu'à leur traitemen
 - prochain GC, étape `GCfpu`, pour les `fpurges`.
 
 #### Collections / tables _majeures_ : `tribus comptas avatars groupes versions`
-Chaque collection a un document par `id` (clé primaire en SQl, second terme du path en Firestore).
+Chaque collection a un document par `id` (clé primaire en SQL, second terme du path en Firestore).
 - `tribus` : un document par _tranche de quotas / tribu_ décrivant comment sont distribués les quotas de la tranche entre les comptes.
-  - `id` (sans le ns) est un numéro séquentiel `1..N`.
+  - `id` (sans le `ns`) est un numéro séquentiel `1..N`.
   - Clé primaire : `id`. Path : `tribus/0...x`
 - `comptas` : un document par compte donnant les informations d'entête d'un compte (dont l'`id` est celui de son avatar principal). L'`id` courte sur 14 chiffres est le numéro du compte :
   - `10...0` : pour le comptable.
@@ -81,7 +81,7 @@ Chaque collection a un document par `id` (clé primaire en SQl, second terme du 
 #### Sous-collections de `versions`: `notes transferts sponsorings chats membres chatgrs tickets`
 Pour un document `versions/2x...y` il existe,
 - pour une version _d'avatar_ (id: 1... ou 2...), 4 sous-collections de documents: `notes transferts sponsorings chats` et pour le seul Comptable une cinquième `tickets`.
-- pour une version _de groupe_ (id: 3...), 3 sous-collections de documents: `notes transferts membres chatgrs`.
+- pour une version _de groupe_ (id: 3...), 4 sous-collections de documents: `notes transferts membres chatgrs`.
 
 Dans chaque sous-collection, `ids` est un identifiant relatif à `id`. 
 - en SQL les clés primaires sont `id,ids`
@@ -95,7 +95,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
 - `chatgrs`: un seul document par groupe. `id` est celui du groupe et `ids` vaut toujours `1`.
-- `tickets`: un document par ticket de crédit généré par un compte A. ids est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
+- `tickets`: un document par ticket de crédit généré par un compte A. `ids` est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
 La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 - son document `versions` ayant un statut de _zombi_, indiquant que l'avatar ou le groupe a disparu,
@@ -106,13 +106,13 @@ La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 Il a pour rôle majeur de gérer les espaces:
 - les créer / les détruire,
 - définir leurs quotas à disposition du Comptable de chaque espace: il existe trois quotas,
-  - `q1` : volume maximal autorisé des textes des notes,
+  - `q1` : nombre maximal autorisé des notes, chats, participations aux groupes,
   - `q2` : volume total autorisé des fichiers attachés aux notes.
-  - `qc` : quota de calcul mensuel total en monétaires.
+  - `qc` : quota de calcul mensuel total en unité monétaire.
 - ces quotas sont _indicatifs_ mais sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
 
 Ses autres rôles sont :
-- la gestion d'une _notification / blocage_ par espace, sauf pour information technique importante, soit pour figer un espace avant sa migration vers une autre base (ou sa destruction).
+- la gestion d'une _notification / blocage_ par espace, soit pour information technique importante, soit pour figer un espace avant sa migration vers une autre base (ou sa destruction).
 - le transfert d'un espace d'une base vers une autre,
 - le transfert des fichiers d'un espace d'un Storage à un autre.
 
@@ -172,7 +172,7 @@ Certaines de ces propriétés sont externalisées hors de _data_,
 
 ### Gestion des versions dans `versions`
 - un document `avatar` d'id `ida` et les documents de ses sous collections `chats notes transferts sponsorings tickets` ont une version prise en séquence continue fixée dans le document `versions` ayant pour id `ida`.
-- idem pour un document `groupe` et ses sous-collections `membres notes transferts`.
+- idem pour un document `groupe` et ses sous-collections `membres notes transferts chatgrs`.
 - toute mise à jour du document maître (avatar ou groupe) et de leur sous-documents provoque l'incrémentation du numéro de version dans `versions` et l'inscription de cette valeur comme version du (sous) document mis à jour.
 
 Un document `versions` gère :
@@ -197,7 +197,7 @@ L'état en session est conservé à niveau en _s'abonnant_ à un certain nombre 
 - (3) les documents `avatars` des avatars du compte - listé par (1)
 - (4) les documents `groupes` des groupes dont les avatars sont membres - listés par (3)
 - (5) les sous-collections `notes chats sponsorings tickets` des avatars - listés par (3)
-- (6) les sous-collections `membres notes` des groupes - listés par (4)
+- (6) les sous-collections `membres notes chatgrs` des groupes - listés par (4)
 - (7) le document `espaces` de son espace.
 - le comptable, en plus d'être abonné à sa tribu, peut temporairement s'abonner à **une** autre tribu _courante_.
 
@@ -230,17 +230,17 @@ Dans les deux cas c'est en session la même séquence qui traite les modificatio
 Ces propriétés sont externalisées et font partie de la clé primaire (en SQL) ou du path (en Firestore).
 
 Pour un `sponsorings` la propriété `ids` est le hash de la phrase de reconnaissance :
-- elle est indexé.
+- elle est indexée.
 - en Firestore l'index est `collection_group` afin de rendre un sponsorings accessible par index sans connaître son _parent_ le sponsor.
 
 #### `v` : version d'un document
 Tous les documents sont _versionnés_,
-- **SAUF** `gcvols fpurges transferts` qui sont créés immuable et détruits par le premier traitement qui les lit (dont le GC). Ces documents ne sont pas synchronisés en sessions UI.
+- **SAUF** `gcvols fpurges transferts` qui sont créés immuables et détruits par le premier traitement qui les lit (dont le GC). Ces documents ne sont pas synchronisés en sessions UI.
 - **singletons syntheses** : `v` est une estampille (date-heure) et n'a qu'un rôle informatif : ces documents ne sont pas synchronisés en sessions UI.
 - **tous les autres documents ont un version de 1..n**, incrémentée de 1 à chaque mise à jour de son document, et pour `versions` de leurs sous-collections.
 
 En session UI pour chaque document ou sous-collection d'un document, le fait de connaître sa version permet,
-- de ne demander la mise à jour que des documents plus récents de même id,
+- de ne demander la mise à jour que des sous-documents plus récents de même `id`,
 - à réception d'un row synchronisé de ne mettre à jour l'état en mémoire que s'il est effectivement plus récent que celui détenu.
 
 #### `vcv` : version de la carte de visite
@@ -258,12 +258,12 @@ Un document ayant une `dlv` **antérieure au jour courant** est un **zombi**, co
 
 **Sur _versions des avatars_ :**
 - **jour auquel l'avatar sera officiellement considéré comme _disparu_**.
-- la `dlv` (indexée) est reculée à l'occasion de l'ouverture d'une session pour _prolonger_ la vie de l'avatar correspondant.
+- la `dlv` (indexée) est augmentée à l'occasion de l'ouverture d'une session pour _prolonger_ la vie de l'avatar correspondant.
 - les `dlv` permettent au GC de récupérer tous les _avatars disparus_.
 
 **Sur _membres_ :**
 - **jour auquel l'avatar sera officiellement considéré comme _disparu ou ne participant plus au groupe_**.
-- la `dlv` (indexée) est reculée à l'occasion de l'ouverture d'une session pour _prolonger_ la participation de l'avatar correspondant au groupe.
+- la `dlv` (indexée) est augmentée à l'occasion de l'ouverture d'une session pour _prolonger_ la participation de l'avatar correspondant au groupe.
 - les `dlv` permettent au GC de récupérer toutes les _participations disparues_ et in fine de détecter la disparition des groupes quand tous les participants actifs ont disparu.
 - en Firestore l'index est `collection_group` afin de s'appliquer aux membres de tous les groupes.
 
@@ -307,7 +307,7 @@ La mémoire cache est gérée par LRU (tous types de documents confondus).
 
 ## Généralités
 **Les clés AES et les PBKFD** sont des bytes de longueur 32. Un texte crypté a une longueur variable :
-- quand le cryptage est spécifié _libre_ le premier byte du texte crypté est le numéro du _salt_ choisi au hasard dans une liste pré-compilée : un texte donné 'AAA' ne donnera donc pas le même texte crypté à chaque fois ce qui empêche de pouvoir tester l'égalité de deux textes cryptés au vu de leur valeur cryptée.
+- quand le cryptage est spécifié _libre_ le premier byte du texte crypté est le numéro du _salt_ choisi au hasard dans une liste pré-compilée : un texte donné 'AAA' ne donnera donc pas le même texte crypté à chaque fois ce qui empêche de pouvoir tester l'égalité de deux textes cryptés au vu de leurs valeurs cryptées.
 - quand le cryptage est _fixe_ le numéro de _salt_ est 1 : l'égalité de valeurs cryptées traduit l'égalité de leur valeurs sources.
 
 **Un entier sur 53 bits est intègre en Javascript** (9,007,199,254,740,991 soit 16 chiffres décimaux si le premier n'est pas 9). Il peut être issu de 6 bytes aléatoires.
@@ -338,7 +338,7 @@ Le **nom complet** d'un avatar / groupe est un couple `[nom, cle]`
 - bytes 1 et 2 : numéro de la tribu, numéro d'ordre de sa déclaration par le Comptable,
 - autres bytes aléatoires.
 
-> Depuis la _clé_ d'une tribu, avatar, groupe on sait donc toujours recalculer son `id` et donc son `ns`.
+> Depuis la _clé_ d'une tribu, avatar, groupe on sait donc toujours recalculer son `id` (courte, sans `ns`).
 
 > Une id **courte** est une id SANS les deux premiers chiffres de l'espace, donc relative à son espace.
 
@@ -355,7 +355,7 @@ Une `sessionId` est tirée au sort par la session juste avant tentative de conne
 
 > **En mode SQL**, un WebSocket est ouvert et identifié par le `sessionId` qu'on retrouve sur les messages afin de s'assurer qu'un échange entre session et serveur ne concerne pas une session antérieure fermée.
 
-> **En mode Firestore**, le serveur peut s'interrompre sans interrompre la session UI: les abonnements sont gérés dans la session UI, il n'y a pas de WebSocket et le token d'authentification permet d'identifier la session UI. En revanche le serveur du Firestore ne doit pas tomber.
+> **En mode Firestore**, le serveur peut s'interrompre sans interrompre la session UI: les abonnements sont gérés dans la session UI, il n'y a pas de WebSocket et le token d'authentification permet d'identifier la session UI.
 
 Toute opération porte un `token` portant lui-même le `sessionId`:
 - si le serveur retrouve dans la mémoire cache l'enregistrement de la session `sessionId` :
@@ -447,12 +447,12 @@ _data_:
 - `act` : table des comptes de la tribu. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
   - `idT` : id court du compte crypté par la clé de la tribu.
   - `nasp` : si sponsor `[nom, cle]` crypté par la cle de la tribu.
-  - `notif`: notification de niveau compte cryptée par la clé de la tribu (null s'il n'y en a pas).
+  - `notif`: notification de niveau compte cryptée par la clé de la tribu (`null` s'il n'y en a pas).
   - `stn` : restriction d'accès de la notification _compte_: _0:aucune 1:lecture seule 2:minimal_
   - `qc q1 q2` : quotas attribués.
   - `cj v1 v2` : consommation journalière, v1, v2: obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `tribus / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
 
-Un sponsor (ou le Comptable) peut accéder à la liste des comptes de sa tranche : toutefois il n'a pas accès à leur carte de visite, sauf si l'avatar est connu par ailleurs, chats au moment du sponsoring ou ultérieur par phrase de contact, appartence à un même groupe ...
+Un sponsor (ou le Comptable) peut accéder à la liste des comptes de sa tranche : toutefois il n'a pas accès à leur carte de visite, sauf si l'avatar est connu par ailleurs, chats au moment du sponsoring ou ultérieur par phrase de contact, appartenance à un même groupe ...
 
 L'ajout / retrait de la qualité de `sponsor` n'est effectué que par le Comptable au delà du sponsoring initial par un sponsor.
 
@@ -489,7 +489,7 @@ _data_ :
 - `dhvu` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
 - `sp` : 1: est sponsor
 - `cletX` : clé de la tribu cryptée par la clé K du comptable.
-- `cletK` : clé de la tribu cryptée par la clé K du compte : si cette clé a une longueur de 256, elle est cryptée par la _clé publique RSA_ du compte (en cas de changement de tribu forcé par le comptable).
+- `cletK` : clé de la tribu cryptée par la clé K du compte : si cette clé a une longueur de 256, elle est cryptée par la _clé publique RSA_ du compte (cas de changement de tribu forcé par le comptable).
 - `it` : index du compte dans la table `act` de sa tribu.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
@@ -530,7 +530,6 @@ _data_:
 
 **Données n'existant que pour un avatar principal**
 - `mck` : map des mots-clés du compte cryptée par la clé K -la clé est leur code 1-99- ("code": nom@catégorie).
-- `memok` : mémo personnel du compte crypté par la clé K
 - `mavk` : map des avatars du compte. 
   - _clé_ : hash de id court de l'avatar cryptée par la clé K du compte.
   - _valeur_ : couple `[nom clé]` de l'avatar crypté par la clé K du compte.
@@ -553,19 +552,16 @@ _data_:
 - `cva` : carte de visite cryptée par la clé _CV_ de l'avatar `{v, photo, info}`.
 - `invits`: maps des invitations en cours de l'avatar:
   - _clé_: `ni`, numéro d'invitation. hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar. Ceci permet à un animateur du groupe de détruire l'entrée.
-  - _valeur_: `{nomg, cleg, im}` cryptée par la clé publique RSA de l'avatar.
+  - _valeur_: `{nomg, cleg, im, ivpar, dh}` cryptée par la clé publique RSA de l'avatar.
     - `nomg`: nom du groupe,
     - `cleg`: clé du groupe,
-    - `im`: indice du membre dans la table `ast` du groupe.
+    - `im`: indice du membre dans la table `flags / anag` du groupe.
+    - `ivpar` : indice im de l'invitant.
+    - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 - `pck` : PBKFD de la phrase de contact cryptée par la clé K.
-- `napc` : `[nom, cle]` de l'avatar cryptée par le PBKFD de la phrase de contact.
+- `napc` : `[nom, cle]` de l'avatar crypté par le PBKFD de la phrase de contact.
 
-_Remarque sur `mpgk.imp`_
-- `imp` est l'im attribué au premier avatar du compte invité au groupe.
-- les mots-clés attachés aux notes de ce groupe seront indexés par `imp`.
-- plus d'un avatar du compte peuvent participer à un groupe donné, successivement ou en même temps. Les mots-clés attribués à une note seront les mêmes pour tous les avatars du groupe par souci de clarification. 
-
-> **Mémos d'un compte**. Un compte peut attacher une liste de mots-clés et un mémo connu de lui seul à n'importe quel avatar ou groupe : ceci lui permet de filtrer des _contacts_ des _chats_ et des _groupes_ mais aussi d'y noter ce qu'il veut quelque soit le statut d'activité du contact ou du groupe.
+> **Mémos d'un compte**. Un compte peut attacher une liste de mots-clés et un mémo connu de lui seul à n'importe quel avatar ou groupe de sa connaissance: ceci lui permet de filtrer des _contacts_ des _chats_ et des _groupes_ mais aussi d'y noter ce qu'il veut quelque soit le statut d'activité du contact ou du groupe.
 
 ### Cartes de visites des avatars
 La création / mise à jour s'opère dans le document `avatars`.
@@ -577,15 +573,15 @@ La création / mise à jour s'opère dans le document `avatars`.
 - ceci permet de voir en session des cartes de visite toujours à jour et d'éviter d'effectuer une opération longue à chaque mise à jour des cartes de visite par un avatar pour tous les groupes dont il est membre.
 
 **Mise à jour dans les chats**
-- à la mise à jour d'un chat, les cartes de visites des deux côtés sont rafraîchies (si nécessaire).
+- à la mise à jour d'un chat, les cartes de visites des deux côtés sont rafraîchies si nécessaire.
 - en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant `vcv` en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
 
 ## Documents `tickets`
-Ce sont des sous-documents de avatars qui n'existent **que** pour l'avatar principal du Comptable.
+Ce sont des sous-documents de `avatars` qui n'existent **que** pour l'avatar principal du Comptable.
 
 Il y a un document `tickets` par ticket de crédit généré par un compte A annonçant l'arrivée d'un paiement correspondant. Chaque ticket est dédoublé:
 - un exemplaire dans la sous-collection `tickets` du Comptable,
-- un exemplaire dans le documents `comptas` du compte A qui l'a généré, dans la liste `credits.tickets`, donc crypté par la clé K du compte A.
+- un exemplaire dans le documents `comptas` du compte A qui l'a généré, dans la liste `credits.tickets`, cryptée par la clé K du compte A.
 
 _data_:
 - `id`: id du Comptable.
@@ -631,7 +627,7 @@ _data_:
 
 **Remarques:**
 - de facto dans `tickets` un document ne peut avoir qu'au plus deux versions.
-- la version de création qui créé le ticket et lui donne soon identifiant secondaire et inscrit les propriétés `ma` et éventuellement `refa` désormais immuables.
+- la version de création qui créé le ticket et lui donne son identifiant secondaire et inscrit les propriétés `ma` et éventuellement `refa` désormais immuables.
 - la version de réception par le Comptable qui inscrit les propriétés `dr mc` et éventuellement `refc`. Le ticket devient immuable dans `tickets`.
 - les propriétés sont toutes immuables.
 - la mise à jour ultime qui inscrit `di` à titre documentaire ne concerne que l'exemplaire du compte A.
