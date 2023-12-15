@@ -690,7 +690,7 @@ Quand son avatar E s'est auto-résilié, son document `versions` devient _zombi_
 
 S'étant adressé à E, I a récupéré que E était détruit. 
 - si le chat I était _passif_, le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
-- sinon, le statut `r E` passe à 2. I conserve le dernier état de l'échange, mais,
+- sinon, le statut `st E` passe à 2. I conserve le dernier état de l'échange, mais,
   - il ne pourra plus le changer,
   - il ne pourra qu'effectuer un _raz_, ce qui rendra le chat _zombi_: de facto E n'écrira plus dessus et ça ne sert à rien d'écrire à un _disparu_.
 
@@ -713,6 +713,7 @@ _data_ (de l'exemplaire I):
 - `items` : liste des items `[{a, dh, l t}]`
   - `a` : 0:écrit par I, 1: écrit par E
   - `dh` : date-heure d'écriture.
+  - `dhx` : date-heure de suppression.
   - `l` : taille du texte.
   - `t` : texte crypté par la clé du chat (vide s'il a été supprimé).
 
@@ -788,38 +789,23 @@ La clé de cryptage `cles` d'une note est selon le cas :
 - *note personnelle d'un avatar A* : la clé K de l'avatar.
 - *note d'un groupe G* : la clé du groupe G.
 
-Le droit de mise à jour d'une note est contrôlé par le couple `im p` :
-- `im` : pour une note de groupe, indique quel membre (son `im`) a l'exclusivité d'écriture et le droit de basculer la protection.
-- `p` indique si le texte est protégé contre l'écriture ou non.
-
-**Note temporaire et permanente**
-Par défaut à sa création une note est _permanente_. Pour une note _temporaire_ :
-- son `st` contient la _date limite de validité_ indiquant qu'elle sera automatiquement détruite à cette échéance.
-- une note temporaire peut être prolongée, tout en restant temporaire.
-- par convention le `st` d'une note permanente est égal à `99999999`. Une note temporaire peut être rendue permanente par :
-  - l'avatar propriétaire pour une note personnelle.
-  - un des animateurs du groupe pour une note de groupe.
-- **une note temporaire ne peut pas avoir de fichiers attachés**.
+Le droit de mise à jour d'une note d'un groupe est contrôlé par `im` qui indique quel membre (son `im`) a l'exclusivité d'écriture.
 
 _data_:
 - `id` : id de l'avatar ou du groupe.
 - `ids` : identifiant relatif à son avatar.
 - `v` : 1..N.
 
-- `st` :
-  - `99999999` pour un _permanent_.
-  - `aaaammjj` date limite de validité pour un _temporaire_.
-- `im` : exclusivité dans un groupe. L'écriture et la gestion de la protection d'écriture sont restreintes au membre du groupe dont `im` est `ids`. 
-- `p` : _0: pas protégé, 1: protégé en écriture_.
+- `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
 - `v2` : volume total des fichiers attachés.
 - `mc` :
   - note personnelle : vecteur des index de mots clés.
   - note de groupe : map sérialisée,
-    - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe),
+    - _clé_ : `hgc` du compte de l'auteur (1 pour les mots clés du groupe),
     - _valeur_ : vecteur des index des mots clés attribués par le membre.
+- `l` : liste des _auteurs_ (leurs `im`) pour une note de groupe.
 - `txts` : crypté par la clé de la note.
   - `d` : date-heure de dernière modification du texte.
-  - `l` : liste des auteurs pour une note de groupe.
   - `t` : texte gzippé ou non.
 - `mfas` : map des fichiers attachés.
 - `refs` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa  note _parent_.
@@ -829,7 +815,7 @@ _data_:
 **Mots clés `mc`:**
 - Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
 - Note de groupe : `mc` est une map :
-  - _clé_ : `hgc` du compte l'auteur (1 pour les mots clés du groupe). `hgc` est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
+  - _clé_ : `hgc` du compte de l'auteur (1 pour les mots clés du groupe). `hgc` est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
   - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du compte du membre, ceux du groupe, ceux de l'organisation.
 
 **Map des fichiers attachés :**
@@ -857,7 +843,7 @@ La suppression d'une note s'accompagne de la suppressions de N fichiers dans un 
 _data_:
 - `id` : id du groupe ou de l'avatar du note.
 - `ids` : `idf` du fichier en cours de chargement.
-- `dlv` : date-limite de validité pour nettoyer les uploads en échec sans les confondre avec un en cours.
+- `dlv` : date-limite de validité pour nettoyer les uploads en échec sans les confondre avec ceux en cours.
 
 ## Documents `groupes`
 Un groupe est caractérisé par :
@@ -866,9 +852,9 @@ Un groupe est caractérisé par :
 
 ### Membres d'un groupe: identifications [id, im] nag ni 
 - **`im / ids`**: un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution (sauf cas particulier). Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
-  - le statut de chaque membre d'index `im` est stocké dans `ast[im]`.
+  - le statut de chaque membre d'index `im` est stocké dans `flags[im]`.
 - **`nag`** : numéro d'avatar dans le groupe. Hash du cryptage par la clé du groupe de la clé de l'avatar.
-  - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, redevenir simple contact, y être à nouveau invité puis actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `ast` du groupe.
+  - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, redevenir simple contact, y être à nouveau invité puis actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `anag` du groupe.
   - c'est aussi utilisé pour empêcher d'avoir à un instant donné deux membres avec deux indices différents pour le même avatar.
 - **`ni`** : numéro d'invitation. hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar invité. Ce numéro permet à un animateur d'annuler une invitation faite et pas encore acceptée ou refusée.
 - `npgk` : numéro de participation à un groupe: hash du cryptage par la clé K du compte de `idg / idav`. Ce numéro est la clé du membre dans la map `mpgk` de `comptas` du compte.
