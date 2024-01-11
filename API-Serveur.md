@@ -546,13 +546,6 @@ Retour:
 
 Assertions sur l'existence des `Avatars Versions`.
 
-### `MemoCompte` : changer le mémo du compte
-POST:
-- `token` : éléments d'authentification du compte.
-- `memok` : texte du mémo crypté par la clé k
-
-Assertion d'existence du row `Avatars` de l'avatar principal et de sa `Versions`.
-
 ### `MotsclesCompte` : changer les mots clés du compte
 POST:
 - `token` : éléments d'authentification du compte.
