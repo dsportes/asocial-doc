@@ -121,7 +121,7 @@ Pour un espace, `24` par exemple, il existe un compte `2410000000000000` qui est
 
 Le Comptable dispose des quotas globaux de l'espace attribués par l'administrateur technique. Il définit un certain nombre de **tranches de quotas** et confie chacune de ses tranches à des comptes _sponsors_ qui peuvent les distribuer aux comptes O qu'ils ont sponsorisé.
 
-Par convention on dénomme `tribu` l'ensemble des comptes O partageant une même tranche de quotas.
+Par convention on dénomme ci-dessous parfois `tribu` l'ensemble des comptes O partageant une même tranche de quotas.
 
 Le rôle principal d'un _Comptable_ est de:
 - définir des tranches de quotas et d'en ajuster les quotas,
@@ -144,15 +144,22 @@ La déclaration d'une tranche par le Comptable d'un espace consiste à définir 
 `clet` est immuable, `info qc q1 q2` peuvent être mis à jour par le comptable.
 
 #### Comptes _sponsors_
-Les quotas `qc q1 q2` attribués à chaque compte sont prélevés sur une tranche, en d'autres termes, tout compte O fait partie d'une _tribu_.
+Les quotas `qc q1 q2` attribués à chaque compte O sont prélevés sur une tranche, en d'autres termes, tout compte O fait partie d'une _tribu_.
 
-Un compte O ou A est créé par _sponsoring_,
-- soit d'un compte existant _sponsor_ : 
-  - pour un compte O, ses quotas sont prélevés dans la tranche de son sponsor.
-  - un compta A définit lui-même ses quotas `q1` et `q2` (mais il les paye en tant qu'abonnement) et n'a pas de quotas `qc` (il paye sa consommation).
-- soit du Comptable : pour un compte O c'est le Comptable qui a choisi de quelle tranche il relève.
+Un compte O est créé par _sponsoring_,
+- soit d'un compte O existant _sponsor_ : 
+- soit du Comptable qui a choisi de quelle tranche il relève.
 
-Les comptes ayant un pouvoir de **sponsor** peuvent:
+Ses quotas sont prélevés dans la tranche fixé par son sponsor.
+
+Un compte A est créé par _sponsoring_,
+- soit par un compte A existant qui à cette occasion fait cadeau d'un certain montant au compte sponsorisé. Le cadeau est prélevé sur le solde monétaire du compte sponsor.
+- soit par un compte O _sponsor_ de sa tranche ou par le Comptable:
+  - un cadeau de bienvenue de 2c est affecté au compte A sponsorisé (prélevé chez personne).
+
+Un compta A définit lui-même ses quotas `q1` et `q2` (il les paye en tant _qu'abonnement_) et n'a pas de quotas `qc` (il paye sa _consommation_).
+
+Les comptes 0 ayant un pouvoir de **sponsor** peuvent:
 - sponsoriser la création de nouveaux comptes, _sponsor_ eux-mêmes ou non,
 - pour les comptes O seulement,
   - gérer la répartition des quotas entre les comptes de leur tranche,
@@ -180,16 +187,25 @@ Un document `versions` gère :
 - `dlv` : la date de fin de vie de son avatar ou groupe.
 - en _data_ pour un groupe :
   - `v1 q1` : nombre de notes du groupe (actuel et maximal).
-  - `v2 q2` : volume et quota des fichiers des notes du groupe.
+  - `v2 q2` : volume actuel et maximal des fichiers des notes du groupe.
 
 Quand la `dlv` est non 0 et inférieure ou égale à la date du jour,
 - le document est en état _zombi_ et traduit le fait que l'avatar ou le groupe a disparu.
 - sa _data_ est null.
 - sa version `v` ne changera plus.
-- sa `dlv` sera ramenée à un an plus tôt, dès que les documents et sous-documents correspondants auront été effectivement purgés, puis restera inchangée jusqu'à la purge effective du document `versions` lui-même à cette date là.
+- sa `dlv` sera ramenée à un an plus tôt, dès que les documents et sous-documents correspondants auront été effectivement purgés par le GC, puis restera inchangée jusqu'à la purge effective du document `versions` lui-même à cette date là.
 
 ### Documents _synchronisables_ en session
-Chaque session détient localement le sous-ensemble des données de la portée bien délimitée qui la concerne: en mode synchronisé les documents sont stockés en base IndexedDB (IDB) avec le même contenu qu'en base centrale.
+Chaque session détient localement en mémoire le sous-ensemble des données de la portée bien délimitée qui la concerne:
+- à la connexion:
+  - en mode _avion_ ces données ont été obtenues depuis IDB,
+  - en mode _synchronisé_ ces données ont été lus depuis IDB et mises à jour depuis le serveur,
+  - en mode _incognito_ elles ont été récupérées depuis le serveur.
+- en synchronisation (pas en mode avion), durant la vie de la session,
+  - les mises à jour sont notifiées et récupérées du serveur,
+  - en mode _synchronisé_ les mises à jour sont stockés en base IndexedDB (IDB).
+
+En IDB les données ont exactement le même contenu qu'en base du serveur mais sont cryptées par la clé K du compte. 
 
 L'état en session est conservé à niveau en _s'abonnant_ à un certain nombre de documents et de sous-collections:
 - (1) les documents `avatars comptas` de l'id du compte
@@ -206,14 +222,14 @@ Au cours d'une session au fil des synchronisations, la portée va donc évoluer 
 - des documents ou collections sont à supprimer de IDB (et de la mémoire de la session).
 
 Une session a une liste d'ids abonnées :
-- l'id de son compte : quand un document `compta` change il est transmis à la session.
+- l'id de son compte : quand un document `comptas` change il est transmis à la session.
 - les ids de ses `groupes` et `avatars` : quand un document `versions` ayant une de ces ids change, il est transmis à la session. La tâche de synchronisation de la session va chercher le document majeur et ses sous documents ayant des versions postérieures à celles détenues en session.
-- sa `tribu` actuelle (qui peut changer).
+- sa `tribus` actuelle (qui peut changer).
 - implicitement le document `espaces` de son espace.
-- **pour le Comptable** : en plus ponctuellement une seconde `tribu` _courante_.
+- **pour le Comptable** : en plus ponctuellement une seconde `tribus` _courante_.
 
 **Remarque :** en session ceci conduit au respect de l'intégrité transactionnelle pour chaque objet majeur mais pas entre objets majeurs dont les mises à jour pourraient être répercutées dans un ordre différent de celui opéré par le serveur.
-- en **SQL** les notifications _pourraient_ être regroupées par transaction et transmises dans l'ordre.
+- en **SQL** les notifications _auraient pu_ être regroupées par transaction et transmises dans l'ordre.
 - en **FireStore** ce n'est pas possible : la session pose un écouteur sur des objets `espaces comptas tribus versions` individuellement, l'ordre d'arrivée des modifications ne peut pas être garanti entre objets majeurs.
 
 En SQL :
@@ -223,7 +239,7 @@ En Firestore :
 - c'est la session qui détient la liste de ses abonnements, le serveur n'en dispose pas.
 - la session pose un _écouteur_ sur chacun de ces documents.
 
-Dans les deux cas c'est en session la même séquence qui traite les modifications reçues, sans distinction de comment elles ont été captées (message WebSocket ou activation d'un écouteur).
+Dans les deux cas en session, c'est la même séquence qui traite les modifications reçues, sans distinction de comment elles ont été captées (message WebSocket ou activation d'un écouteur).
 
 ### Propriétés externalisées hors de _data_
 #### `id` et `ids` (quand il existe)
@@ -274,7 +290,7 @@ Un document ayant une `dlv` **antérieure au jour courant** est un **zombi**, co
 **Sur _sponsorings_:**
 - jour à partir duquel le sponsoring n'est plus applicable ni pertinent à conserver. Les sessions suppriment automatiquement à la connexion les sponsorings ayant dépassé leur `dlv` (idem pour les synchronisations).
 - il y a donc des sponsorings avec une `dlv` dans le futur : celle-ci peut être prolongée mais jamais avancée.
-- dès atteinte du jour de `dlv`, un sponsorings est purgé (au moins purgeable).
+- dès atteinte du jour de `dlv`, un sponsorings est purgé (du moins peut l'être).
 - en Firestore l'index est `collection_group` afin de s'appliquer aux sponsorings de tous les avatars.
 
 **Sur _transferts_:**
@@ -299,11 +315,12 @@ Cette propriété de `comptas` est indexée de manière à pouvoir accéder à u
 - les `versions` sont utilisées à chaque mise à jour des avatars, de ses chats, notes, sponsorings.
 - les `avatars groupes tribus` sont également souvent accédés.
 
-**Les conserver en cache** par leur `id` est une bonne solution : mais en _FireStore_ (ou en SQL multi-process) il peut y avoir plusieurs instances s'exécutant en parallèle. Il faut en conséquence interroger la base pour savoir s'il y a une version postérieure et ne pas la charger si ce n'est pas le cas en utilisant un filtrage par `v`. Ce filtrage se faisant sur l'index n'est pas décompté comme une lecture de document quand le document n'a pas été trouvé parce que de version déjà connue.
+**Les conserver en cache** par leur `id` est une bonne solution : mais en _FireStore_ (ou en SQL multi-process) il peut y avoir plusieurs instances s'exécutant en parallèle. 
+- Il faut en conséquence interroger la base pour savoir s'il y a une version postérieure et ne pas la charger si ce n'est pas le cas en utilisant un filtrage par `v`. 
+- Ce filtrage se faisant sur l'index n'est pas décompté comme une lecture de document quand le document n'a pas été trouvé parce que de version déjà connue.
+- En Firestore l'attribut calculé `id_v` permet d'effectuer ce filtrage (alors qu'en SQL l'index composé id / v est utilisable).
 
-En Firestore l'attribut calculé `id_v` permet d'effectuer ce filtrage (alors qu'en SQL l'index composé id / v est utilisable).
-
-La mémoire cache est gérée par LRU (tous types de documents confondus).
+La mémoire cache est gérée par LRU (tous types de documents confondus) afin de limiter sa taille en mémoire.
 
 ## Généralités
 **Les clés AES et les PBKFD** sont des bytes de longueur 32. Un texte crypté a une longueur variable :
@@ -342,10 +359,10 @@ Le **nom complet** d'un avatar / groupe est un couple `[nom, cle]`
 
 > Une id **courte** est une id SANS les deux premiers chiffres de l'espace, donc relative à son espace.
 
-**Dans les noms,** les caractères `< > : " / \ | ? *` et ceux dont le code est inférieur à 32 (donc de 0 à 31) sont interdits afin de permettre d'utiliser le nom complet comme nom de fichier.
+**Dans les noms,** les caractères `< > : " / \ | ? *` et ceux dont le code est inférieur à 32 (donc de 0 à 31) sont interdits afin de permettre d'utiliser un nom comme nom de fichier.
 
 ### Authentification
-L'administrateur technique a une phrase de connexion dont le hash est enregistré dans la configuration d'installation. Il n'a pas d'id. Une opération de l'administrateur est repérée parce que son _token_ donne ce hash.
+**L'administrateur technique** a une phrase de connexion dont le hash est enregistré dans la configuration d'installation. Il n'a pas d'id. Une opération de l'administrateur est repérée parce que son _token_ donne ce hash.
 
 Les opérations liées aux créations de compte ne sont pas authentifiées, elles vont justement enregistrer leur authentification.  
 - Les opérations de GC et celles de type _ping_ ne le sont pas non plus.  
@@ -407,7 +424,7 @@ Un _dépassement de quotas Q1 / Q2_ entraîne une restriction (5).
 
 Un _solde négatif (compte A)_ ou _une consommation excessive (compte O)_ entraîne une restriction (4). 
 
-> Le document `comptas` a une date-heure de lecture qui indique _quand_ il a lu les notifications.
+> Le document `comptas` a une date-heure de lecture qui indique _quand_ le titulaire du compte a lu les notifications. Une icône peut de ce fait signaler l'existence d'une _nouvelle_ notification, i.e. une notification qui n'a pas été lue.
 
 ## Documents `espaces`
 _data_ :
@@ -435,7 +452,7 @@ Le Comptable lors de sa prochaine ouverture de session, récupère tous les `gcv
 - l'item `act[it]` est y détruit, ce qui de facto accroît les quotas attribuables aux autres.
 - la synthèse de la tribu est mise à jour.
 
-## Documents `tribu`
+## Documents `tribus`
 _data_:
 - `id` : numéro d'ordre de création de la tribu.
 - `v` : 1..N
@@ -482,19 +499,19 @@ _data_:
 _data_ :
 - `id` : numéro du compte, id de son avatar principal.
 - `v` : 1..N.
-- `hps1` : le hash du PBKFD du début de la phrase secrète du compte.
+- `hps1` : le hash du PBKFD d'un extrait de la phrase secrète du compte.
 
-- `shay`, SHA du SHA de X (PBKFD de la phrase secrète).
-- `kx` : clé K du compte, cryptée par X (PBKFD de la phrase secrète courante).
+- `shay`, SHA du SHA de X (PBKFD de la phrase secrète complète).
+- `kx` : clé K du compte, cryptée par X.
 - `dhvu` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
-- `sp` : 1: est sponsor
+- `sp` : 1: est sponsor de sa tribu.
 - `cletX` : clé de la tribu cryptée par la clé K du comptable.
 - `cletK` : clé de la tribu cryptée par la clé K du compte : si cette clé a une longueur de 256, elle est cryptée par la _clé publique RSA_ du compte (cas de changement de tribu forcé par le comptable).
-- `it` : index du compte dans la table `act` de sa tribu.
+- `it` : index du compte dans la table `act` de sa tribu. **0 si c'est un compte autonome**.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `oko` : hash du PBKFD de la phrase de confirmation d'un accord pour passage de O à A ou de A à O.
 - `credits` : pour un compte A seulement crypté par la clé K:
-  - `total`: cumul des crédits reçus depuis le début de la vie du compte.
+  - `total`: cumul des crédits reçus depuis le début de la vie du compte (ou de son dernier passage en compte A), dont les dons reçus des autres, moins les dons faits aux autres.
   - `tickets`: liste des tickets (`{ids, v, dg, dr, ma, mc, refa, refc, di}`).
   - juste après une conversion de compte O en A, `credits` est égal à `true`, une convention pour une création vierge.
 - `compteurs` sérialisation non cryptée d'évolution des quotas, volumes et coûts.
