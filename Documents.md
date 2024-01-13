@@ -1354,15 +1354,15 @@ In fine les documents `versions` dont la `dlv` est passée de plus de 2 ans sont
 L'opération récupère toutes les ids des documents `groupes` où `dfh` est inférieure ou égale au jour courant.
 
 Une transaction par groupe :
-- dans le document `versions` du groupe, la `dlv` est positionnée à aujord'hui (devient zombi).
+- dans le document `versions` du groupe, la `dlv` est positionnée à aujourd'hui (devient zombi).
 
 ### `GCGro` : Détection des groupes orphelins et suppression des membres
 L'opération récupère toutes les `id / ids` des documents `membres` dont la `dlv` est inférieure ou égale au jour courant.
 
 Une transaction par document `groupes`:
 - mise à jour des statuts des membres perdus,
-- suppression de ces documents `membres`,
-- si le groupe est orphelin (n'a plus de membres actifs), suppression du groupe:
+- suppression de ses documents `membres`,
+- si le groupe n'a plus de membres actifs, suppression du groupe:
   - la `dlv` de son document `versions` est mise à aujourd'hui (il est zombi).
 
 ### `GCPag` : purge des avatars et des groupes
@@ -1411,123 +1411,16 @@ En cas d'exception de l'un deux, une seule relance est faite après une attente 
 
 > Pour chaque opération, il y a N transactions, une par document à traiter, ce qui constitue un _checkpoint_ naturel fin.
 
-# Discordances temporelles des données
-
-### Discordances par détection tardives de disparitions
-Un chat I / E peut référencer un avatar E alors que celui-ci a été détecté disparu par le GC.
-- le GC ne peut pas connaître la liste des chats dans lesquels un avatar disparu est impliqué.
-- l'avatar I ne détectera la disparition de E que lorsqu'en session il ouvrira la liste des chats et plus précisément fera rafraîchir la liste des CV.
-
-Un avatar principal peut référencer dans la liste de ses participations aux groupes, un groupe détecté disparu par dispation / résiliation de son dernier membre actif.
-- le GC n'ayant pas connaissance de l'avatar principal du compte d'un memebre ne peut pas mettre à jour,
-  - ni la liste des participations aux groupes des membres,
-  - leurs invitations en cours.
-- la disparition d'un groupe n'est détectée qu'à l'ouverture de la prochaine session (ou plus tôt par synchro, quand une session est active).
-
-### Discordances temporaires en session sur les décomptes de chats et groupes
-L'existence d'un chat décompté pour un compte est marqué,
-- par l'existence de rows chats attachés à un de ses avatars,
-- par le décompte `ng.nc` dans comptas du compte.
-
-Les deux informations sont mises à jour sous contrôle transactionnel: les données persistentes sont toujours cohérentes entre elle.
-
-En session, l'ordre dans lequel parvienent les mises à jour sont aléatoires:
-- mise à jour chats avant mise à jour comptas ou l'inverse.
-- pendant un certain temps le nombre de chats décomptés peut différer de celui détenu dans comptas.
-- la situation se stabilise d'elle-même par synchronisation.
-- il est difficile d'arriver à mettre en évidence cette discordance temporaire de décompte.
-
-Le nombre de participations aux groupes est de même détenu dans deux rows: 
-- avatar principal du compte, map mpgk,
-- comptas du compte qv.ng.
-
-La situation de-même se stabilise d'elle-même et n'est pas évidence à observer.
-
-Le trosième cas similaire est celui de l'existence d'une note supprimée (_zombi_) encore temporairement décomptée dans `comptas.qv.nn`.
-
-**Conclusions**
-- les décomptes dans `comptas.qv` et `avatars` ou `chats` ne seront pas réalignés: le décompte des coûts reste cohérent.
-- dans la logique de gestion on tient compte des rows `avatars` et `chats` sans se préoccuper d'une possible discordance passagère des décomptes avec `comptas.qv`.
-- la détection tardive éventuelles de disparitions est assumée:
-  - avoir des groupes ou des chats décomptés à tort n'a pas d'impact de calcul des coûts puisque _l'abonnement_ se fait sur des quotas maximum, pas sur le nombre effectif de groupes et chats.
-  - on assume que quelques chats _passifs_ de I ne soient pas supprimés alors que E a disparu parce que ceci ne peut être détecté qu'à l'ouverture de vue des chats. 
-
-# Index
-
-## SQL
-`sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
-
-Rien de particulier : sont indexées les colonnes requérant un filtrage ou un accès direct par la valeur de la colonne.
-
-## Firestore
-`firestore.index.json` donne le schéma des index: le désagrément est que pour tous les attributs il faut indiquer s'il y a ou non un index et de quel type, y compris pour ceux pour lesquels il n'y en a pas.
-
-**Les règles génériques** suivantes ont été appliquées:
-
-_data_ n'est jamais indexé.
-
-Il n'y a pas _d'index composite_, mais en fait dans l'esprit les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont des pseudo index composites mais simplement déclarés comme index:
-- `id_v` est un string `id/v` où `id` est sur 16 chiffres et `v` sur 9 chiffres.
-- `id_vcv` est un string `id/vcv` où `id` est sur 16 chiffres et `vcv` sur 9 chiffres.
-
-Ces attributs apparaissent dans:
-- tous les documents _majeurs_ pour `id_v`,
-- `avatars chats membres` pour `id_vcv`.
-
-En conséquence les attributs `id v vcv` ne sont **pas** indexés dans les documents _majeurs_.
-
-`id` est indexée dans `gcvols` et `fpurges` qui n'ont pas de version `v` et dont l'`id` doit être indexée pour filtrage par l'utilitaire `export/delete`.
-
-Dans les sous-collections versionnées `notes chats membres sponsorings tickets`: `id ids v` sont indexées. 
-
-Pour `sponsorings` `ids` sert de clé d'accès direct et a donc un index **collection_group**, pour les autres l'index est simple.
-
-Dans la sous-collection non versionnée `transferts`: `id ids` sont indexées mais pas `v` qui n'y existe pas.
-
-`dlv` est indexée,
-- simple sur `versions`,
-- **collection_group** sur les sous-collections `transferts sponsorings membres`.
-
-Autres index:
-- `hps1` sur `comptas`: accès à la connexion par phrase secrète.
-- `hpc` sur `avatars`: accès direct par la phrase de contact.
-- `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
-
-# IndexedDB dans les session UI
-
-Un certain nombre de documents sont stockés en session UI dans la base locale IndexedDB et utilisés en modes _avion_ et _synchronisé_.
-- compte: 'id' vaut '1'. Une seule instance du document `comptas`, celle de la session.
-- tribus: 'id',
-- comptas: 'id',
-- avatars: 'id',
-- chats: '[id+ids]',
-- sponsorings: '[id+ids]',
-- groupes: 'id',
-- membres: '[id+ids]',
-- notes: '[id+ids]',
-- tickets: '[id+ids]'.
-
-La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée en base 64 URL.
-
-Les deux termes de clés `id` et `ids` sont chacune en string crypté par la clé K du compte et encodée en base 64 URL.
-
-Le format _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
-
-En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
-
-Il y a donc une stricte identité entre les documents extraits de SQL / Firestore et leurs états stockés en IDB
-
-_**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
-- la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
-- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
-
 # Décomptes des coûts et crédits
 
-On compte **sur le serveur le nombre de lectures et d'écritures** effectués dans chaque opération et c'est remonté à la session où:
-- on décompte dans la session le nombre de lectures et écritures depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta par rapport à l'enregistrement précédent).
-- la session envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` au bout de M minutes sans envoi (avec un minimum de R2 rows).
+> **Remarque**: en l'absence d'activité d'une session la _consommation_ est nulle, alors que le _coût d'abonnement_ augmente à chaque seconde même sans activité.
 
-On compte **en session les downloads / uploads soumis au Storage**.
+On compte **en session** les downloads / uploads soumis au Storage.
+
+On compte **sur le serveur** le nombre de lectures et d'écritures effectués dans chaque opération et **c'est remonté à la session** où:
+- on décompte les 4 compteurs depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta par rapport à l'enregistrement précédent).
+- pn envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` toutes les PINGTO2 (dans `api.mjs`) minutes.
+  - pas d'envoi s'il n'y a pas de consommation à enregistrer mais envoi quand même au bout d'une demi-heure (pour activer un ping de survie).
 
 Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
 
@@ -1584,21 +1477,21 @@ Cette classe donne les éléments de facturation et des éléments de statistiqu
 
 **Propriétés:**
 - `dh0` : date-heure de création du compte.
-- `dh` : date-heure courante.
-- `qv` : quotas et volumes du dernier calcul `{ qc, q1, q2, nn, nc, ng, v2 }`.
+- `dh` : date-heure courante (dernier calcul).
+- `qv` : quotas et volumes pris en compte au dernier calcul `{ qc, q1, q2, nn, nc, ng, v2 }`.
   - Quand on _prolonge_ l'état actuel pendant un certain temps AVANT d'appliquer de nouvelles valeurs, il faut pouvoir disposer de celles-ci.
 - `vd` : [0..3] - vecteurs détaillés pour M M-1 M-2 M-3.
 - `mm` : [0..18] - coût abonnement + consommation pour le mois M et les 17 mois antérieurs (si 0 pour un mois, le compte n'était pas créé).
 - `aboma` : somme des coûts d'abonnement des mois antérieurs au mois courant depuis la création du compte.
 - `consoma` : somme des coûts de consommation des mois antérieurs au mois courant depuis la création du compte.
 
-Le vecteur `vd[0]` et le montant `mm[0]` vont évoluer tant que mois courant n'est pas terminé. Pour les mois antérieurs `vd[i]` et `mm[i]` sont immuables.
+Le vecteur `vd[0]` et le montant `mm[0]` vont évoluer tant que le mois courant n'est pas terminé. Pour les mois antérieurs `vd[i]` et `mm[i]` sont immuables.
 
 ### Dynamique
-Un objet `compteur` est construit,
-- soit depuis la sérialisation de son dernier état,
+Un objet de class `Compteurs` est construit,
+- soit depuis `serial`, la sérialisation de son dernier état,
 - soit depuis `null` pour un nouveau compte.
-- la construction recalcule tout l'objet: il était sérialisé à un instant `dh`, il est recalculé être à jour à l'instant t.
+- la construction recalcule tout l'objet: il était sérialisé à un instant `dh`, il est recalculé pour être à jour à l'instant t.
 - **puis** il peut être mis à jour, facultativement, juste avant le retour du `constructor`, par:
   - `qv` : quand il faut mettre à jour les quotas ou les volumes,
   - `conso` : quand il faut enregistrer une consommation.
@@ -1626,15 +1519,7 @@ Pour chaque mois M à M-3, il y a un **vecteur** de 14 (X1 + X2 + X2 + 3) compte
   - CA : coût de l'abonnement pour le mois
   - CC : coût de la consommation pour le mois
   
-### Méthodes et getter publiques: TODO
-- `cadeau (c)` : déclaration d'un "cadeau" de dépannage de la part du Comptable ou d'un sponsor pour permettre au compte de surmonter un excès transitoire de consommation.
-- `razma ()` : lors de la transition O <-> A il faut remettre à 0 les coûts d'abonnement / consommation passés (en pratique ceux des mois antérieurs).
-- `get totalAbo ()` retourne le coût d'abonnement en additionnant ceux du mois courant et des mois antérieurs.
-- `get totalConso ()` retourne le coût de consommation en additionnant ceux du mois courant et des mois antérieurs.
-- `get totalAboConso ()` retourne la somme des coûts d'abonnement et de consommation en additionnant ceux du mois courant et des mois antérieurs.
-- `get consoj ()` retourne la moyenne _journalière_ de la consommation des mois M et M-1. Pour M le nombre de jours est le jour du mois, pour M-1 c'est le nombre de jours du mois.
-- `get consoj4M ()` retourne la moyenne _journalière_ de la consommation sur le mois en cours et les 3 précédents. Si le nombre de jours d'existence est inférieur à 30, retourne `consoj`.
-- `get qcj ()` retourne le quota `qc` ramené à la journée pour comparaison avec `consoj`.
+Voir les  méthodes et getter commentées dans le code.
 
 Le getter `get serial ()` retourne la sérialisation de l'objet afin de l'écrire dans la propriété `compteurs` de `comptas`.
 
@@ -1650,18 +1535,16 @@ Le getter `get serial ()` retourne la sérialisation de l'objet afin de l'écrir
 - upload / download d'un fichier: delta sur vm / vd.
 - enregistrement d'une consommation de calcul: delta sur nl / ne / vd / vm en passant l'évolution de consommation dans l'objet `conso`.
 
-La classe `Compteurs` est hébergée par `api.mjs` (module commun à UI et serveur).
-
 Le Comptable peut afficher le `compteurs` de n'importe quel compte A ou O.
 
 Les sponsors d'une tranche ne peuvent faire afficher les `compteurs` _que_ des comptes de leur tranche.
 
-A la connexion d'un compte O, trois compteurs statistiques sont remontés de `compteurs` dans sa tribu:
+A la connexion d'un compte O, trois compteurs statistiques sont remontés de `compteurs` dans sa `tribus`:
 - `v1`: le volume V1 effectivement utilisé,
 - `v2`: le volume V2 effectivement utilisé,
 - `cj`: la consommation moyenne journalière (`consoj`).
 
-Les compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue par la tribu.
+Les compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue dans sa `tribus`.
 
 ### Classe `Credits`
 La propriété `credits` n'existe dans `comptas` que pour un compte A:
@@ -1669,38 +1552,162 @@ La propriété `credits` n'existe dans `comptas` que pour un compte A:
 - toutefois elle est cryptée par la clé publique du compte juste après l'opération de passage d'un compte O à A.
 
 **Propriétés:**
-- `total` : total des crédits encaissés.
+- `total` : total des crédits encaissés, plus les dons reçus, moins les dons effectués.
 - `tickets`: liste des tickets générés par le compte.
 
 ### Documents `tickets`
 Voir ci-avant la section correspondante.
 
-### Passage d'un compte A à O
-- le compte a demandé ou accepté, de passer O. Son accord est traduit par une _phrase d'accord_ dont le hash du PBKFD est inscrit dans `oko` de comptas. Cette phrase est transmise au Comptable ou au sponsor par un chat.
-- Le Comptable ou un sponsor désigne le compte dans ses contacts et cite cette phrase. Si elle est conforme, ça lance une opération qui:
-  - inscrit le compte dans une tribu,
-  - effectue une remise à zéro dans compteurs du compte du total abonnement et consommation des mois antérieurs (`razma()`):
-    - l'historique des compteurs et de leurs valorisations reste intact.
-    - les montants du mois courant et des 17 mois antérieurs sont inchangés,
-    - MAIS les deux compteurs `aboma` et `consoma` qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de consommation _d'avance_
-  - efface `oko`.
+### Mutation d'un compte _autonome_ en compte _d'organisation_
+Le compte a demandé et accepté, de passer O. Son accord est traduit par le dernier item de son chat avec le sponsor ou le Comptable qui effectue l'opération: son texte est `**YO**`.
+
+Le Comptable ou un sponsor désigne le compte dans ses contacts et vérifie:
+- que c'est un compte A,
+- que le dernier item écrit par le compte est bien `**YO**`.
+
+Les quotas `qc / q1 / q2` sont ajustés par le sponsor / comptable:
+- de manière à supporter au moins le volume actuels v1 / v2,
+- en respectant les quotas de la tranche courante.
+
+L'opération de mutation:
+- inscrit le compte dans la tranche courante,
+- dans `compteurs` du `comptas` du compte:
+  - remise à zéro du total abonnement et consommation des mois antérieurs (`razma()`):
+  - l'historique des compteurs et de leurs valorisations reste intact.
+  - les montants du mois courant et des 17 mois antérieurs sont inchangés,
+  - MAIS les deux compteurs `aboma` et `consoma` qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de consommation _d'avance_.
+- inscription d'un item de chat.
 
 ### Rendre _autonome_ un compte O
-C'est une opération du Comptable et/ou d'un sponsor selon la configuration de l'espace, qui n'a besoin de l'accord du compte (dans `oko` comme ci-dessus) que si la configuration de l'espace l'a rendu obligatoire.
-- il est retiré de sa tribu.
-- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs. Un _découvert_ est déclaré pour laisser le temps au compte d'enregistrer son premier crédit.
-- `oko` est effacé.
-- un objet `ticket` est créé avec:
-  - un `total` nul.
+C'est une opération du Comptable et/ou d'un sponsor:
+- selon la configuration de l'espace, l'accord du compte est requis si la configuration de l'espace l'a rendu obligatoire (item de chat avec `**YO**`)
+
+L'opération de mutation:
+- retire le compte de sa tranche.
+- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs.
+- un objet `ticket` par convention égal à `false` est créé. La prochaine connexion ou synchronisation du compte l'initialise et le crypte par la clé K:
+  - `total` vaut un pécule de 2c, le temps de générer un ticket et de l'encaisser.
   - une liste `tickets` vide.
 
 ### Sponsoring d'un compte O
-Rien de particulier : `compteurs` est initialisé, sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
+Rien de particulier : `compteurs` est initialisé. Sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
 
 ### Sponsoring d'un compte A
-`compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _découvert_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
+`compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _total_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
 
 Un objet `ticket` est créé dans `comptas` avec:
 - un `total` de 2 centimes.
 - une liste `tickets` vide.
 - l'objet est crypté par la clé K du compte à l'acceptation du sponsoring.
+
+# Annexe I: Discordances temporelles des données
+
+### Discordances par détection tardives de disparitions
+Un chat I / E peut référencer un avatar E alors que celui-ci a été détecté disparu par le GC.
+- le GC ne peut pas connaître la liste des chats dans lesquels un avatar disparu est impliqué.
+- l'avatar I ne détectera la disparition de E que lorsqu'en session il ouvrira la liste des chats et plus précisément fera rafraîchir la liste des CV.
+
+Un avatar principal peut référencer dans la liste de ses participations aux groupes, un groupe détecté disparu par dispation / résiliation de son dernier membre actif.
+- le GC n'ayant pas connaissance de l'avatar principal du compte d'un memebre ne peut pas mettre à jour,
+  - ni la liste des participations aux groupes des membres,
+  - leurs invitations en cours.
+- la disparition d'un groupe n'est détectée qu'à l'ouverture de la prochaine session (ou plus tôt par synchronisation, quand une session est active).
+
+### Discordances temporaires en session sur les décomptes de chats et groupes
+L'existence d'un chat décompté pour un compte est marqué,
+- par l'existence de rows chats attachés à un de ses avatars,
+- par le décompte `ng.nc` dans comptas du compte.
+
+Les deux informations sont mises à jour sous contrôle transactionnel: les données persistentes sont toujours cohérentes entre elle.
+
+En session, l'ordre dans lequel parvienent les mises à jour sont aléatoires: mise à jour chats avant mise à jour `comptas` ou l'inverse.
+- pendant un certain temps le nombre de chats décomptables en session peut différer de celui détenu dans comptas.
+- la situation se stabilise d'elle-même par synchronisation.
+- il est difficile d'arriver à mettre en évidence cette discordance temporaire de décompte, par ailleurs sans conséquences réelles.
+
+Le nombre de participations aux groupes est de même détenu dans deux rows: 
+- `avatars` principal du compte: dans la map `mpgk`,
+- `comptas` du compte: propriété `qv.ng`.
+
+La situation se stabilise d'elle-même, est difficile à observer et sans conséquences réelles.
+
+Le trosième cas similaire est celui de l'existence d'une note supprimée (_zombi_) encore temporairement décomptée dans `comptas.qv.nn`.
+
+**Conclusions**
+- les décomptes dans `comptas.qv` et `avatars` ou `chats` ne seront pas réalignés: le décompte des coûts reste cohérent.
+- dans la logique de gestion on tient compte des rows `avatars` et `chats` sans se préoccuper d'une possible discordance passagère des décomptes avec `comptas.qv`.
+- la détection tardive éventuelles de disparitions est assumée:
+  - avoir des groupes ou des chats décomptés à tort n'a pas d'impact de calcul des coûts puisque _l'abonnement_ se fait sur des quotas maximum, pas sur le nombre effectif de groupes et chats.
+  - on assume que quelques chats _passifs_ de I ne soient pas supprimés alors que E a disparu parce que ceci ne peut être détecté qu'à l'ouverture de vue des chats. 
+
+# Annexe II: déclaration des index
+
+## SQL
+`sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
+
+Rien de particulier : sont indexées les colonnes requérant un filtrage ou un accès direct par la valeur de la colonne.
+
+## Firestore
+`firestore.index.json` donne le schéma des index: le désagrément est que pour tous les attributs il faut indiquer s'il y a ou non un index et de quel type, y compris pour ceux pour lesquels il n'y en a pas.
+
+**Les règles génériques** suivantes ont été appliquées:
+
+_data_ n'est jamais indexé.
+
+Il n'y a pas _d'index composite_. Toutefois en fait les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont des pseudo index composites mais simplement déclarés comme index:
+- `id_v` est un string `id/v` où `id` est sur 16 chiffres et `v` sur 9 chiffres.
+- `id_vcv` est un string `id/vcv` où `id` est sur 16 chiffres et `vcv` sur 9 chiffres.
+
+Ces attributs apparaissent dans:
+- tous les documents _majeurs_ pour `id_v`,
+- `avatars chats membres` pour `id_vcv`.
+
+En conséquence les attributs `id v vcv` ne sont **pas** indexés dans les documents _majeurs_.
+
+`id` est indexée dans `gcvols` et `fpurges` qui n'ont pas de version `v` et dont l'`id` doit être indexée pour filtrage par l'utilitaire `export/delete`.
+
+Dans les sous-collections versionnées `notes chats membres sponsorings tickets`: `id ids v` sont indexées. 
+
+Pour `sponsorings` `ids` sert de clé d'accès direct et a donc un index **collection_group**, pour les autres l'index est simple.
+
+Dans la sous-collection non versionnée `transferts`: `id ids` sont indexées mais pas `v` qui n'y existe pas.
+
+`dlv` est indexée,
+- simple sur `versions`,
+- **collection_group** sur les sous-collections `transferts sponsorings membres`.
+
+Autres index:
+- `hps1` sur `comptas`: accès à la connexion par phrase secrète.
+- `hpc` sur `avatars`: accès direct par la phrase de contact.
+- `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
+
+# Annexe III: IndexedDB dans les session UI
+
+Un certain nombre de documents sont stockés en session UI dans la base locale IndexedDB et utilisés en modes _avion_ et _synchronisé_.
+- `compte`: singleton d'`id` vaut '1'.
+  - son contenu est la sérialisation de `{ id:..., k:... }` cryptée par la PBKFD de la phrase secrète complète.
+  - `id` : id du compte (son avatar principal et de comptas).
+  - `k` : 32 bytes de la clé K du compte.
+- `tribus`: 'id',
+- `comptas`: 'id'. De facto un singleton mais avec une clé qui n'est pas 1 (c'était une option plausible).
+- `avatars`: 'id',
+- `chats`: '[id+ids]',
+- `sponsorings`: '[id+ids]',
+- `groupes`: 'id',
+- `membres`: '[id+ids]',
+- `notes`: '[id+ids]',
+- `tickets`: '[id+ids]'.
+
+La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée en base 64 URL.
+
+Les deux termes de clés `id` et `ids` sont chacune en string crypté par la clé K du compte et encodée en base 64 URL.
+
+Le format _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
+
+En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
+
+Il y a donc une stricte identité entre les documents extraits de SQL / Firestore et leurs états stockés en IDB
+
+_**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
+- la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
+- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`. Voir la documentation sur `ui-doc.md`.
