@@ -10,12 +10,15 @@ Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
   - `apitk` : string donnant l'autorisation du client à utiliser l'API. Cette information figure en configuration du serveur et côté client dans `quasar.config.js / build / env / APITK` qui a été forcée lors du build webpack de l'application UI.
 
 ### `args.token` : le jeton d'authentification du compte
-Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, hps1 }`:
+Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, org, hps1 }`:
 - `sessionId` : identifiant aléatoire (string) de session générée par l'application pour s'identifier elle-même (et transmise sur WebSocket en implémentation SQL).
+- `org` : code l'organisation.
 - `shax` : SHA256 du PBKFD de la phrase secrète en UTF-8.
 - `hps1` : Hash (sur un entier _safe_ en Javascript) du SHA256 de l'extrait de la phrase secrète.
 
-L'extrait consiste à prendre certains bytes du début de la représentation en UTF-8 de la phrase complète précédée du code de l'organisation.
+> Remarque: le code `ns` ne figure pas en tête de `hps1`. A la connexion d'un compte celui-ci connaît son organisation pas son `ns`, il le récupère en retour, le serveur ayant lui la correspondance entre tous codes `org` et `ns`.
+
+L'extrait consiste à prendre certains bytes du début de la représentation en UTF-8 de la phrase complète.
 
 ### Headers requis
 - `origin` : site Web d'où l'application Web a été chargée. Au cas ou `origin` ne peut pas être obtenu, c'est `referer` qui est considéré. Les origines autorisées sont listées dans `config.mjs`.
@@ -54,7 +57,7 @@ GET `/fs`
 - Retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL. Ceci évite dans le code de l'application d'avoir à configurer si la synchronisation est de type SQL (par WebSoket) ou Firestore, la découverte se faisant en runtime.
 
 GET `/favicon.ico`
-- retourne la favicon, standard de l'application ou spécifiée en configuration.
+- retourne la favicon de l'application spécifiée en configuration.
 
 GET `/robots.txt`
 - retourne `'User-agent: *\nDisallow: /\n'`
@@ -81,73 +84,92 @@ PUT `/storage/...`
 POST `/op/...`
 - les `opérations` de l'application détaillées ci-après.
 
-## Opérations `/op/...` SANS authentification
-### `yo` : ping du serveur
-GET - pas d'arguments `../op/yo`
+## Opérations `/op/...`
+Voir dans le code le commentaire de signature de caque opération.
 
-Ping du serveur SANS vérification de l'origine de la requête.
+Les opérations sont les suivantes:
+- OP_AboTribuC: 'Abonnement / désabonnement à la tranche courante',
+- OP_McMemo: 'Changement des mots clés et mémo attachés à un contact ou groupe',
+- OP_ExistePhrase: 'Test d\'existence d\'une phrase de connexion / contact / sponsoring',
+- OP_MotsclesCompte: 'Changement des mots clés d\'un compte',
+- OP_MajCv: 'Mise à jour de la carte de visite d\'un avatar',
+- OP_MajCvGr: 'Mise à jour de la carte de visite d\'un groupe',
+- OP_ChangementPS: 'Changement de la phrase secrete de connexion du compte',
+- OP_ChangementPC: 'Changement de la phrase de contact d\'un avatar',
+- OP_GetAvatarPC: 'Récupération d\'un avatar par sa phrase de contact',
+- OP_AjoutSponsoring: 'Création d\'un sponsoring',
+- OP_ChercherSponsoring: 'Recherche d\'un sponsoring',
+- OP_PassifChat: 'Mise en état "passif" d\'un chat',
+- OP_NouveauChat: 'Création d\'un "chat"',
+- OP_MajChat: 'Mise à jour d\'un "chat".',
+- OP_RafraichirCvs: 'Rafraîchissement des cartes de visite',
+- OP_NouvelAvatar: 'Création d\'un nouvel avatar du compte',
+- OP_NouvelleTribu: 'Création d\'une nouvelle tranche de quotas',
+- OP_SetNotifGg: 'Inscription d\'une notification générale',
+- OP_SetNotifT: 'Inscription / mise à jour de la notification d\'une tranche de quotas',
+- OP_SetNotifC: 'Inscription / mise à jour de la notification d\'un compte',
+- OP_SetAtrItemComptable: 'Mise à jour des quotas d\'une tranche de quotas',
+- OP_SetSponsor: 'Changement pour un compte de son statut de sponsor de sa tranche de quotas',
+- OP_SetQuotas: 'Fixation des quotas dùn compte dans sa tranche de quotas',
+- OP_ChangerTribu: 'Transfert d\'un compte dans une autre tranche de quotas',
+- OP_SetDhvuCompta: 'Mise à jour de la date-heure de "vu" des notifications d\'un compte',
+- OP_GetCompteursCompta: 'Obtention des compteurs d\'abonnement / consomation d\'un compte',
+- OP_GetTribu: 'Obtention d\'une tranche de quotas',
+- OP_SetEspaceT: 'Attribution d\'un profil à l\'espace',
+- OP_NouveauGroupe: 'Création d\'un nouveau groupe',
+- OP_MotsclesGroupe: 'Insciption / mise à jour des mots clés d\'un groupe',
+- OP_InvitationFiche: 'Récupération des informations d\'invitation à un groupe',
+- OP_HebGroupe: 'Gestion / transfert d\'hébergement d\'un groupe',
+- OP_NouveauMembre: 'Ajout d\'un nouveau contact à un groupe',
+- OP_MajDroitsMembre: 'Mise à jour des droits d\'un membre sur un groupe',
+- OP_OublierMembre: 'Oubli d\'un membre d\'un groupe',
+- OP_ModeSimple: 'Demande de retour au mode simple ou unanime d\'invitation à un groupe',
+- OP_ItemChatgr: 'Ajout d\'un item de dialogue à un "chat" de groupe',
+- OP_InvitationGroupe: 'Invitation à un groupe',
+- OP_AcceptInvitation: 'Acceptation d\'une invitation à un groupe',
+- OP_NouvelleNote: 'Création d\'une nouvelle note',
+- OP_NoteOpx: 'Suppression d\'une note',
+- OP_MajNote: 'Mise à jour du texte d\'une note',
+- OP_ExcluNote: 'Changement de l\'attribution de l\'exclusivité d\'écriture d\'une note',
+- OP_McNote: 'Changement des mots clés attachés à une note par un compte',
+- OP_RattNote: 'Gestion du rattachement d\'une note à une autre',
+- OP_ChargerCvs: 'Chargement des cartes de visite plus récentes que celles détenues en session',
+- OP_NouveauFichier: 'Enregistrement d\'un nouveau fichier attaché à une note',
+- OP_DownloadFichier: 'Téléchargement d\'un fichier attaché à une note',
+- OP_SupprFichier: 'Suppression d\'un fichier attaché à une note',
+- OP_SupprAvatar: 'Suppression d\'un avatar du compte',
+- OP_GC: 'Déclenchement du nettoyage quotidien',
+- OP_GetCheckpoint: 'Obtention du rapport d\'exécution du dernier traitement de nettoyage quotidien',
+- OP_GetSynthese: 'Obtention de la synthèse de l\'espace',
+- OP_ForceDlv: 'TEST seulement: forçage de dlv / dfh',
+- OP_SetEspaceOptionA: 'Changement de l\'option A de l\'espace',
+- OP_PlusTicket: 'Génération d\'un ticket de crédit',
+- OP_MoinsTicket: 'Suppression d\'un ticket de crédit',
+- OP_RafraichirTickets: 'Obtention des nouveaux tickets réceptionnés par le Comptable',
+- OP_RafraichirDons: 'Recalcul du solde du compte après réception de nouveaux dons',
+- OP_EstAutonome: 'Vérification que le bénéficiaire envisagé d\'un don est bien un compte autonome',
+- OP_ReceptionTicket: 'Réception d\'un ticket par le Comptable',
+- OP_ConnexionCompte: 'Connexion à un compte',
+- OP_AcceptationSponsoring: 'Acceptation d\'un sponsoring et création d\'un nouveau compte',
+- OP_RefusSponsoring: 'Rejet d\'une proposition de sponsoring',
+- OP_ProlongerSponsoring: 'Prolongation / annulation d\'un sponsoring',
+- OP_CreerEspace: 'Création d\'un nouvel espace et de son comptable',
+- OP_EchoTexte: 'Lancement d\'un test d\'écho',
+- OP_ErreurFonc: 'Simulation d\'une erreur fonctionnelle',
+- OP_PingDB: '"Ping" de la base distante',
+- OP_TraitGcvols: 'Récupération des quotas libérés par les comptes disparus',
+- OP_GetEstFs: 'Détermination du mode du serveur (Filestore ou SQL)',
+- OP_OnchangeVersion: 'Opération de synchronisation (changement de version)',
+- OP_OnchangeCompta: 'Opération de synchronisation (changement de compta)',
+- OP_OnchangeTribu: 'Opération de synchronisation (changement de tranche)',
+- OP_OnchangeEspace: 'Opération de synchronisation (changement de espace)',
+- OP_MuterCompte: 'Mutation dy type d\'un compte',
+- OP_GetPub: 'Obtention d\'une clé publique',
+- OP_TestRSA: 'Test encryption RSA',
+- OP_CrypterRaw: 'Test d\'encryptage serveur d\'un buffer long',
 
-Retourne 'yo' + la date et l'heure UTC
-
-### `yoyo` : ping du serveur
-GET - pas d'arguments `../op/yoyo`
-
-Ping du serveur APRÈS vérification de l'origine de la requête.
-
-Retourne 'yoyo' + la date et l'heure UTC
-
-### `EchoTexte` : retourne le texte passé en argument
-POST:
-- `to` : délai en secondes avant retour de la réponse
-- `texte` : texte à renvoyer en écho OU en détail de l'erreur fonctionnelle testée
-
-Retour:
-- `echo` : texte d'entrée retourné
-
-### `ErreurFonc` : simule une erreur fonctionnelle
-POST:
-- `to` : délai en secondes avant retour de la réponse
-- `texte` : détail de l'erreur fonctionnelle testée
-
-Exception:
-- `F_SRV 1` : en détail le texte passé en argument.
-
-### `PingDB` : teste l'accès à la base de données
-POST - pas d'arguments
-
-Retour : 
-- `OK` : true
-
-Exception: si la base n'est pas accessible.
-
-### `GetPub` : retourne la clé publique d'un avatar
-POST:
-- `id` : id de l'avatar
-
-Retour:
-- `pub` : clé publique de l'avatar ou `null` si l'avatar n'existe pas
-
-### `ChercherSponsoring` : recherche un sponsoring par le hash de sa phrase de contact
-POST:
-- `ids` : hash de la phrase de contact.
-
-Retour:
-- `rowSponsoring` : le row s'il existe
-
-### `ExistePhrase` : cherche le hash d'une phrase et détermine son existence
-POST:
-- `ids` : hash de la phrase de contact / de connexion.
-- `t` :
-  - 1 : phrase de connexion (`hps1` de `comptas`)
-  - 2 : phrase de sponsoring (`ids` de `sponsorings`)
-  - 3 : phrase de contact (`hpc` de `avatars`)
-
-Retour:
-- `existe` : `true` si le hash de la phrase existe.
-
-## Opérations authentifiées par l'administrateur
-
-### Documents: les formats _row_ et _compilé_
+## Documents
+### Les formats _row_ et _compilé_
 Que ce soit en SQL ou en Firestore, l'insertion ou la mise à jour d'un document se fait depuis un _objet Javascript_ ou chaque attribut correspond à une propriété de l'objet. 
 
 Par exemple un document `tribus` pour mise à jour en SQL ou Firestore est celui-ci : 
@@ -165,808 +187,46 @@ Les attributs _data_ contiennent toutes les propriétés sérialisées, celles e
 - la méthode `row = tribu.toRow()` reconstitue un objet au format _row_ depuis une instance `tribu`.
 
 En session UI le même principe est adopté avec deux différences : 
-- `compile()` sur le serveur est **synchrone et unique** (il n'y a pas d'implémentations pour chaque sous-classe de `GenDoc`).
+- `compile()` sur le serveur est **synchrone et unique**.
 - en session `async compile()` est à écrire pour chaque classe : les méthodes effectuent des opérations de cryptage / décryptage asynchrones et de calculs de propriétés complémentaires spécifiques de chaque classe de document.
 - en session il n'y a pas d'équivalent à `toRow()`. Pour des créations de document la construction s'effectue directement en format _row_ et non sur un objet qui serait sérialisé ensuite. 
 
-### `CreerEspace` : création d'un nouvel espace et du comptable associé
-POST:
-- `token` : jeton d'authentification du compte de **l'administrateur**
-- `rowEspace` : row de l'espace créé
-- `rowSynthese` : row `syntheses` créé
-- `rowAvatar` : row de l'avatar du comptable de l'espace
-- `rowTribu` : row de la tribu primitive de l'espace
-- `rowCompta` : row du compte du Comptable
-- `rowVersion`: row de la version de l'avatar (avec sa dlv)
-- `hps1` : hps1 de la phrase secrète
+Sur le serveur, le _data_ de certains documents cités dans `GenDoc.rowCryptes` (pour l'instant seulement `comptas`) est crypté par la _clé du site_ fixée par l'administrateur:
+- _data_ est décrypté après lecteur de la base,
+- _data_ est encrypté avant écriture de la base.
 
-Exceptions: 
-- F_SRV 12 : phrase secrète semblable déjà trouvée.
-- F_SRV 3 : Espace déjà créé.
-
-### `SetNotifG` : déclaration d'une notification à un espace par l'administrateur
-POST:
-- `token` : jeton d'authentification du compte de **l'administrateur**
-- `ns` : id de l'espace notifié
-- `notif` : sérialisation de l'objet notif, cryptée par la clé du comptable de l'espace. Cette clé étant publique, le cryptage est symbolique et vise seulement à éviter une lecture simple en base.
-  - `idSource`: id du Comptable ou du sponsor, par convention 0 pour l'administrateur.
-  - `jbl` : jour de déclenchement de la procédure de blocage sous la forme `aaaammjj`, 0 s'il n'y a pas de procédure de blocage en cours.
-  - `nj` : en cas de procédure ouverte, nombre de jours après son ouverture avant de basculer en niveau 4.
-  - `texte` : texte informatif, pourquoi, que faire ...
-  - `dh` : date-heure de dernière modification (informative).
-
-Retour: 
-- `rowEspace` : le row espaces mis à jour.
-
-Assertion sur l'existence du row `Espaces`.
-
-### `SetEspaceT` : déclaration du profil de volume de l'espace par l'administrateur
-POST:
-- `token` : jeton d'authentification du compte de **l'administrateur**
-- `ns` : id de l'espace notifié.
-- `t` : numéro de profil de 0 à N. Liste spécifiée dans config.mjs de l'application.
-
-Assertion sur l'existence du row `Espaces`.
-
-## Opérations authentifiées par un compte Comptable ou sponsor de sa tribu
-
-### `AjoutSponsoring` : déclaration d'un nouveau sponsoring par le comptable ou un sponsor
-POST:
-- `token` : éléments d'authentification du comptable / compte sponsor de sa tribu.
-- `rowSponsoring` : row Sponsoring, SANS la version (qui est calculée par le serveur).
-
-Exception:
-- `F_SRV 7` : un sponsoring identifié par une même phrase (du moins son hash) existe déjà.
-
-Assertion sur l'existence du row `Versions` du compte.
-
-### `ProlongerSponsoring` : prolongation d'un sponsoring existant
-Change la date limite de validité du sponsoring pour une date plus lointaine. Ne fais rien si le sponsoring n'est pas _actif_ (hors limite, déjà accepté ou refusé).
-POST:
-- `token` : éléments d'authentification du comptable / compte sponsor de sa tribu.
-- `id ids` : identifiant du sponsoring.
-- `dlv` : nouvelle date limite de validité `aaaammjj`ou 0 pour une  annulation.
-
-Assertions sur l'existence des rows `Sponsorings` et `Versions` du compte.
-
-## Opération NON authentifiée de REFUS de connexion par un compte
-
-### `RefusSponsoring` : refus de son sponsoring par le _sponsorisé_
-Change le statut du _sponsoring_ à _refusé_. Ne fais rien si le sponsoring n'est pas _actif_ (hors limite, déjà accepté ou refusé).
-POST:
-- `ids` : identifiant du sponsoring, hash de la phrase de contact.
-- `ardx` : justification / remerciement du _sponsorisé à stocker dans le sponsoring.
-
-Exceptions:
-- `F_SRV 8` : le sponsoring n'existe pas.
-
-Assertion sur l'existence du row `Versions` du compte sponsor.
-
-## Opérations authentifiées de création de compte et connexion
+### Opérations authentifiées de création de compte et connexion
 **Remarques:**
 - le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'appel des opérations qui le concernent lui seul. Le hash de sa phrase secrète est enregistrée dans la configuration du serveur.
 - le compte _Comptable_ de chaque espace est créé par l'administrateur à la création de l'espace. Ce compte est normal. Sa phrase secrète a été donnée par l'administrateur et le comptable est invité à la changer au plus tôt.
 - les autres comptes sont créés par _acceptation d'un sponsoring_ qui fixe la phrase secrète du compte qui se créé : après cette opération la session du nouveau compte est normalement active.
 - les deux opérations suivantes sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du hash de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
 
-### `AcceptationSponsoring` : création du compte du _sponsorisé_
-POST:
-- `token` : éléments d'authentification du compte à créer
-- `rowCompta` : row du compte à créer.
-- `rowAvatar` : row de son avatar principal.
-- `rowVersion` : row de avatar en création.
-- `idt` : id de sa tribu.
-- `ids` : ids du sponsoring, hash de sa phrase de reconnaissance qui permet de retrouver le sponsoring.
-- `rowChatI` : row chat _interne_ pour le compte en création donnant le message de remerciement au sponsor.
-- `rowChatE` : row chat _externe_ pour le sponsor avec le même message. La version est obtenue par le serveur.
-- `ardx` : texte de l'ardoise du sponsoring à mettre à jour (avec statut 2 accepté), copie du texte du chat échangé.
-- `act`: élément de la map act de sa tribu
-- **SI quotas à prélever** sur le COMPTE du sponsor,
-- `it` : index de ce compte dans la tribu
-- `q1 q2` : quotas attribués par le sponsor.
-
-Retour: rows permettant d'initialiser la session avec le nouveau compte qui se trouvera ainsi connecté.
-- `rowTribu`
-- `rowChat` : le chat _interne_, celui concernant le compte.
-- `credentials` : données d'authentification permettant à la session d'accéder au serveur de données Firestore.
-- `rowEspace` : row de l'espace, informations générales / statistiques de l'espace et présence de la notification générale éventuelle.
-
-Exceptions:
-- `F_SRV, 8` : il n'y a pas de sponsoring ayant ids comme hash de phrase de connexion.
-- `F_SRV, 9` : le sponsoring a déjà été accepté ou refusé ou est hors limite.
-
-Assertions:
-- existence du row `Tribus`,
-- existence du row `Versions` du compte sponsor.
-- existence du row `Avatars` du sponsorisé.
-- existence du row `Espaces`.
-
-### `ConnexionCompte` : connexion authentifiée à un compte
-Enregistrement d'une session et retour des données permettant à la session cliente de s'initialiser.
-
-L'administrateur utilise cette opération pour se connecter mais le retour est différent.
-
-POST:
-- `token` : éléments d'authentification du compte.
-
-Retour, sauf _administrateur_:
-- `rowAvatar` : row de l'avatar principal du compte
-- `rowCompta` : row compta du compte.
-- `rowEspace` : row de l'espace (informations générales / statistques de l'espace et présence de la notification générale éventuelle.
-- `credentials`: données d'authentification pour utilisation de l'API Firestore dans l'application cliente (absente en mode SQL)
-
-Retour, pour _administrateur_:
-- `admin` : `true` (permet en session de reconnaître une connexion d'administration).
-- `espaces` : array des rows de tous les espaces.
-
-Assertions sur l'existence des rows `Comptas, Avatars, Espaces`.
-
-## Opérations authentifiées pour un compte APRÈS sa connexion
+### Opérations authentifiées pour un compte APRÈS sa connexion
 Ces opérations permettent à la session cliente de récupérer toutes les données du compte afin d'initialiser son état interne.
 
-### `GetEspace` : get de l'espace du compte de la session
-POST:
-- `token` : éléments d'authentification du compte.
-- `ns` : id de l'espace.
-
-Retour:
-- `rowEspace`
-
-Assertion sur l'existence du row `Espaces`.
-
-### `GetSynthese` : retourne la synthèse de l'espace
-POST:
-- `token` : éléments d'authentification du compte.
-- `ns` : id de l'espace.
-
-Retour:
-- `rowSynthese`
-
-Assertion sur l'existence du row `Syntheses`.
-
-### `GestionAb` : gestion des abonnements
-Toutes les opérations permettent de modifier la liste des abonnements,
-- `abPlus` : liste des avatars et groupes à ajouter,
-- `abMoins` : liste des abonnements à retirer.
-
-Cette opération permet de mettre à jour la liste des abonnements de la session alors qu'elle n'a aucune autre action à effectuer.
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `abPlus abMoins`.
-
-### `GetAvatars` : retourne les documents avatar dont la version est postérieure à celle détenue en session
-POST:
-- `token` : éléments d'authentification du compte.
-- `vcompta` : version de compta qui ne doit pas avoir changé depuis le début de la phase de connexion. Si la version actuelle de compta est postérieure, le retour de `OK` est false.
-- `mapv` : map des avatars à charger.
-  - _clé_ : id de l'avatar, 
-  - _valeur_ : version détenue en session. Ne retourner l'avatar que si sa version est plus récente que celle-ci.
-
-Retour:
-- `OK` : si la version de compta n'a pas changé
-- `rowAvatars`: array des rows des avatars dont la version est postérieure à celle indiquée en arguments.
-
-### `GetAvatar` : retourne le row le plus récent de l'avatar 
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de l'avatar
-
-Retour:
-- `rowAvatar`: row de l'avatar.
-
-Assertion sur l'existence de l'avatar.
-
-### `GetTribu` : retourne le row le plus récent de la tribu
-Et optionnellement déclare cette tribu comme _courante_, c'est à dire abonne la session à cette tribu (après détection d'un changement de tribu).
-
-POST:
-- `token`: éléments d'authentification du compte.
-- `id` : id de la tribu.
-- `setC`: si true, déclarer la tribu courante.
-
-Retour:
-- `rowtribu` : row de la tribu.
-
-Assertion sur l'existence du rows `Tribus`.
-
-### `AboTribuc` : abonnement / désabonnement de la tribu courante 
-POST:
-- `token`: éléments d'authentification du compte.
-- `id` : id de la tribu. Si 0 désabonnement.
-
-### `GetGroupe` : retourne le row le plus récent du groupe 
-POST:
-- `token`: éléments d'authentification du compte.
-- `id` : id du groupe.
-
-Retour:
-- `rowGroupe`: row du groupe.
-
-Assertion sur l'existence du row `Groupes`.
-
-### `GetGroupes` : retourne les documents groupes ayant une version plus récente que celle détenue en session
-POST:
-- `token`: éléments d'authentification du compte.
-- `mapv` : map des versions des groupes détenues en session :
-  - _clé_ : id du groupe  
-  - _valeur_ : version détenue en session
-
-Retour:
-- `rowGroupes` : array des rows `Groupes` ayant une version postérieure à celle connue en session.
-
-### `ChargerNotes` : retourne les notes de l'avatar / groupe id et de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : de l'avatar ou du groupe
-- `v` : version connue en session
-
-Retour:
-- `rowNotes` : array des rows `Notes` de version postérieure à `v`.
-
-### `ChargerChats` : retourne les chats de l'avatar id et de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : de l'avatar
-- `v` : version connue en session
-
-Retour:
-- `rowChats` : array des rows `Chats` de version postérieure à `v`.
-
-### `ChargerSponsorings` : retourne les sponsoring de l'avatar id et de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : de l'avatar
-- `v` : version connue en session
-
-Retour:
-- `rowSponsorings` : array des rows `Sponsorings` de version postérieure à `v`.
-
-### `ChargerMembres` : retourne les membres du groupe id et de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : du groupe
-- `v` : version connue en session
-
-Retour:
-- `rowMembres` : array des rows `Membres` de version postérieure à `v`.
-
-### `ChargerGMS` : retourne le groupe id, ses membres et ses notes, de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : du groupe
-- `v` : version connue en session
-
-Retour: 
-- quand le groupe est _zombi, les row `Groupes, Membres, Notes` NE SONT PAS significatifs.
-- `rowGroupe` : seulement si version postérieure à `v`. 
-- `rowMembres` : array des rows `Membres` de version postérieure à `v`.
-- `rowSecrets` : array des rows `Notes` de version postérieure à `v`.
-- `vgroupe` : row version du groupe, possiblement _zombi.
-
-**Remarque** : 
-- Le GC PEUT avoir faire disparaître un groupe (son row `versions` est _zombi) AVANT que les listes des groupes (`lgr`) dans les rows avatars membres n'aient été mises à jour.
-- Quand le groupe est _zombi, les row groupe, membres, notes NE SONT PAS retournés.
-
-### `ChargerTribus` : retourne les tribus de l'espace
-Pour le comptable seulement
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `mvtr` : map des versions des tribus détenues en session
-  _clé_ : id de la tribu,
-  _valeur_ : version détenue en session.
-
-Retour :
-- `rowTribus`: array des rows des tribus de version postérieure à v.
-- `delids` : array des ids des tribus disparues.
-
-### `ChargerASCS` : retourne l'avatar, ses notes, chats et sponsorings, de version postérieure à v
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : de l'avatar.
-- `v` : version connue en session.
-
-Retour:
-- `rowNotes` : arrays des rows `Notes Chats Sponsorings` de version postérieure à v
-- `rowChats` :
-- `rowSponsorings` : 
-- `rowAvatar` : seulement si de version postérieure à v.
-- `vavatar` : row `Versions` de l'avatar. Il PEUT être _zombi. Dans ce cas les autres rows n'ont pas de signification.
-
-Assertion sur l'existence du row `Versions` de l'avatar.
-
-### `SignaturesEtVersions` : signatures des groupes et avatars
-Si un des avatars a changé de version, retour en `OK` `false` : la liste des avatars doit être la même que celle précédemment obtenue en session.
-
-Signature par les `dlv` passées en arguments des row `versions` des avatars et membres (groupes en fait).
-
-Retourne les `versions` des avatars et groupes de la session.
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `vcompta` : version de compta qui ne doit pas avoir changé
-- `mbsMap` : map des membres des groupes des avatars :
-  - _clé_ : id du groupe  
-  - _valeur_ : `{ idg, mbs: [ids], dlv }`
-- `avsMap` : map des avatars du compte 
-  - `clé` : id de l'avatar
-  - `valeur` : `{v (version connue en session), dlv}`
-- `abPlus` : array des ids des groupes auxquels s'abonner
-
-Retour:
-- `OK` : true / false si le compta ou un des avatars a changé de version.
-- `versions` : map pour chaque avatar / groupe de :
-  - _clé_ : id du groupe ou de l'avatar.
-  - _valeur_ :
-    - `{ v }`: pour un avatar.
-    - `{ v, vols: {v1, v2, q1, q2} }` : pour un groupe.
-
-Assertions sur les rows `Comptas, Avatars, Versions`.
-
-### `EnleverGroupesAvatars` : retirer pour chaque avatar de la map ses accès aux groupes listés par numéro d'invitation
-POST:
-- `token` : éléments d'authentification du compte.
-- `mapIdNi` : map
-  - _clé_ : id d'un avatar
-  - _valeur_ : array des `ni` (numéros d'invitation) des groupes ciblés.
-
-### `RetraitAccesGroupe` : retirer l'accès à un groupe pour un avatar
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de l'avatar.
-- `ni` : numéro d'invitation du groupe pour cet avatar.
-
-### `DisparitionMembre` : enregistrement du statut disparu d'un membre dans son groupe
-Après détection de la disparition d'un membre.
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du groupe
-- `ids` : ids du membre
-
-## Opérations du cycle de vie HORS phase de connexion et synchronisations
-
-### `RafraichirCvs` : rafraîchir les cartes de visite, quand nécessaire
-Mises à jour des cartes de visite, quand c'est nécessaire, pour tous les chats et membres de la cible.
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `cibles` : array de : 
-
-    {
-      idE, // id de l'avatar
-      vcv, // version de la carte de visite détenue
-      lch: [[idI, idsI, idsE] ...], // liste des chats
-      lmb: [[idg, im] ...] // liste des membres
-    }
-
-Retour:
-- `nbrech` : nombre de mises à jour effectuées.
-
-Assertions sur l'existence des `Avatars Versions`.
-
-### `MotsclesCompte` : changer les mots clés du compte
-POST:
-- `token` : éléments d'authentification du compte.
-- `mck` : map des mots clés cryptée par la clé k.
-
-Assertion d'existence du row `Avatars` de l'avatar principal et de sa `Versions`.
-
-### `ChangementPS` : changer la phrase secrète du compte
-POST:
-- `token` : éléments d'authentification du compte.
-- `hps1` : dans compta, `hps1` : hash du PBKFD de l'extrait de la phrase secrète du compte.
-- `shay` : SHA du SHA de X (PBKFD de la phrase secrète).
-- `kx` : clé K cryptée par la phrase secrète
-
-Assertion sur l'existence du row `Comptas` du compte.
-
-### `MajCv` : mise à jour de la carte de visite d'un avatar
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de l'avatar dont la Cv est mise à jour
-- `v` : version de l'avatar incluse dans la Cv.
-- `cva` : `{v, photo, info}` crypté par la clé de l'avatar.
-  - SI C'EST Le COMPTE, pour dupliquer la CV,
-    `idTr` : id de sa tribu (où dupliquer la CV)
-    `hrnd` : clé d'entrée de la map `mbtr` dans tribu2.
-
-Retour:
-- `OK` : `false` si la carte de visite a changé sur le serveur depuis la version connue en session. Il faut reboucler sur la requête jusqu'à obtenir true.
-
-Assertion sur l'existence du row `Avatars` de l'avatar et de son row `Versions`.
-
-### `GetAvatarPC` : information sur l'avatar ayant une phrase de contact donnée
-POST:
-- `token` : éléments d'authentification du compte.
-- `hpc` : hash de la phrase de contact
-
-Retour: si trouvé,
-- `cvnapc` : `{cv, napc}` si l'avatar ayant cette phrase a été trouvée.
-  - `cv` : `{v, photo, info}` crypté par la clé de l'avatar.
-  - `napc` : `[nom, clé]` de l'avatar crypté par le PBKFD de la phrase.
-
-### `ChangementPC` : changement de la phrase de contact d'un avatar
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : de l'avatar.
-- `hpc` : hash de la phrase de contact (SUPPRESSION si null).
-- `napc` : `[nom, clé]` de l'avatar crypté par le PBKFD de la phrase.
-- `pck` : phrase de contact cryptée par la clé K du compte.
-
-Assertion sur l'existence du row `Avatars` de l'avatar et de sa `Versions`.
-
-### `NouveauChat` : création d'un nouveau Chat
-POST:
-- `token` : éléments d'authentification du compte.
-- `idI idsI` : id du chat, côté _interne_.
-- `idE idsE` : id du chat, côté _externe_.
-- `ccKI` : clé cc du chat cryptée par la clé K du compte de I.
-- `ccPE` : clé cc cryptée par la clé **publique** de l'avatar E.
-- `contcI` : contenu du chat I (contient le [nom, rnd] de E), crypté par la clé cc.
-- `contcE` : contenu du chat E (contient le [nom, rnd] de I), crypté par la clé cc.
-
-Retour:
-- `st` : 
-  0 : E a disparu
-  1 : chat créé avec le contenu contc.
-  2 : le chat était déjà créé, retour de chatI avec le contenu qui existait
-- `rowChat` : row du chat I créé (sauf st = 0).
-
-Assertions sur l'existence du row `Avatars` de l'avatar I, sa `Versions`, et le cas échéant la `Versions` de l'avatar E (quand il existe).
-
-### `MajChat` : mise à jour d'un Chat
-POST:
-- `token` : éléments d'authentification du compte.
-- `idI idsI` : id du chat, côté _interne_.
-- `idE idsE` : id du chat, côté _externe_.
-- `ccKI` : clé cc du chat cryptée par la clé K du compte de I. _Seulement_ si en session la clé cc était cryptée par la clé publique de I.
-- `contcI` : contenu du chat I (contient le [nom, rnd] de E), crypté par la clé cc.
-- `contcE` : contenu du chat E (contient le [nom, rnd] de I), crypté par la clé cc.
-- `seq` : numéro de séquence à partir duquel `contc` a été créé.
-
-Retour:
-- `st` : 
-  1 : chat mis à jour avec le contenu `contc`.
-  2 : le chat existant a un contenu plus récent que celui sur lequel était basé `contc`. Retour de chatI.
-- `rowChat` : row du chat I.
-
-Assertions sur l'existence du row `Avatars` de l'avatar I, sa `Versions`, et le cas échéant la `Versions` de l'avatar E (quand il existe).
-
-### `MajMotsclesChat` : changer les mots clés d'un chat
-POST:
-- `token` : éléments d'authentification du compte.
-- `mc` : u8 des mots clés
-- `id ids` : id du chat
-
-Assertions sur le row `Chats` et la `Versions` de l'avatar id.
-
-### `NouvelAvatar` : création d'un nouvel avatar 
-POST:
-- `token` : éléments d'authentification du compte.
-- `rowAvatar` : row du nouvel avatar.
-- `rowVersion` : row de la version de l'avatar.
-- `kx vx`: entrée dans `mavk` (la liste des avatars du compte) de compta pour le nouvel avatar.
-
-Assertion sur l'existence du row `Comptas`.
-
-### `MajMavkAvatar` : mise à jour de la liste des avatars d'un compte
-POST:
-- `token` : éléments d'authentification du compte.
-- `lp` : liste _plus_, array des entrées `[kx, vx]` à ajouter dans la liste (`mavk`) du compte.
-- `lm` : liste _moins_ des entrées `[kx]` à enlever.
-
-Assertion sur l'existence du row Comptas.
-
-### `NouvelleTribu` : création d'une nouvelle tribu par le comptable
-POST: 
-- `token` : éléments d'authentification du comptable.
-- `rowTribu` : row de la nouvelle tribu.
-- `atrItem` : item à insérer dans le row Comptas du comptable en dernière position.
-
-Assertion sur l'existence du row `Comptas` du comptable.
-
-### `SetNotifT` : notification de la tribu
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de la tribu
-- `notif` : notification cryptée par la clé de la tribu.
-
-Assertion sur l'existence du row `Tribus` de la tribu.
-
-### `SetNotifC` : notification d'un compte d'une tribu
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de la tribu
-- `idc` : id du compte
-- `notif` : notification du compte cryptée par la clé de la tribu
-- `stn` : 0: aucune 1:simple 2:bloquante
-
-Assertion sur l'existence du row `Tribus` de la tribu et `Comptas` du compte.
-
-### `SetAtrItemComptable` : Set des quotas OU de l'info d'une tribu
-TODO : Vérifier pourquoi idc ? L'id du Comptable est déduite du ns courant ? Peut-être juste pour éviter à avoir à calculer l'ID du comptable d'un ns sur le serveur (la méthode étant sur le client).
-
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id de la tribu
-- `idc` : id du comptable
-- `atrItem` : élément de `atr` `{clet, info, q1, q2}` cryptés par sa clé K.
-- `quotas` : `[q1, q2]` si changement des quotas, sinon null
-
-Assertion sur l'existence des rows `Comptas` du comptable et `Tribus` de la tribu.
-
-### `SetSponsor` : déclare la qualité de sponsor d'un compte dans une tribu
-POST:
-- `token` : éléments d'authentification du sponsor.
-- `idc` : id du compte sponsorisé ou non
-- `idt` : id de sa tribu.
-- `nasp` : [nom, clé] du compte crypté par la cle de la tribu.
-
-Assertion sur l'existence des rows `Comptas` du compte et `Tribus` de la tribu.
-
-### `SetQuotas` : déclaration des quotas d'un compte par un sponsor de sa tribu
-POST:
-- `token` : éléments d'authentification du sponsor.
-- `idc` : id du compte sponsorisé.
-- `idt` : id de sa tribu.
-- `q1 q2` : ses nouveaux quotas de volume V1 et V2.
-
-Assertion sur l'existence des rows `Comptas` du compte et `Tribus` de la tribu.
-
-### `SetDhvuCompta` : enregistrement de la date-heure de _vue_ des notifications dans une session
-POST: 
-- `token` : éléments d'authentification du compte.
-- `dhvu` : date-heure cryptée par la clé K.
-
-Assertion sur l'existence du row `Comptas` du compte.
-
-### `MajNctkCompta` : mise à jour de la tribu d'un compte 
-POST: 
-- `token` : éléments d'authentification du compte.
-- `nctk` : `[nom, cle]` de la la tribu du compte crypté par la clé K du compte.
-
-Assertion sur l'existence du row `Comptas` du compte.
-
-### `GetCompteursCompta` : retourne les "compteurs" d'un compte
-POST:
-- `token` : éléments d'authentification du compte demandeur.
-- `id` : id du compte dont les compteurs sont à retourner.
-
-Retour:
-- `compteurs` : objet `compteurs` enregistré dans `Comptas`.
-
-Assertion sur l'existence du row `Comptas` du compte.
-
-### `ChangerTribu` : changer un compte de tribu par le Comptable
-POST:
-- `token` : éléments d'authentification du comptable.
-- `id` : id du compte qui change de tribu.
-- `idtAv` : id de la tribu quittée
-- `idtAp` : id de la tribu intégrée
-- `idT` : id court du compte crypté par la clé de la nouvelle tribu.
-- `nasp` : si sponsor `[nom, cle]` crypté par la cle de la nouvelle tribu.
-- `stn` : statut de la notification 0, 1 2 recopiée de l'ancienne tribu.
-- `notif``: notification de niveau compte cryptée par la clé de la nouvelle tribu, recopiée de l'ancienne tribu.
-
-Relatif à `Comptas`:
-- `cletX` : clé de la tribu cryptée par la clé K du comptable.
-- `cletK` : clé de la tribu cryptée par la clé K du compte : 
-  - si cette clé a une longueur de 256, elle est cryptée par la clé publique RSA du compte (en cas de changement de tribu forcé par le comptable).
-
-Retour:
-- `rowTribu` row de la nouvelle `Tribus`
-
-Assertions sur l'existence du row `Comptas` compte et de ses `Tribus` _avant_ et _après_.
-
-## Opérations authentifiées sur la gestion des groupes
-// TODO
-### `MajCvGr` : déclaration de la carte de visite d'un groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du groupe dont la carte de visite est mise à jour.
-- `v` : version du groupe incluse dans la carte de visite. Si elle a changé sur le serveur, retour `OK` `false`.
-- `cvg` : carte de visite du groupe {v, photo, info} crypté par la clé du groupe.
-
-Retour:
-- `OK` : si `false`, la version a changé (mises à jour concurrentes), reboucler sur la requête.
-
-Assertions sur le groupe et sa `versions`.
-
-### `NouveauGroupe` : création d'un nouveau groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `rowGroupe` : row du groupe créé.
-- `rowMembre` : row membre de l'avatar créateur dans ce groupe.
-- `id` : id de l'avatar créateur
-- `quotas` : [q1, q2] attribué au groupe.
-- `kegr` : clé dans la map des groupes de l'avatar créateur (`lgrk`). Hash du `rnd` inverse de l'avatar crypté par le `rnd` du groupe.
-- `egr` : élément de `lgrk` dans l'avatar créateur.
-
-Retour: rien.
-
-Assertions sur l'existence de l'avatar et de sa `versions`.
-
-### `MotsclesGroupe` : déclaration des mots clés du groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `mcg` : map des mots clés cryptée par la clé du groupe.
-- `idg` : id du groupe.
-
-Retour: rien.
-
-Assertions sur l'existence du groupe et de sa `versions`.
-
-### `ArdoiseGroupe` : mise à jour de l'ardoise du groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `ardg` : texte de l'ardoise crypté par la clé du groupe.
-- `idg` : id du groupe.
-
-Retour: rien.
-
-Assertions sur l'existence du groupe et de sa `versions`.
-
-### `HebGroupe` : déclaration d'hébergement d'un groupe
-POST: 
-- `token` : éléments d'authentification du compte.
-- `t` : type d'opération :
-  - 1 : changement des quotas, 
-  - 2 : prise d'hébergement, 
-  - 3 : transfert d'hébergement.
-- `idd` : (3) id du compte de départ en cas de transfert.
-- `ida` : id du compte (d'arrivée en cas de prise / transfert).
-- `idg` : id du groupe.
-- `idhg` : (2, 3) id du compte d'arrivée en cas de transfert CRYPTE par la clé du groupe
-- `q1 q2` : quotas attribués.
-
-1-Cas changement de quotas :
-- les volumes et quotas sur compta a sont inchangés.
-- sur la version du groupe, q1 et q2 sont mis à jour.
-2-Prise hébergement :
-- les volumes v1 et v2 sont pris sur le groupe.
-- les volumes (pas les quotas) sont augmentés sur compta a.
-- sur la version du groupe, q1 et q2 sont mis à jour.
-- sur le groupe, idhg est mis à jour.
-3-Cas de transfert :
-- les volumes v1 et v2 sont pris sur le groupe.
-- les volumes (pas les quotas) sont diminués sur compta d.
-- les volumes (pas les quotas) sont augmentés sur compta a.
-- sur la version du groupe, q1 et q2 sont mis à jour.
-- sur le groupe, idhg est mis à jour.
-
-Retour: rien.
-
-Assertions sur l'existence du groupe et de sa `versions` ainsi que le ou les comptes impactés selon le type de l'opération.
-
-### `FinHebGroupe` : déclaration de fin d'ébergement d'un groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du compte.
-- `idg` : id du groupe.
-- `dfh` : date de fin d'hébergement.
-
-Traitement :
-- les volumes v1 et v2 sont récupérés sur le groupe.
-- les volumes (pas les quotas) sont diminués sur la compta du compte.
-- sur le groupe :
-  - `dfh` : date du jour + N jours
-  - `idhg, imh` : 0
-
-Retour: rien.
-
-Assertions sur l'existence du groupe et de sa `versions` ainsi que le compte.
-
-### `NouveauMembre` : déclaration d'un nouveau membre (contact)
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du contact devenant membre (de statut contact).
-- `idg` : id du groupe.
-- `im` : 
-  - soit l'indice de l'avatar dans ast/nag s'il avait déjà participé, 
-  - soit ast.length.
-- `nig` : hash du `rnd` du membre crypté par le `rnd` du groupe. Permet de vérifier l'absence de doublons.
-- `ardg` : texte de l'ardoise du groupe crypté par la clé du groupe. Si null, le texte actuel est inchangé.
-- `rowMembre` : row membre du membre créé.
-
-Traitement: 
-- vérification que le statut ast n'existe pas (ou est 0) pour ce contact.
-- insertion du row membre, mise à jour du groupe
-
-Retour:
-- KO : true si l'indice im est déjà attribué.
-
-### `MajInfoMembre` : mise à jour du commentaire d'un membre
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du groupe.
-- `ids` : ids du membre.
-- `infok` : texte d'information du membre à propos du groupe, crypté par la clé K du compte.
-
-Retour: rien.
-
-Assertion sur l'existence du membre et de la version du groupe.
-
-### `MajMCMembre` : mise à jour des mots clés d'un membre à propos du groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du groupe.
-- `ids` : ids du membre.
-- `mc` : vecteur des mots clés.
-
-Retour: rien.
-
-Assertion sur l'existence du membre et de la version du groupe.
-
-### `ModeSimple` : gestion du dode simple / unanime d'un groupe
-POST:
-- token : éléments d'authentification du compte.
-- id : id du groupe
-- ids : ids du membre demandant le retour au mode simple. Si 0, c'est la demande de retour au mode unanime.
-
-Le mode redevient _simple_ quand TOUS les animateurs ont exprimé leur souhait de revenir au mode simple. Il s'agit d'un anamiateur déclarant vouloir rester au mode unanime pour que le mode reste _unanime_ et que les votes exprimés pour le retour au mode simple soient annulés.
-
-Retour: rien.
-
-Assertion sur l'existence du groupe et de la version du groupe.
-
-### `StatutMembre` : changement de statut d'un membre d'un groupe
-POST:
-- `token` : éléments d'authentification du compte.
-- `id` : id du groupe.
-- `ids` : ids du membre cible.
-- `ida` : id de l'avatar du membre cible.
-- `idc` : id du COMPTE de ida, en cas de fin d'hébergement par résiliation / oubli.
-- `ima` : ids (imdice membre) du demandeur de l'opération.
-- `idh` : id du compte hébergeur.
-- `kegr` : clé du membre dans la liste des groupes de l'avatar (lgrk). Hash du rnd inverse de l'avatar crypté par le rnd du groupe.
-- `egr` : (invitations seulement) élément de l'avatar invité dans cette liste, crypté par la clé RSA publique de l'avatar.
-- `laa` : 0:lecteur, 1:auteur, 2:animateur
-- `ardg` : ardoise du groupe cryptée par la clé du groupe. null si inchangé.
-- `dlv` : pour les acceptations d'invitation, _signature_ du compte pour l'accès au groupe.
-- `fn` : fonction à appliquer
-  - 0 - maj de l'ardoise seulement, rien d'autre ne change
-  - 1 - invitation
-  - 2 - modification d'invitation
-  - 3 - acceptation d'invitation
-  - 4 - refus d'invitation
-  - 5 - modification du rôle laa (actif)
-  - 6 - résiliation
-  - 7 - oubli
-
-Retour: `code` : code d'anomalie: 
-- 1 - situation inchangée, c'était déjà l'état actuel
-- 2 - changement de laa impossible, membre non actif
-- 3 - refus d'invitation impossible, le membre n'est pas invité
-- 4 - acceptation d'invitation impossible, le membre n'est pas invité
-- 5 - modification d'invitation impossible, le membre n'est pas invité
-- 7 - le membre est actif, invitation impossible
-- 8 - le membre a disparu, opération impossible
-
-Assertion sur la version du groupe (quand le groupe existe).
-
 # Design interne du serveur
+## Providers DB
+Deux classes _provider_ implémente les accès `sqlite` (src/sqlite.mjs) pour l'une, `firestore` (`src/direstore.mjs`) pour l'autre.
+- leurs interfaces son identiques, leurs méthodes publiques ont même signatures.
+- il devrait être aisé d'en ajouter d'autres dans le futur.
 
-Les deux modes SQL et Firestore sont implémentés dans tous les modules, le choix est exprimé en configuration mais géré en runtime.
-
-## Mode SQL
-L'implémentation utilise une base de données `SQLite` comme support de données persistantes :
-- elle s'exécute en tant que serveur HTTPS dans un environnement **node.js**.
-- le serveur sert aussi l'application Web front-end : quelques fichiers après build par _webpack_.
-- une session de l'application est connectée par WebSocket qui lui notifie les mises à jour des documents `espaces comptas tribus et versions` (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
+### Synchronisations
+**sqlite**
+- une session de l'application est connectée par WebSocket qui lui notifie les mises à jour des documents `espaces comptas tribus versions` (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
 - les backups de la base peuvent être stockés sur un Storage.
 
-## Mode Firestore + GAE (Google App Engine)
+**firestore + GAE (Google App Engine)**
 Le stockage persistant est Google Firestore.
 - en mode serveur, un GAE de type **node.js** sert de serveur.
 - le stockage est assurée par Firestore : l'instance FireStore est découplée du GAE, elle a sa propre vie et sa propre URL d'accès. En conséquence elle _peut_ être accédée depuis n'importe où, et typiquement par un utilitaire d'administration sur un PC pour gérer un upload/download avec une base locale _SQLite_ sur le PC.
-- une session de l'application reçoit de Firestore les mises à jour sur les espaces comptas tribus versions qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
+- une session de l'application reçoit de Firestore les mises à jour sur les `espaces comptas tribus versions` qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
 
-Dans les deux cas le Storage des fichiers peut-être,
-- soit `fs` : un file-system local du serveur,
-- soit `s3` : un Storage S3 de AWS (éventuellement minio).
-- soit `gc` : un Storage Google Cloud Storage.
+### Providers Storage
+Selon le même principe trois classes _provider_ gèrent le storage et ont un m^me interface. Par simplification elles figurent dans `src/storage.mjs`:
+- `fs` : un file-system local du serveur,
+- `s3` : un Storage S3 de AWS (éventuellement minio).
+- `gc` : un Storage Google Cloud Storage.
 
 En pratique il n'y a pas de raisons fortes à assurer un Storage `s3` sous GAE.
 
@@ -974,11 +234,11 @@ En pratique il n'y a pas de raisons fortes à assurer un Storage `s3` sous GAE.
 
 ### `server.mjs`
 Point d'entrée du serveur:
-- initialisation du logger Winston, un peu différent en mode SQL et Firestore.
-- si les arguments de la ligne de commande sont `export delete storage`, se déroute sur le module `export.mjs`.
+- initialisation du logger Winston, un peu différent en mode GAE.
+- si un argument figure en première position, c'est un fonctionnement en mode _utilitaire_ (CLI), sinon le serveur Web est initialisé.
 
 **Actions:**
-- détection de la configuration et initialisation de l'accès SQL ou Firestore et du Storage choisi dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
+- détection de la configuration et initialisation des providers DB et Storage choisi dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
 - lancement de l'écoute Express:
   - traitement local des URLs simples: `/fs /favicon /robots.txt`.
   - traitement des requêtes `OPTIONS`.
@@ -989,46 +249,46 @@ Point d'entrée du serveur:
 ### `config.mjs`
 Donne directement les options de configuration qui sont accessibles par simple import.
 
-Les données sont aussi disponibles pour convenance dans `ctx.config`.
-
 Détail de la configuration en annexe.
 
 ### `api.mjs`
-Ce module est strictement le même queapi.mjs dans l'application UI afin d'être certain que certaines interprétation sont bien identiques de part et d'autres:
+Ce module **est strictement le même** que `api.mjs` dans l'application UI afin d'être certain que certaines interprétation sont bien identiques de part et d'autres:
 - quelques constantes exportées.
 - les classes,
   - `AppExc` : format général d'une exception permettant son affichage en session, en particulier en supportant la traduction des messages.
   - `ID` : les quelques fonctions statiques permettant de déterminer depuis une id si c'est celle d'un avatar, groupe, tribu, ou celle du Comptable.
   - `Compteurs` : calcul et traitement des compteurs statistiques des compteurs statistiques des documents `comptas`.
-  - `AMJ` : une date en jour sous la forme d'un entier aaaammjj. Cette classe gère les opérations sur ce format.
+  - `AMJ` : une date en jour sous la forme d'un entier `aaaammjj`. Cette classe gère les opérations sur ce format.
 
 ### `base64.mjs`
 Module présent aussi dans l'application UI, donnant une implémentation locale de la conversion bytes / base64 afin d'éviter de dépendre de celle de Node et d'avoir deux procédés un en Web et l'autre en Node.
 
 ### `util.mjs`
-Quelques fonctions générales qu'il fallait bien mettre quelque part.
-
-### `webcrypto.mjs`
-L'interface des rares fonctions cryptograpiques requises sur le serveur avec leur implémentation par Node.
+Quelques fonctions générales qu'il fallait bien mettre quelque part et les quelques fonctions de cryptographie requises sur le serveur avec leur implémentation par Node.
 
 ### `ws.mjs`
-Gestion des WebSocket ouverts avec les sessions UI en mode SQL:
+Gestion des WebSocket ouverts avec les sessions UI (sauf en _firestore_):
 - gère l'ouverture / enregistrement d'une session,
 - stocke pour chaque session la liste de ses abonnements,
 - à chaque fin de transaction dispatche sur les WebSocket des sessions les _row_ mis à jour qui les intéresse et envoie le message aux sessions UI,
 - gère un heartbeat sur les sockets pour détecter les sessions perdues.
 
 ### `export.mjs`
-Utilitaires `export delete storage`.
+Utilitaires:
+- `export-db` : exportation d'un espace sur un autre espace, de SQL vers SQL, de FS vers SQL.
+- `export-st` : exporte le storage d'un espace dans un autre.
+- `purge-db`
+- `purge-st`
+- `test-db`
+- `test-st`
 
-`export` : services d'exportation d'un espace sur un autre espace, de SQL vers SQL, de FS vers SQL.
-
-`delete` : suppression d'un espace.
-
-`storage` : exporte le storgae d'un espace dans un autre.
+Voir Annexe.
 
 ### `storage.mjs`
-Trois classes gérant le storage selon son type fs s3 gc avec le même interface vu des opérations.
+Trois classes gérant le storage selon son type `fs s3 gc` avec le même interface vu des opérations.
+
+### `gendoc.mjs`
+La classe `GenDoc` représente un document _générique_ et ses méthodes d'accès. Détail ci-après.
 
 ### `modele.mjs`
 Données :
@@ -1284,27 +544,32 @@ async purgeDlv (nom, dlv)
 - Met à jour le document syntheses de l'espace suite à la mise à jour d'une tribu.
 - si noupd, le this.update de la synthèse n'est pas effectuée car il y en a une autre à effectuer ensuite.
 
-# Annexe : la configuration dans `config.mjs`
-`rooturl: 'https://test.sportes.fr:8443'`
-- L'URL d'appel du serveur. Est utilisée pour faire des liens d'upload / download de fichiers du provider de storage `fs` (et des autres en test / simulation).
+# Annexe : la configuration dans `config.mjs et ./keys`
+Ce fichier est un script exécutable ce qui facilte la gestion de plusieurs versions usuelles à partir d'un ou deux switchs globaux. Il a plusieurs sections:
 
-`port: 8443`  
-- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable `process.env.PORT` qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
+    export const config = {
+      // Paramètres fonctionnels
+      tarifs: [
+        { am: 202201, cu: [0.45, 0.10, 80, 200, 15, 15] },
+        { am: 202305, cu: [0.45, 0.10, 80, 200, 15, 15] },
+        { am: 202309, cu: [0.45, 0.10, 80, 200, 15, 15] }
+      ],
 
-`origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
-- Liste des origines autorisées. Si l'application UI est distribuée par le même serveur (déploiement GAE et mono serveur), la liste peut être vide et est remplie avec la combinaison `rooturl` et `port` (ou nod.ENV.port).
+Injection des valeurs des compteurs tarifaires:
+- une entrée par mois de changement dans l'ordre chronologique;
+- pas de retour dans le passé s'une version à la suivante;
+- les 6 compteurs unitaires applicables (en _centimes_).
 
-`projectId: 'asocial-test1'`
-- requis en usage Firestore / Google Cloud storage: ne gêne pas d'en mettre un dans les autres cas.
+      // HTTP server: configuration des paths des URL
+      prefixop: '/op',
+      prefixapp: '/app',
+      pathapp: './app',
+      prefixwww: '/www',
+      pathwww: './www',
+      pathlogs: '../logs',
+      pathkeys: './keys',
 
-`admin:  ['tyn9fE7zr...=']`
-- Hash du PBKFD de la phrase secrète de l'administrateur technique.
-
-`ttlsessionMin: 60`
-- durée de vie en minutes d'une session sans activité (mode SQL seulement).
-
-`apitk: 'VldNo2aLLvXRm0Q'  `
-- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration (`src/app/config.js` de l'aplication UI).
+Donne les valeurs des préfixes des URLs (qui n'ont pas besoin de change) et des paths physiques variables entre test et production.
 
 Interprétation des URLs:   
 - `prefixop: '/op'` : il n'y a pas de raisons de le changer.
@@ -1319,50 +584,122 @@ Interprétation des URLs:
 `pathwww: './www'`
 - si le serveur sert aussi les pages statiques Web, folder ou ces pages résident.
 
-`pathsql: './sqlite/test1.db3'`
-- si le mode est SQL, path de l'emplecement de la base Sqlite.
-
 `pathlogs: './logs'`
 - path ou ranger les logs, sauf en déploiement GAE.
 
-`favicon: 'favicon.ico'`
-- si la favicon n'est pas celle par défaut, nom de son fichier dans le folder de configuration. Sinon commenter la ligne.
+`pathkeys: './keys'`
+- Le répertoire contenat les fichiers _secrets_ à ne pas publier dans git.
 
-`pathconfig: './config'`
-- Le répertoire de configuration doit contenir jusqu'à 5 fichiers:
-  - le certificat SSL : `fulchain.pem privkey.pem`. Sauf en déploiement GAE et _passenger_.
-  - `service_acount.json` : indispensable pour Firestore et provider de storage `gc`.
-  - `firebase_config.json` : indispensable pour Firestore.
-  - `s3_config.json` : indispensable si le provider de storage est `s3`.
-  - `favicon.ico` : seulement si favicon est spécifié.
+    keys: {
+      app: 'app_keys.json',
+      favicon: 'favicon.ico',
+      pub: 'fullchain.pem',
+      priv: 'privkey.pem',
+      firebase_config: 'firebase_config.json',
+      s3_config: 's3_config.json',
+      service_account: 'service_account.json'
+    }
 
-`firestore: false`  
-- si `false` le mode SQL est activé, sinon c'est le mode Firestore.
+Enumération des fichiers _secrets_ déployés dans `./keys` et leurs noms symboliques pour le reste de la configuration et le code.
+- `pub priv`: le certificat SSL sauf en déploiement GAE et _passenger_.
+- `service_acount` : indispensable pour Firestore et provider de storage `gc`.
+- `firebase_config` : indispensable pour Firestore.
+- `s3_config` : indispensable si le provider de storage est `s3`.
+- `favicon.ico` : requis.
 
-`gae: false`
-- true pour un déploiement Google App Engine.
+    env: {
+      GOOGLE_CLOUD_PROJECT: 'asocial-test1',
+      GOOGLE_APPLICATION_CREDENTIALS: '@service_account',
+      STORAGE_EMULATOR_HOST: 'http://127.0.0.1:9199', // 'http://' est REQUIS
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080'
+    }
 
-`emulator: false`
-- `false` si l'émulateur Firestore n'est pas utilisé (accès à la base réelle). Si `true` les deux entrées suivantes sont requises:
-  - `firestore_emulator: 'localhost:8080'`
-  - `storage_emulator: 'http://127.0.0.1:9199'` - 'http://...' est REQUIS.
+Enumération des variables d'environnement requises, nécessaires ou non selon le déploiement et / ou le test. Typiquement les variables `...EMULATOR...` ne sont pertinentes qu'en test.
 
-`storageprovider: 'fsb'`
-- code du provider de storage gérant le stockage des fichiers.
-- il y a 3 types de providers implémentés:
-  - `fs` : sur File-system local (pour les tests en pratique),
-  - `s3` : interface S3 de AWS (dont l'implémentation minio),
-  - `gc` : interface Google Colud storage
-- le code `fsb` correspond à :
-  - une implémentation `fs`,
-  - une entrée de configuration `fsbconfig` dans ce fichier.
+`GOOGLE_CLOUD_PROJECT` : requis en usage Firestore / Google Cloud Storage mais ne gêne pas d'en mettre un dans les autres cas.
 
-`fsconfig: { rootpath: './storage' }`
-- configuration file-sytem:
-  - `rootpath` : localisation du folder hébergeant les fichiers.
+    run: {
+      site: 'A',
+      // URL externe d'appel du serveur 
+      rooturl: 'https://test.sportes.fr:8443',
+      // Port d'écoute si NON gae
+      port: 8443,
+      // Origines autorisées
+      origins: [ 'localhost:8343' ],
+      // Provider Storage
+      storage_provider: 'fs_a',
+      // Provider DB
+      db_provider: 'sqlite_a',
+    }
 
-`s3config: { bucket: 'asocial' }`
-- pour un provider de stockage `s3`, nom du bucket.
+Configuration du serveur. N'est pas utilisé en exécution d'utilitaires.
+- `site` : voir plus avant.
+- les deux _providers_ donnent les noms des entrées décrivant leurs configurations respectives. Le nom avant _ spécifie la classe de provider et le suffixe donne sa section de configuration.
 
-`gcconfig: { bucket: 'asocial-test1.appspot.com' }`
-- pour un provider de stockage `gc`, nom du bucket. Ce nom est celui utilisé par défaut par Firebase ce qui facilite les tests.
+`rooturl: 'https://test.sportes.fr:8443'`
+- L'URL d'appel du serveur. Est utilisée pour faire des liens d'upload / download de fichiers du provider de storage `fs` (et des autres en test / simulation).
+
+`port: 8443`  
+- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable `process.env.PORT` qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
+
+`origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
+- Liste des origines autorisées. Si l'application UI est distribuée par le même serveur (déploiement GAE et mono serveur), la liste peut être vide et est remplie avec la combinaison `rooturl` et `port` (ou nod.ENV.port).
+
+      s3_a: { bucket: 'asocial' },
+      fs_a: { rootpath: '../fsstorage'},
+      gc_a: {
+        bucket: 'asocial-test1.appspot.com', // Pour emulator
+        // bucket: 'asocial' // Pour prod, quoi que ...
+      },
+
+      sqlite_a: { path: './sqlite/test.db3' },
+      firestore_a: { }
+    }
+
+Paramètres spécifiques de chaque type de _provider_:
+- storage S3 : nom du buscket
+- storage file-system: parh du folder racine
+- storage google_cloud_storage: nom du bucket
+- DB sqlite: path du fichiers .db3
+- DB firestore: rien.
+
+`admin:  ['tyn9fE7zr...=']`
+- Hash du PBKFD de la phrase secrète de l'administrateur technique.
+
+`ttlsessionMin: 60`
+- durée de vie en minutes d'une session sans activité (mode SQL seulement).
+
+`apitk: 'VldNo2aLLvXRm0Q'  `
+- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration (`src/app/config.js` de l'aplication UI).
+
+## `.keys/app_keys.json`
+Ce fichier donne les clés secrètes déclarées par l'administrateur du site.
+
+Mais riien n'interdit qu'il existe plusieurs _sites_, chacun ayant _son_ administrateur. Le code du site est donné localement par une lettre A, B, ...
+
+`"admin":  ["FCp8r..."]`
+- c'est le SHA du PBKFD de la phrase secrète de connexion de l'administrateur du site, son organisation étant `admin`. La page d'outils de l'application UI permet de déclarer une phrase secrète et en affiche ce SHA afin d'être inscrit ici.
+- il n'y a que l'administrateur lui-même qui peut connaître la phrase qu'il a donnée por récupérer ce SHA.
+
+`"sites": { "A": "YC...C0=",`
+- chaque site a besoin d'une clé de cryptage qui crypte certaines données, par exemple les compteurs de comptabilité, plutôt que de les laisser en clair (certains traitements _seveur_ ont à accéder aux compteurs de tout le monde). C'est la seule clé de cryptage connue du serveur.
+- elle a été générée depuis une phrase secrète.
+- **elle ne doit pas changer** pour un site donné au cours de sa vie.
+
+Mais il est possible d'exporter la base d'un site A et de l'importer dans un site B. Chaque row exporté est _décrypté_ par la clé de A et _crypté_ par celle de B.
+
+Pour un transfert entre deux sites dont les administrateurs veulent garder leurs clés secrètes, ils doivent convenir d'un pseudo site de transfert T,
+- A export de A vers T,
+- B exporte de T vers B,
+- A et B n'ont qu'à se mettre d'accord sur la clé du site T temporaire disparaissant après l'opération.
+
+> Remarque: ce problème ne se pose pas pour les _storages_, les fichiers étant cryptés exclusivement par clés des utilisateurs.
+
+    {
+      "admin":  ["FCp8r..."],
+      "sites":  {
+        "A": "YC...C0=",
+        "B": "FG...HBC0="
+      },
+      "apitk": "VldN...Rm0Q"
+    }

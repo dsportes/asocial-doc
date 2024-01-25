@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Arch-depl</title>
+<meta charset="utf-8">
+<style>
+#content, body {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color: black;
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3;
+    word-wrap: break-word;
+    padding: 1rem; max-width:800px; margin:0 auto;
+    background: white;
+}
+h1,h2,h3,h4,h5,h6 { font-family:"Calibri"; line-height: 1.2; color:#37474F;padding-top:0.2rem;padding-bottom:0.2rem;}
+h1 { font-size:2rem; font-weight:200; margin:2rem -0.5rem 1rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 3px solid #37474F; text-align: center;}
+h2 { font-size:1.75rem; font-weight:200; margin:1.75rem -0.5rem 0.75rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #37474F; }
+h3 { font-size:1.5rem; font-weight:200; margin:1.5rem -0.5rem 0.5rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #78909C; }
+h4 { font-size:1.4rem; font-weight:200; margin:1.4rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h5 { font-size:1.3rem; font-weight:200; margin:1.3rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h6 { font-size:1.2rem; font-weight:200; margin:1.2rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+blockquote, p, table, th, td, ul, ol {
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3; text-justify:inter-word;
+}
+em { font-style: italic; }
+strong { font-weight:bold; }
+blockquote { color:#690c03; margin:1rem 0; padding: 0.2rem 0.5rem; border-left:0.4rem solid #690C03; font-style:italic;}
+code, pre { font-family:'Ubuntu Mono'; color:#06065d !important; padding:0 0.2rem; background: white; }
+table, th, td { border: 1px solid #044c70; border-collapse: collapse; padding:0.5em; }
+p { margin:0.3em 0; }
+ul, ol { padding:0 0 0 2rem; margin-top:0.2rem; margin-bottom:0; }
+ol ol, ul ol { list-style-type: lower-roman; }
+ul ul ol, ul ol ol, ol ul ol, ol ol ol { list-style-type: lower-alpha; }
+hr { height:0.2rem; padding:0; margin:1.2rem 0; background-color:#78909C; border: 0 none; }
+li>p { margin-top:0.5rem; }
+h1,h2,h3,h4,h5,h6 { page-break-after:avoid;page-break-inside:avoid; }
+
+</style>
+<h1 id="architecturegnraleetdploiements">Architecture générale et déploiements</h1>
+<h1 id="architecturegnrale">Architecture générale</h1>
+<p>L'application est une application Web, plus précisément une <em>PWA Progressive Web App</em> : </p>
+<ul>
+<li>l'application est invoquée au moins une première fois depuis un navigateur moderne connecté à Internet,</li>
+<li>elle peut ensuite être invoquée depuis ce même navigateur sans être connecté à Internet mais avec des restrictions de service.</li>
+</ul>
+<p>Quatre grands composants contribuent à ce service :</p>
+<ul>
+<li><strong>un serveur joignable sur Internet</strong> par exemple sur l'URL https://asocial.demo.net : dépôt git <code>asocial-srv</code></li>
+<li><strong>une application UI d'interface utilisateur s'exécutant dans un navigateur</strong> qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app/index.html): dépôt git <code>asocial-app</code></li>
+<li><strong>un site Web statique</strong> principalement documentaire accessible depuis le navigateur à l'URL https://asocial.demo.net/www. Dépôt gir <code>asocial-doc</code>.</li>
+<li><strong>un programme utilitaire de chargement local de fichiers</strong> dans un répertoire local pouvant être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (<code>upload.exe</code> pour la version Windows). Dépôt git <code>upload</code>.</li>
+<li>Une fois téléchargé et lancé sur le poste où s'exécute le navigateur accédant à l'application, cet utilitaire permet de récupérer dans un répertoire local au poste les notes et leurs fichiers de la sélection opérée par l'utilisateur. </li>
+<li>L'utilitaire est facultatif, ne fonctione que sous Linux ou Windows, n'est utile que pour cette seule opération de transfert local et peut être arrêté quand cette opération est terminée. </li>
+</ul>
+<p>Bien que le protocole de communication soit HTTPS, les données des comptes, les textes et fichiers de leurs notes, etc. sont <strong>cryptées</strong> dans l'application UI :</p>
+<ul>
+<li>le serveur ne reçoit <strong>jamais</strong> aucune information humainement interprétable en clair ni aucune clé de cryptage;</li>
+<li>les <em>meta-données</em> permettant de relier les documents entre eux sont également cryptées dans la session UI.</li>
+</ul>
+<p>Les quatre composants ont été développés / écrits sous <code>VSCode</code> et sont disponibles dans <code>github.com/dsportes</code> en <em>public</em> (licence ISC).</p>
+<h2 id="leserveurjoignablesurinternet">Le serveur joignable sur Internet</h2>
+<p>C'est un serveur Web en <code>node.js</code> (100% Javascript).</p>
+<p>Il reçoit les requêtes entrantes sur une URL fixée par l'administrateur technique. </p>
+<p>Les requêtes, </p>
+<ul>
+<li>d'obtention de l'application UI <code>/</code> ou <code>/app/index.html</code>,</li>
+<li>d'accès au site Web <code>/www/...</code></li>
+<li>et quelques requêtes techniques (<code>/ping</code> …) </li>
+</ul>
+<p>sont acceptées librement , typiquement par une URL depuis la barre d'adresse d'un navigateur ou <code>curl</code>.</p>
+<p>En revanche les requêtes de l'application UI ne sont acceptées QUE si la page de cette application a été chargée depuis une des URLs acceptées par la configuration du serveur. Ce contrôle de <em>l'origine</em> de l'application UI protège le serveur d'un accès depuis une application UI <em>pirate</em>, non distribuée par le site bien identifié de distribution de l'application UI.</p>
+<h3 id="basededonnes">Base de données</h3>
+<p>La base a un volume modeste et stocke les informations sur les comptes et les textes de leur notes, mais <strong>pas</strong> les fichiers attachés aux notes.</p>
+<p><strong>Selon sa configuration, le serveur accède à une <em>base de données</em></strong> : une classe dite <em>provider</em> est écrite pour chaque modèle de base de données souhaité.</p>
+<ul>
+<li>chaque <em>provider</em> offre le même jeu d'une quarantaine de méthodes d'accès (environ 500 lignes de code),</li>
+<li>la signature en est identique pour tous les providers de sorte qu'utiliser l'un ou l'autre n'est qu'un choix de l'administrateur technique. Hors de ces classes, les autres ignorent la technologie sous-jacente implémentée.</li>
+</ul>
+<h4 id="providersqlite">Provider <code>sqlite</code></h4>
+<p>De manière générique à peu près toute base SQL peut êtte employée en n'adaptant que des éléments de syntaxe et de connexion spécifique.</p>
+<p>L'administrateur technique du site doit mettre en place le backup en continu de cette base sur un site distant et sa reprise après sinistre en un temps limité.</p>
+<h4 id="providerfirestore">Provider <code>firestore</code></h4>
+<p>Cette base orientée <em>document</em> NOSQL, est hébergée sur des sites multiples sécurisés et administrés par Google qui en assure la haute disponibilité à coût supportable.</p>
+<p>Du fait de l'uniformité de l'interface d'accès, l'utilitaire <code>export-db</code> permet d'exporter une base vers une autre de technologie éventuellement différente.</p>
+<blockquote>
+  <p>Remarque: l'export de <code>firestore</code> vers <code>firestore</code> est techniquement limité par les contraintes d'environnement d'API de Google (un seul <code>projectId</code> étant possible dans une exécution) mais on peut utiliser un double export <code>firestore -&gt; sqlite</code> puis <code>sqlite -&gt; firestore</code>.</p>
+</blockquote>
+<p><em>Langue</em> : quelques très rares textes gérés par le serveur apparaissent dans des traces techniques et sont généralement écrites en français pour un usage de développement / debug.</p>
+<p>Les logs sont gérés par le module <em>Winston</em> et dans le cas d'un déploiement GAE sont intégrés au système de log de Google Cloud (sinon ce sont des logs sur fichiers classiques).</p>
+<h3 id="storage">Storage</h3>
+<p>Un <em>storage</em> stocke les fichiers attachés aux notes (cryptées).</p>
+<p>Chaque <em>provider</em> est une classe d'une dizaine de méthodes (environ 250 lignes de code), tous les providers implémente le même interface.</p>
+<p>Le choix du provider se fait à la configuration de lexécution par l'administrateur.</p>
+<h4 id="providerfsfilesystem">Provider <code>fs</code> - File-system</h4>
+<p>Le stockage s'effectue dans un répertoire local du serveur et son uUtilisation concrète se limite aux tests.</p>
+<h4 id="providergcgooglecloudstorage">Provider <code>gc</code> - Google Cloud Storage</h4>
+<p>Le stockage redondant est assuré par Google sur des sites externes spécialisés.</p>
+<h4 id="providers3amazons3">Provider <code>s3</code> - Amazon S3</h4>
+<p>S3 est le nom du protocole et plusieurs fournisseurs (en plus de Amazon) proposent ce type de services. </p>
+<p>Il existe entre autre une application <code>minio</code> qui permet de mettre en œuvre son propre stockage sur le(s) serveur(s) de son choix.</p>
+<p>Du fait de l'uniformité de l'interface d'accès, l'utilitaire <code>export-st</code> permet d'exporter un storage vers un autre de technologie éventuellement différente.</p>
+<blockquote>
+  <p>Remarque: l'export de <code>gc</code> vers <code>gc</code> est techniquement limité par les contraintes d'environnement d'API de Google (un seul <code>projectId</code> étant possible dans une exécution) mais on peut utiliser un double export <code>gc -&gt; fs</code> puis <code>fs -&gt; gc</code>.</p>
+  <p>Remarque: il est donc simple d'effectuer une photo d'un environnement de production vers un autre de test et le cas échéant d'ailleurs de permettre aux utilisateurs d'accéder au choix aux deux.</p>
+</blockquote>
+<h2 id="dploiementsurserveurclassique_vm_ou_googleappenginegae_">Déploiement sur serveur classique <em>VM</em> ou <em>Google App Engine (GAE)</em></h2>
+<p>Selon le choix de l'administrateur technique, le déploiement du ou des instances de serveurs peut s'effectuer:</p>
+<ul>
+<li><strong>sur un serveur classique</strong>, par exemple une VM hébergée (voire plusieurs) chez un hébergeur, avec l'usage éventuel d'un frontal de type <code>nginx</code> qui n'est indispensable que quand il y a plusieurs instances de serveurs et d'application UI à configurer et déployer.</li>
+<li>sur <strong>Google App Engine (GAE)</strong>. Dans ce cas la base de données est <code>firestore</code> et logiquement le provider de storage est <code>gc</code> (plutôt que <code>s3</code>).</li>
+</ul>
+<p>Les coûts, la sécurité et la charge d'administration diffèrent fortement d'une option à l'autre.</p>
+<p>La <strong>synchronisation des données</strong> entre le serveur et une session UI peut passer par deux moyens techniques:</p>
+<ul>
+<li>a) par un <strong>Web Socket</strong> établi entre session et serveur.</li>
+<li>b) par une <strong>écoute de requêtes firestore</strong> dans la session.</li>
+</ul>
+<p>Remarques:</p>
+<ul>
+<li>Le déploiement <strong>GAE</strong> interdit l'usage de l'option a).</li>
+<li>Le choix du provider <strong>sqlite</strong> interdit le b).</li>
+<li>Bien que techniquement possible le choix b) avec un provider <strong>firebase</strong> n'a pas d'intérêt et n'a pas été autorisé.</li>
+<li>Dans le code des opérations quelques rares points nécessitent de savoir si le choix WebSocket a été fait ou non, les deux variantes de code ayant été implémentées.</li>
+</ul>
+<h3 id="prparationdudploiement">Préparation du déploiement</h3>
+<p>Elle consiste dans les points suivants :</p>
+<ul>
+<li>ajustement de la configuration :</li>
+<li>dans le fichier <code>src/config.mjs</code>, en particulier en listant les <em>origines</em> des applications UI acceptées,</li>
+<li>en inscrivant dans le répertoire ./keys les quelques fichiers confidentiels (certificats, signatures, jetons d'accès …).</li>
+<li><strong>pour un déploiement GAE</strong> en configurant de plus le fichier <code>app.yaml</code>,</li>
+<li><strong>pour les autres déploiements</strong> en effectuant un <em>build</em> <code>webpack</code> générant deux fichiers distribuables.</li>
+</ul>
+<h2 id="lapplicationui">L'application UI</h2>
+<p>C'est une page Web développée en <code>Quasar</code>, une surcouche de composants au dessus de <code>vuejs</code>, écrite en Javascript / css / HTML.</p>
+<p>Cette application supporte un <em>build</em> par webpack qui en délivre une application Web PWA de quelques (gros) fichiers distribuables sur un site hébergeur:</p>
+<ul>
+<li>5 fichiers <code>.js</code></li>
+<li>2 fichiers <code>.css</code></li>
+<li>une vingtaine de fontes <code>.woff .woff2</code></li>
+<li>1 ou 2 fichiers d'icône</li>
+<li>un fichier <code>manifest.json</code></li>
+<li>un fichier <code>index.html</code></li>
+</ul>
+<p><strong>L'application est à configurer avant <em>build</em></strong> dans le fichier <code>src/app/config.mjs</code> :</p>
+<ul>
+<li>plusieurs instances peuvent avoir la même configuration de la partie <em>profilage métier</em>;</li>
+<li>quelques valeurs en majuscules donnent des options (<code>DEV DEBUG BUILD</code>) à changer, éventuellement, entre test et déploiement;</li>
+<li><code>SRV</code> identifie le serveur à qui l'application doit s'adresser. </li>
+<li><strong>en test c'est un serveur local</strong> qui délivre une build de test de l'application UI (lancé par <code>quasar dev</code>),</li>
+<li>l'application serveur est servie par un autre process / serveur, une autre URL.</li>
+<li><strong>en déploiement</strong>. Par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme <code>nginx</code>) cette adresse peut être laissée vierge et est obtenue en runtime de <code>window.location</code>: dans ce cas la configuration d'une instance de l'application UI est nulle.</li>
+<li><code>quasar.config.js</code> : deux variables sont à ajuster pour la génération du déploiement par webpack.</li>
+</ul>
+<p><em>Langue</em></p>
+<ul>
+<li>tous les textes lisibles par l'utilisateur sont gérés par un composant <code>I18n</code> qui permet de les traduire dans différentes langues que l'utilisateur peut choisir par une icône dans sa barre inférieure.</li>
+<li>la traduction a été testée en français et en anglais: toutefois les 1500 textes utilisés sont écrits en français et restent à traduire en anglais, voire d'autres langues. Ces <em>dictionnaires</em> font partie du source de l'application (ils ne sont pas externes) mais sont dans des fichiers bien distincts.</li>
+<li>les panels d'aide en ligne font également partie du source de l'application ce qui permet de les utiliser en mode <em>avion</em>, déconnecté d'Internet. Ils sont aussi traduisibles en une autre langue que le français.</li>
+</ul>
+<h2 id="sitewebdocumentaire">Site Web documentaire</h2>
+<p>Il est géré dans <code>asocial-doc</code>.</p>
+<p>Les <em>pages</em> sont,</p>
+<ul>
+<li>soit écrites directement en HTML,</li>
+<li>soit écrites en MD et un script les traduits en HTML.</li>
+</ul>
+<p>Un script de <em>déploiement</em> permet de générer le folder à déployer avec les pages en HTML (plutôt qu'en MD) et les images utilisées sans avoir à déployer les quelques fichiers techniques de script ou les sources MD des pages générées.</p>
+<p><em>Langue</em></p>
+<ul>
+<li>les pages sont nativement écrites en français.</li>
+<li>au fil du temps elles seront traduites en anglais, voire en d'autres langues.</li>
+</ul>
+<h2 id="lutilitaireupload">L'utilitaire <code>upload</code></h2>
+<p>C'est un micro serveur Web qui reçoit en entrée des fichiers et en copie le contenu dans un folder local au choix de l'utilisateur. </p>
+<p>Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes et leurs fichiers sélectionnées par l'utilisateur, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait donc appel au micro-serveur Web <code>upload</code>.</p>
+<p>Le source consiste en moins de 100 lignes de code écrite en <code>node.js</code> / Javascript.</p>
+<p>Un <em>build</em> permet de récupérer deux exécutables, un pour Linux, l'autre Windows, autonomes: ils embarquent un runtime <code>node.js</code> qui dispense l'utilisateur d'une installation un peu technique de <code>node.js</code>.</p>
+<h2 id="_es6_versus_commonjs_"><em>ES6</em> versus <em>CommonJs</em></h2>
+<p>Ces deux systèmes de gestion de modules co-existent avec une certaine difficulté:</p>
+<ul>
+<li><strong>ES6</strong> est désormais le standard: les modules ne présentant que la forme <code>require()</code> de CommonJs se raréfient mais existent encore.</li>
+<li><strong>CommonJs</strong> était le système de gestion de modules de Node.js avant la normalisation ES6.</li>
+</ul>
+<p><strong>L'application a été centrée sur ES6</strong> avec quelques contorsions vis à vis des modules étant resté en CommonJs sans offrir d'importation ES6.</p>
+<h3 id="applicationui">Application UI</h3>
+<p>Un seul module est concerné: <code>pako</code>.</p>
+<p>Un seul source <code>src/boot/appconfig.js</code> effectue à l'initialisation de l'application un <code>require('pako')</code> et met le résultat à disposition du module <code>src/app/util.mjs</code>.</p>
+<p>Hormis cette ligne, les autres scripts de l'application sont ES6 (<code>.mjs</code>).</p>
+<h3 id="applicationserveur">Application Serveur</h3>
+<p>Le fichier de démarrage <code>src/server.js</code> est un module ES6, malgré son extension <code>.js</code>:</p>
+<ul>
+<li>le déploiement GAE <strong>exige</strong> que ce soit un <code>.js</code> et que <code>package.json</code> ait une directive <code>"type": "module"</code>.</li>
+<li>pour les tests usuels, il faut <code>"type": "module"</code>.</li>
+<li>MAIS pour un déploiement <strong>NON GAE</strong>, un build <code>npx webpack</code> est requis et cette dernière directive <strong>DOIT</strong> être enlevée ou renommée <code>"typeX"</code>.</li>
+</ul>
+<p><em>Remarques pour le build du serveur pour déploiement NON GAE</em></p>
+<ul>
+<li><code>webpack.config.mjs</code> utilise le mode <code>import</code> plutôt que <code>require</code> (les lignes pour CommonJs sont commentées).</li>
+<li>une directive spécifique dans la configuration <code>webpack.config.mjs</code> a été testée pour que <code>better-sqlite3</code> fonctionne en ES6 après build par webpack. Mais ça n'a pas fonctionné et <code>better-slite3</code> reste chargé par un require() dans <code>src/loadreq.mjs</code> (qui ne sert qu'à ça).</li>
+</ul>
+<blockquote>
+  <p>Remarque : il n'existe donc que 2 entorses à ES6 et la présence de <code>require</code>: </p>
+  <ul>
+  <li>a) pour <code>pako</code> dans l'application UI : fichier <code>src/boot/appconfig.js</code>,</li>
+  <li>b) <code>better-sqlite3</code> dans le serveur : fichier <code>src/loadreq.mjs</code>.</li>
+  </ul>
+</blockquote>
+<h1 id="dveloppementdploiement">Développement / déploiement</h1>
+<blockquote>
+  <p>Les fichiers de configuration de l'application serveur (dans <code>./keys</code> et <code>src/config.mjs</code>) sont décrits en détail en annexe du document <code>API-Serveur.md</code>.</p>
+</blockquote>
+<h2 id="projetgoogle">Projet Google</h2>
+<p>L'utilisation d'un projet Google ne se justifie que si on utilise au moins l'un des deux dispositifs <code>Firestore</code> <code>gc : Google Cloud Storage</code>. Une implémentation uniquement <code>sqlite</code> et <code>S3 / fs</code> par exemple n'en n'a pas besoin.</p>
+<p>Depuis son compte Google, dans Google Console <code>https://console.cloud.google.com/</code>, on peut créer un nouveau projet : dans l'exemple c'est <code>asocial-test1</code>. Ce projet doit accéder aux environnements / APIs:</p>
+<ul>
+<li><strong>App Engine</strong>. Même si finalement on n'utilise pas GAE, ceci fournit des ressources et en particulier un <code>session_account</code> qui sera utilisé par la suite, ce qui évite d'en créer un spécifique qui ne serait pas utilisable en cas de décision de déployer GAE.</li>
+<li><strong>Firestore</strong></li>
+<li><strong>Cloud Storage</strong></li>
+</ul>
+<p>Le menu hamburger en haut à gauche permet de sélectionner tous les produits et surtout d'épingler ceux qu'on utilise:</p>
+<ul>
+<li><strong>APIs & Service</strong></li>
+<li><strong>Billing</strong>: c'est là qu'on finit par donner les références de sa carte bancaire.</li>
+<li><strong>IAM & Admin</strong> : voir ci-dessous.</li>
+<li><strong>App Engine</strong></li>
+<li><strong>Firestore</strong> : voir ci-dessous.</li>
+<li><strong>Cloud Storage</strong> : voir ci-dessous.</li>
+<li><strong>Logging</strong> : pour explorer les logs App engine.</li>
+<li>Security (?)</li>
+</ul>
+<p><strong>Firestore</strong></p>
+<ul>
+<li><em>Data</em> : permet de visualiser les données.</li>
+<li><em>Indexes</em> : il n'y a que des index SINGLE FIELD. Les <em>exemptions</em> apparaissent, on peut les éditer une à une et en créer mais on ne peut pas (du moins pas vu comment) en exporter les définitions : ceci justifie l'utilisation de Firebase qui le permet.</li>
+<li><em>Rules</em> : idem pour la visualisation / édition mais pas l'import / export.</li>
+</ul>
+<p><strong>Cloud Storage</strong></p>
+<ul>
+<li><em>Buckets</em> : on peut y créer des buckets et les visiter. Il n'a pas été possible d'utiliser avec Firebase un autre bucket que celui qu'il créé par défaut <code>asocial-test1.appspot.com</code>/</li>
+</ul>
+<p><strong>IAM & Admin</strong></p>
+<ul>
+<li><em>Service accounts</em> : il y a en particulier le <em>service account</em> créé par App Engine <code>asocial-test1@appspot.gserviceaccount.com</code> et qui est celui utilisé dans l'exemple. Quand on choisit un des service accounts, le détail apparaît. En particulier l'onglet <code>KEYS</code> (il y a une clé active) qui va permettre d'en créer une pour nos besoins.</li>
+</ul>
+<h2 id="projetfirebase">Projet Firebase</h2>
+<p>Il faut en créer un dès qu'on utilise au moins l'un des deux dispositifs <code>Firestore</code> <code>Cloud Storage</code>. </p>
+<ul>
+<li>possibilité d'importer / exporter les index et rules de Firestore,</li>
+<li>possibilité d'utiliser l'API Firebase Web (module <code>src/app/fssync.mjs</code> de l'application UI),</li>
+<li>utilisation des <em>emulators</em> qui permettent de tester en local.</li>
+</ul>
+<p>La console a cette URL : https://console.firebase.google.com/</p>
+<p>A la création d'un projet il faut le lier au projet Google correspondant: les deux partagent le même <em>projectId</em> <code>asocial-test1</code>. (processus flou à préciser).</p>
+<h2 id="clis">CLIs</h2>
+<p>Il y en a un pour Google <code>gcloud</code> et un pour Firebase <code>firebase</code>. Les deux sont nécessaires sur un poste de développement. Voir sur le Web leurs installations et documentation de leurs fonctions.</p>
+<h3 id="firebase"><code>firebase</code></h3>
+<p>Install de firebase CLI :
+https://firebase.google.com/docs/cli?hl=fr#update-cli</p>
+<pre><code>npm install -g firebase-tools
+firebase --help
+</code></pre>
+<p>Quelques commandes <code>firebase</code> souvent employées:</p>
+<pre><code>// Pour se ré-authentifier quand il y a un problème d'authentification
+firebase login --reauth
+
+// Delete ALL collections
+firebase firestore:delete --all-collections -r -f
+
+// Déploiement / import des index et rules présents dans: 
+// `firestore.indexes.json  firestores.rules`
+firebase deploy --only firestore
+
+// Export des index
+firebase firestore:indexes &gt; firestore.indexes.EXP.json
+
+// Emulators :
+firebase emulators:start
+firebase emulators:start --import=./emulators/bk1
+firebase emulators:export ./emulators/bk2 -f
+</code></pre>
+<h3 id="utilisationetauthentificationgcloud">Utilisation et authentification <code>gcloud</code></h3>
+<p>Page Web d'instruction: https://cloud.google.com/sdk/docs/install?hl=fr</p>
+<h4 id="nonutilisationdeapplicationdefaultcredentialsadc">NON utilisation de Application Default Credentials (ADC)</h4>
+<p>ADC permet de s'authentifier pour pouvoir utiliser les librairies. Cette option (il y en a d'autres) est systématiquement mise en avant par Google pour sa <em>simplicité</em> mais finalement pose bien des problèmes.</p>
+<p>Les commandes principales sont les suivantes:</p>
+<ul>
+<li>login <em>temporaire</em> sur un poste:
+<code>gcloud auth application-default login</code></li>
+<li>révocation sur ce poste:
+<code>gcloud auth application-default revoke</code></li>
+</ul>
+<p>Ceci dépose un fichier <code>application_default_credentials.json</code></p>
+<ul>
+<li>Linux, macOS dans: <code>$HOME/.config/gcloud/</code></li>
+<li>Windows dans: <code>%APPDATA%\gcloud\</code></li>
+</ul>
+<h5 id="problmes">Problèmes</h5>
+<p>L'authentification donnée sur LE poste est <em>temporaire</em> : absolument n'importe quand, d'un test à l'autre, un message un peu abscons vient signaler un problème d'authentification. Il faut se souvenir qu'il suffit de relancer la commande ci-dessus.</p>
+<p><strong>La librairie d'accès à Cloud storage ne se satisfait pas de cette authentification</strong>, a minima pour la fonction indispensable <code>bucket.getSignedUrl</code> : celle-ci requiert une authentification par <em>service account</em> dès lors ADC n'est plus une option de <em>simplicité</em> mais d'ajout de complexité puisqu'il faut de toutes les façons gérer un service account.</p>
+<p>En production ? Google dit que App Engine fait ce qu'il faut pour que ça marche tout seul. Voire, mais pour le service account requis pour créer un storage, les tests n'ont pas été concluants.</p>
+<p>Et quand on n'utilise pas App Engine ? Il faut utiliser une clé de service account et la passer en variable d'environnement.</p>
+<h4 id="solutioncrerun_serviceaccount_">Solution : créer un <em>service account</em></h4>
+<p>En fait comme vu ci-avant il y en a un pré-existant <code>asocial-test1@appspot.gserviceaccount.com</code></p>
+<p>Dans le détail de ce service l'onglet <code>KEYS</code> permet de créer une clé: en créer une (en JSON). Il en résulte un fichier <code>service_account.json</code> qu'il faut sauvegarder en lieu sûr et pas dans git: il contient une clé d'authentification utilisable en production. Cette clé,</p>
+<ul>
+<li>ne peut PAS être récupérée depuis la console Google,</li>
+<li>mais elle peut y être révoquée en cas de vol,</li>
+<li>en cas de perte, en créer une autre, révoquer la précédente et ne pas perdre la nouvelle.</li>
+</ul>
+<p>Pour être authentifié il faut que la variable d'environnement <code>GOOGLE_APPLICATION_CREDENTIALS</code> en donne le path.</p>
+<p><strong>Remarques:</strong></p>
+<ul>
+<li>il n'a pas été possible de donner le contenu de cette clé en paramètres lors de la création de l'objet d'accès à Firestore: <code>new Firestore(arg)</code> est censé accepter dans <code>arg</code> cette clé mais ça n'a jamais fonctionné, même quand le fichier <code>application_default_credentials.json</code> a été supprimé de <code>$HOME/.config/gcloud/</code>.</li>
+<li>il FAUT donc que le path de fichier figure dans la variable d'environnement <code>GOOGLE_APPLICATION_CREDENTIALS</code> au moment de l'exécution: ceci est fait dans <code>src/server.js</code> en récupérant le <code>service_account.json</code> dans le répertoire <code>./keys</code> (qui est ignoré par git).</li>
+<li>pour le déploiement, ce fichier fait partie des 4 à déployer séparément sur le serveur (voir plus avant).</li>
+<li><em>pour information seulement</em>: il <em>semble</em> que le contenu soit accepté par la création d'un accès au storage Google Cloud : dans <code>src/storage.mjs</code> le code qui l'utilise est commenté mais peut être réactivé si l'usage d'une variable d'environnement pouvait être supprimé. Mais l'intérêt est quasi nul puisque la génération d'une variable d'environnement dans <code>server.js</code> représente une ligne de code.</li>
+</ul>
+<h3 id="authentificationfirebase">Authentification <code>firebase</code></h3>
+<p>L'API WEB de Firebase n'est PAS utilisé sur le serveur, c'est l'API Firestore pour <code>Node.js</code> qui l'est.</p>
+<p>L'application UI utilise l'API Web de Firebase (la seule disponible en Web et de formalisme différent de celle de Google Firestore) pour gérer la synchronisation des mises à jour. En particulier les fonctions (dans le fichier <code>src/fssync.mjs</code>):
+<code>getFirestore, connectFirestoreEmulator, doc, getDoc, onSnapshot</code></p>
+<p>L'objet <code>app</code> qui conditionne l'accès à l'API est initialisé par <code>const app = initializeApp(firebaseConfig)</code>.</p>
+<ul>
+<li>le paramètre <code>firebaseConfig</code> ci-dessus est un objet d'authentification qui a été transmis par le serveur afin de ne pas figurer en clair dans le source et sur git. Ce paramètre dépend bien sur du site de déploiement.</li>
+</ul>
+<h5 id="obtentiondefirebase_configjson">Obtention de <code>firebase_config.json</code></h5>
+<ul>
+<li>Console Firebase</li>
+<li>&gt;&gt;&gt; en haut <code>Project Overview</code> &gt;&gt;&gt; roue dentée &gt;&gt;&gt; <code>Projet Settings</code></li>
+<li>dans la page naviguer jusqu'au projet et le code à inclure (option <code>Config</code>) apparaît : <code>const firebaseConfig = { ...</code></li>
+<li>le copier, le mettre en syntaxe JSON et le sauver sous le nom <code>firebase_config.json</code>, en sécurité hors de git. Il sera à mettre pour exécution dans <code>./keys</code></li>
+</ul>
+<h3 id="authentifications3">Authentification S3</h3>
+<p>Le provider de storage <code>S3Provider</code> a besoin d'un objet de configuration du type ci-dessous (celle de test avec <code>minio</code> comme fournisseur local S3):</p>
+<pre><code>{
+  credentials: {
+    accessKeyId: 'access-asocial',
+    secretAccessKey: 'secret-asocial'
+  },
+  endpoint: 'http://localhost:9000',
+  region: 'us-east-1',
+  forcePathStyle: true,
+  signatureVersion: 'v4'
+}
+</code></pre>
+<p>Un fichier JSON nommé <code>s3_config.json</code> est recherché dans <code>./keys</code> (à côté des autres fichiers contenant des clés privées) afin de ne pas exposer les autorisations d'accès S3 dans un fichier disponible sur git.</p>
+<h2 id="emulatorsdefirebase">Emulators de Firebase</h2>
+<p>Cet utilitaire permet de travailler, en test, localement plutôt que dans une base / storage distant payant.</p>
+<p>Pour tester de nouvelles fonctionnalités on peut certes tester en environnement sqlite / File-system : mais pour tester que la couche technique de base (dans <code>src/firestore.mjs src/storage.mjs</code> du serveur) offre bien des services identiques quelqu'en soit l'option choisie Firebase / SQL ou le provider de storage file-sytem / S3 / Google Cloud, il faut effectivement utiliser Firestore et Cloud Storage.</p>
+<p>L'émulateur est lancé par:</p>
+<pre><code>firebase emulators:start
+firebase emulators:start --import=./emulators/bk1
+</code></pre>
+<p>Dans le premier cas tout est vide. Dans le second cas on part d'un état importé depuis le folder <code>./emulators/bk1</code></p>
+<p>Tout reste en mémoire mais on peut exporter l'état en mémoire par:</p>
+<pre><code>firebase emulators:export ./emulators/bk2 -f
+</code></pre>
+<p><strong>La console de l'emulator</strong> est accessible par http://localhost:4000</p>
+<p>Voir la page Web: https://jsmobiledev.com/article/firebase-emulator-guide/</p>
+<p><strong>Attention</strong>: Google mentionne <em>son</em> emulator dans la page https://cloud.google.com/firestore/docs/emulator?hl=fr</p>
+<ul>
+<li>ça ne prend en compte que Firestore et pas Cloud Storage,</li>
+<li>l'usage n'a pas été couronné de succès.</li>
+</ul>
+<p>A ce jour prendre celui de Firebase.</p>
+<h3 id="contraintes">Contraintes</h3>
+<ul>
+<li>Firebase n'a pas implémenté <em>toutes</em> les fonctionnalités. Il y a du code qui contourne ce problème dans <code>src/storage.mjs</code> :</li>
+<li>la création du storage ne prend pas en compte l'option <code>cors</code> (<code>constructor de la class GcProvider</code>),</li>
+<li><code>getSignedUrl</code> n'est pas utilisable avec l'émulator : contournement dans <code>getUrl</code> et <code>putUrl</code>.</li>
+<li>en run-time le code tient compte du mode <code>emulator</code> qui est donné par un booléen dans <code>src/config.mjs</code>.</li>
+<li>dans l'application UI l'initialisation dans <code>src/app/fssync.mjs</code> méthode <code>open()</code> tient compte de l'existence de la variable d'environnement mode <code>STORAGE_EMULATOR_HOST</code> signalant l'utilisation de l'émulateur:</li>
+<li>l'application UI obtient en retour de connexion d'une session (<code>src/fssync.mjs</code>), l'objet requis <code>firebaseConfig</code> et 'URL de l'emulator (ou rien si ce mode n'est pas activé).</li>
+<li>auparavant l'usage par <code>PageLogin</code> de l'URL <code>./fs</code> a retourné 'true' ou 'false' selon que le serveur est en mode Firestore (true) ou non.</li>
+</ul>
+<p>Sur le serveur deux variables d'environnement sont requises :</p>
+<ul>
+<li><code>FIRESTORE_EMULATOR_HOST="localhost:8080"</code></li>
+<li><code>STORAGE_EMULATOR_HOST="http://127.0.0.1:9199"</code></li>
+</ul>
+<p>Attention pour la seconde, </p>
+<ul>
+<li>le Web donne un autre nom: bien utiliser celui ci-dessus,</li>
+<li><code>http://</code> est indispensable, sinon un accès <code>https</code> est essayé et échoue.</li>
+</ul>
+<p>Ces deux variables sont générées en interne dans <code>src/server.js</code> quand ces variables sont citées dans la section <code>env</code> de <code>config.mjs</code> (ce qui évite de les gérer en test et de les exclure en production).</p>
+<h2 id="bugsrencontrsetcontournscors403">BUGS rencontrés et contournés: <code>cors</code> <code>403</code></h2>
+<p>Pour information, les fonctions de download / upload d'un fichier d'une note ont d'abord échoué en Google Cloud Storage : l'URL générée étant rejetée pour cause <code>same origin</code>.</p>
+<p>Ce type de problème n'apparaît que dans une invocation dans un browser pour une page chargée depuis un site Web. En conséquence ça n'apparaît pas,</p>
+<ul>
+<li>en copiant directement une URL dans la barre d'adresse,</li>
+<li>en utilisant <code>curl</code>.</li>
+</ul>
+<p>Il n'y a que le serveur qui puisse résoudre le problème.</p>
+<p>Google Cloud Storage accepte à l'initialisation du storage un objet d'options <code>cors</code> qui spécifie de quelles origines les URLs sont acceptées. Par chance <code>'*'</code> a été accepté (sinon il aurait fallu passer en configuration une liste d'origines autorisées).</p>
+<p>En mode <code>emulator</code>, cette option n'étant pas implémentée, il a fallu contourner dans <code>src/storage.mjs getUrl / putUrl</code> par en chargement / déchargement par le serveur (ce qui n'est ps un problème en test, mais en serait un en production).</p>
+<p>Pour générer une URL signée, sur PUT, il faut spécifier le <code>content-type</code> des documents envoyés sur PUT. <code>application/octet-stream</code> fait l'affaire MAIS encore faut-il émettre ce <code>content-type</code> du côté application UI dans l'appel du PUT (<code>src/app/net.mjs</code>), ce qui n'avait pas été fait (laissé vide) et a provoqué une erreur <code>403</code> pas très représentative de la situation.</p>
+<h3 id="variabledenvironnementgoogle_cloud_project">Variable d'environnement <code>GOOGLE_CLOUD_PROJECT</code></h3>
+<p>Assez systématiquement une librairie se plaint : <code>cannot determine the project_id ...</code></p>
+<p>C'est parce que la variable d'environnement <code>GOOGLE_CLOUD_PROJECT</code> n'a pas été initialisée avec le code du projet.</p>
+<p>Pour éviter cet oubli cette variable est générée par <code>src/server.js</code> en fonction de la valeur trouvée dans <code>src/config.mjs</code>.</p>
+<h2 id="environnementsdevprod">Environnements DEV / PROD</h2>
+<p>Le folder <code>./jeys</code> est ignoré par git et contient quelques fichiers:</p>
+<ul>
+<li><code>fullchain.pem privkey.pem</code> : le certificat HTTPS du site. Ces fichiers sont renouvelés avec <code>letsencrypt</code> tous les 3 mois et ne sont pas à rendre public.</li>
+<li><code>firebase_config.json service_account.json s3_config.json</code> : voir ci-avant. Ils n'ont pas à être renouvelés mais ne doivent surtout pas être rendus public.</li>
+<li><code>app_keys.json</code> qui contient les clés de l'application,</li>
+<li><code>favicon.ico</code>, plus par commodité que par sécurité (c'était le seul fichier externe de configuration).</li>
+</ul>
+<p>En développement le folder <code>./keys</code> est à ce path, en production il peut être ailleurs: ce path relatif figure dans <code>src/config.mjs &gt;&gt;&gt; pathconfig</code></p>
+<h3 id="paths">Paths</h3>
+<p>D'autres paths sont cités dans <code>src/config.mjs</code> et peuvent différer en développement et en production:</p>
+<ul>
+<li><code>pathapp: './app'</code> Localisation relative du folder de l'application UI quand elle est servie par le serveur.</li>
+<li><code>pathconfig: './config'</code> Localisation relative du folder contenant les 5 fichiers de configuration.</li>
+<li><code>pathlogs: './logs'</code> Localisation du folder contenant les logs.</li>
+</ul>
+<p>Quand le provider de storage est <code>fs</code> (file-system), sa configuration mentionne aussi un path. C'est plutôt une option d'environnement de test.</p>
+<h3 id="configurationdesproviders">Configuration des providers</h3>
+<p>Chaque provider a sa configuration: <em>path</em>, <em>nom de bucket</em> …</p>
+<h3 id="logs">Logs</h3>
+<p>Ils sont gérés par Winston: </p>
+<ul>
+<li>sauf pour App engine <code>combined.log error.log</code> : le path est fixé dans <code>src/config.mjs &gt;&gt;&gt; pathlogs</code> mais les noms sont en dur dans<code>src/server.js</code>.</li>
+<li>pour App Engine, c'est redirigé vers les logs de App Engine.</li>
+</ul>
+<p><code>firestore.debug.log ui-debug.log</code> sont des logs produits par emulator en DEV.</p>
+<h3 id="autresfichiersapparaissantlaracineendev">Autres Fichiers apparaissant à la racine en DEV</h3>
+<ul>
+<li><code>firebase.json</code> : utilisé par emulator et les opérations CLI de Firebase.</li>
+<li><code>firestore.indexes.json firestore.indexes.EXP.json firestore.rules</code> : index et rules de Firestore, utilisé par CLI Firebase pour les déployer en production.</li>
+<li><code>app.yaml</code> : pour le déploiement sur App Engine.</li>
+</ul>
+<h3 id="foldersspcifiquementutilissendev">Folders spécifiquement utilisés en DEV</h3>
+<ul>
+<li><code>keys</code></li>
+<li><code>storage</code> : storage des providers <code>fs</code> (file_system)</li>
+<li><code>sqlite</code></li>
+<li><code>*.db3</code> : des bases de test.</li>
+<li><code>delete.sql</code> : script pour RAZ d'une base</li>
+<li><code>schema.sql</code> : script de création d'une base db3</li>
+<li><code>schema.EXP.sql</code> : script exporté depuis une base existante par la commande <code>sqlite3 test1.db3 '.schema' &gt; schema.EXP.sql</code> dans le folder <code>sqlite</code>.</li>
+</ul>
+<h3 id="rappelvariablesdenvironnement">Rappel : variables d'environnement</h3>
+<p>Elles sont générées par <code>src/sever.js</code> en fonction de <code>src/config.mjs</code> : elles n'ont pas à être gérées extérieurement.</p>
+<pre><code>FIRESTORE_EMULATOR_HOST="localhost:8080"
+STORAGE_EMULATOR_HOST="http://127.0.0.1:9199"
+GOOGLE_CLOUD_PROJECT="asocial-test1"
+GOOGLE_APPLICATION_CREDENTIALS="./config.service_account.json"
+</code></pre>
+<h1 id="dploiements">Déploiements</h1>
+<p>Il existe deux déploiements <em>simples</em>:</p>
+<ul>
+<li><strong>Google App Engine</strong> (GAE): un répertoire de déploiement est préparé et la commande <code>gcloud app deploy</code> effectue le déploiement sur le projet correspondant.</li>
+<li><strong>Mono serveur node</strong> (MSN): un répertoire de déploiement est préparé puis est transféré sur le site récepteur par ftp typiquement.</li>
+</ul>
+<p>Il est aussi possible d'avoir des <strong>déploiements multi serveurs</strong> pour l'application UI et des serveurs <code>Node.js</code> multiples.</p>
+<h3 id="apitk">APITK</h3>
+<p>Une application <em>pirate</em> lancée depuis un browser qui a chargé une page d'application UI <em>pirate</em>, va échouer à invoquer des opérations, son <code>origin</code> n'étant pas dans la liste des origines autorisées par le serveur.</p>
+<p>Mais supposons une application <em>pirate</em> en node.js qui reprend correctement le protocole :</p>
+<ul>
+<li>elle peut positionner un <code>header</code> <code>origin</code> avec la valeur attendue par le serveur,</li>
+<li>elle peut se connecter et exécuter des opérations normales mais en lui transmettant de mauvais arguments (puisqu'elle est <em>pirate</em>).</li>
+</ul>
+<p>C'est pour ça qu'une <em>clé d'API</em> <code>APITK</code> a été définie, et cachée autant que faire se peut: cette clé est fournie à chaque appel d'opération.</p>
+<p>Cette clé est définie au déploiement et n'est donc pas exposée aux pirates.</p>
+<p>Elle figure toutefois en runtime de l'application UI, donc est lisible quelque part en debug d'une application officielle. Encore faut-il savoir la trouver, ce qui a été rendu un peu complexe.</p>
+<p><code>APITK</code> se trouve:</p>
+<ul>
+<li>côté UI: dans <code>quasar.config.mjs</code> où la valeur de développement est remplacée par la valeur de production au déploiement par webpack.</li>
+<li>côté serveur: dans <code>./keys/app_keys.json</code></li>
+</ul>
+<h2 id="dploiementssimplesprocessuscommun">Déploiements simples: processus commun</h2>
+<p>Il est possible de déployer sur plusieurs projets GAE, chacun ayant alors son répertoire de déploiement dénommé ci-après %DEPL%.</p>
+<p><strong>L'application UI %APP% doit être buildée:</strong></p>
+<ul>
+<li>ajuster <code>quasar.config.js</code>:</li>
+<li><code>APITK</code></li>
+<li><code>BUILD</code> incrémentée pour la voir apparaître à l'écran pour contrôle de la bonne évolution de version.</li>
+<li>lancer la commande <code>npm run build:pwa</code> (ou <code>quasar build -m pwa</code>): ceci créé le folder <code>/dist/pwa</code> avec l'application compactée.</li>
+</ul>
+<p><strong>L'application upload (folder %UPLOAD%) doit avoir été buildée.</strong>
+Il en résulte deux fichiers <code>upload upload.exe</code> à copier dans le répertoire <code>%DEPL%/www</code>. Lire son <code>README.md</code> pour quelques détails.</p>
+<h3 id="crerajusterlefolderdepl">Créer / ajuster le folder %DEPL%</h3>
+<p>Sa structure est la suivante:</p>
+<ul>
+<li><code>/keys</code> : reçoit les fichiers de configuration.</li>
+<li><code>/www</code> :</li>
+<li>le fichier <code>index.html</code> est une redirection vers <code>/www/home.html</code>, la <em>vraie</em> page d'entrée. (source: <code>%SRV%/www/index.html</code>).</li>
+<li><code>upload upload.exe</code> sont des liens symboliques vers <code>%UPLOAD%/dist/upload</code> et <code>%UPLOAD%/dist/upload.exe</code> </li>
+<li>les autres fichiers proviennent de <code>%DOC%</code> et y ont été copiés par un script local de <code>%DOC%</code>.</li>
+<li><code>/app</code> : lien symbolique vers la distribution de l'application UI (<code>%APP%/dist/pwa</code>).</li>
+</ul>
+<h3 id="dploiement_googleappengine_gae">Déploiement <em>Google App Engine</em> (GAE)</h3>
+<p>C'est App Engine qui build l'application.</p>
+<p><strong>Remarques importantes</strong></p>
+<ul>
+<li>le fichier <code>src/server.js</code> <strong>DOIT</strong> avoir une extension <code>.js</code>. Les imports dans les autres modules doivent donc être <code>import { ctx, ... } from './server.js'</code></li>
+<li>dans <code>package.json</code>:</li>
+<li><code>"type": "module",</code> est <strong>impératif</strong>.</li>
+<li><code>"scripts": { "start": "node src/server.js" }</code> et pas de <code>"build": ...</code>.</li>
+</ul>
+<p>Au pire, enlever les <code>"devDepencies"</code> de package.json selon le message d'erreur à propos de webpack émis par GAE.</p>
+<p>Le fichier <code>src/config.mjs</code> est à adapter pour le déploiement GAE. En pratique, un seul flag en tête <code>true/false</code> permet de le passer du mode développement au mode GAE. A minima:</p>
+<ul>
+<li><code>rooturl: 'asocial-test1.ew.r.appspot.com',</code> sinon les opérations entrantes sont refoulées.</li>
+<li><code>origins: [ 'localhost:8343' ],</code> ne gêne pas, <code>rooturl</code> est ajouté à la liste des origines acceptées.</li>
+</ul>
+<p>Le script <code>depl.sh</code> : il a pour obectif de ne recopier <strong>que</strong> les fichiers requis pour la production en évitant les parasites de développement. Il effectue:</p>
+<ul>
+<li>la recopie des fichiers de configuration <code>service_account.json</code> et <code>firebase_config.json</code> (et <code>favicon.ico</code>) dans <code>%DEPL%/keys</code></li>
+<li>la recopie de <code>www/index.html</code> dans <code>%DEPL%/index.html</code></li>
+<li>la recopie du folder <code>src</code> dans <code>%DEPL%/src</code></li>
+<li>la recopie des deux fichiers <code>package.json app.yaml</code> dans <code>%DEPL%</code>.</li>
+</ul>
+<p>Ouvrir un terminal dans <code>%DEPL%</code> et frapper la commande <code>gcloud app deploy --verbosity debug</code> : ça dure environ 2 minutes (pas la première fois qui beaucoup plus longue, jusqu'à 15 minutes). <code>verbosity</code> est facultatif.</p>
+<p>Dans un autre terminal <code>gcloud app logs tail</code> permet de voir les logs de l'application quand ils vont survenir.</p>
+<p>Les logs complets s'obtienne depuis la console Google du projet (menu hamburger en haut à gauche <code>&gt;&gt;&gt; Logs &gt;&gt;&gt; Logs Explorer</code>).</p>
+<h3 id="dploiement_monoserveurnode_mon">Déploiement <em>mono serveur node</em> (MON)</h3>
+<p>Il faut créer / ajuster le répertoire <code>%DEPL%</code> comme décrit ci-avant.</p>
+<p><strong>Il faut effectuer un build de <code>%SRV%</code> :</strong></p>
+<ul>
+<li>dans <code>package.json</code>:</li>
+<li><code>"type": "module",</code> ne doit <strong>PAS être présent</strong> (le renommer <code>"typeX"</code>).</li>
+<li>commande de build <code>npx webpack</code></li>
+<li>deux fichiers ont été créés dans <code>dist</code>: <code>app.js app.js.LICENSES.txt</code></li>
+<li>dans <code>%DEPL%</code> faire un lien symbolique vers ces deux fichiers.</li>
+</ul>
+<p><strong>Sur le Site distant</strong> on doit trouver, hors du folder qui va recevoir le déploiement, par exemple dans le folder au-dessus:</p>
+<ul>
+<li><code>../sqlite.db3</code> : le fichier de la base données. Dans <code>%SRV%/src/config.mjs</code> l'entrée <code>sqlite_a.path</code> pointe vers <code>../sqlite.db3'</code>;</li>
+<li><code>../logs</code> : le folder des logs. Dans <code>%SRV%/src/config.mjs</code> l'entrée <code>pathslogs: '../logs'</code> doit pointer vers ce folder.</li>
+</ul>
+<p>En résumé à titre d'exemple <strong>sur le site distant</strong>:</p>
+<pre><code>asocial
+  sqlite.db3
+  logs/
+  run/
+    keys/ ...
+    www/ ...
+    app/ ...
+    app.js
+    app.js.LICENSES.txt
+</code></pre>
+<p>Il faut transférer par ftp le contenu du répertoire local <code>%DEPL%</code> dans le répertoire distant <code>asocial/run</code>.</p>
+<p>Le serveur se lance dans <code>asocial/run</code> par <code>node app.js</code></p>
+<h3 id="dploiementmultiserveurs">Déploiement multi serveurs</h3>
+<p>Les trois composantes,</p>
+<ul>
+<li>instances d'application UI,</li>
+<li>instances d'applications serveur node,</li>
+<li>espace statique www,</li>
+</ul>
+<p>sont gérées / déployées séparément.</p>
+<p>Un server <code>nginx</code> gère autant de serveurs virtuels qu'il y a d'application UI:</p>
+<ul>
+<li>chacune est buildée avec un paramétrage spécifique;</li>
+<li>a minima dans <code>src/app/config.mjs</code> la variable <code>SRV</code> donne l'URL de <strong>SON</strong> serveur.</li>
+</ul>
+<p>Il en résulte autant de builds et donc de déploiements à effectuer pour les applications UI.</p>
+<p>Il faut également builder chaque instance d'application serveur:</p>
+<ul>
+<li>son PORT d'écoute (<code>src/config.mjs / port</code>) est différent. </li>
+<li><code>rooturl</code> <em>peut</em> être limité au <em>host name</em> si elle n'est pas utilisée par le provider de storage configuré.</li>
+<li><code>origins</code> doit être configuré pour n'accepter les requêtes QUE de l'instance d'application UI spécifiée.</li>
+</ul>
+<p>Il y a autant de serveurs <code>node</code> à lancer qu'il y a d'instances de serveurs définies.</p>
+<p>Le déploiement demande en conséquence un script spécifique pour enchaîner sans risque d'erreurs les altérations de <code>config.mjs</code>, les builds (UI et serveur) et les recopies dans les folders de déploiement. </p>
+<p>Il faut aussi scripter les envois ftp aux bonnes localisations sur le(s) site(s) de production.</p>
+</body>
+</html>
