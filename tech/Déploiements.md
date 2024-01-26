@@ -1,89 +1,13 @@
-# Architecture générale et déploiements
-
-# Architecture générale 
-L'application est une application Web, plus précisément une _PWA Progressive Web App_ : 
-- l'application est invoquée au moins une première fois depuis un navigateur moderne connecté à Internet,
-- elle peut ensuite être invoquée depuis ce même navigateur sans être connecté à Internet mais avec des restrictions de service.
-
-Quatre grands composants contribuent à ce service :
-- **un serveur joignable sur Internet** par exemple sur l'URL https://asocial.demo.net : dépôt git `asocial-srv`
-- **une application UI d'interface utilisateur s'exécutant dans un navigateur** qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app/index.html): dépôt git `asocial-app`
-- **un site Web statique** principalement documentaire accessible depuis le navigateur à l'URL https://asocial.demo.net/www. Dépôt gir `asocial-doc`.
-- **un programme utilitaire de chargement local de fichiers** dans un répertoire local pouvant être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (`upload.exe` pour la version Windows). Dépôt git `upload`.
-  - Une fois téléchargé et lancé sur le poste où s'exécute le navigateur accédant à l'application, cet utilitaire permet de récupérer dans un répertoire local au poste les notes et leurs fichiers de la sélection opérée par l'utilisateur. 
-  - L'utilitaire est facultatif, ne fonctione que sous Linux ou Windows, n'est utile que pour cette seule opération de transfert local et peut être arrêté quand cette opération est terminée. 
-
-Bien que le protocole de communication soit HTTPS, les données des comptes, les textes et fichiers de leurs notes, etc. sont **cryptées** dans l'application UI :
-- le serveur ne reçoit **jamais** aucune information humainement interprétable en clair ni aucune clé de cryptage;
-- les _meta-données_ permettant de relier les documents entre eux sont également cryptées dans la session UI.
-
-Les quatre composants ont été développés / écrits sous `VSCode` et sont disponibles dans `github.com/dsportes` en _public_ (licence ISC).
-
-## Le serveur joignable sur Internet
-C'est un serveur Web en `node.js` (100% Javascript).
-
-Il reçoit les requêtes entrantes sur une URL fixée par l'administrateur technique. 
-
-Les requêtes, 
-- d'obtention de l'application UI `/` ou `/app/index.html`,
-- d'accès au site Web `/www/...`
-- et quelques requêtes techniques (`/ping` ...) 
-
-sont acceptées librement , typiquement par une URL depuis la barre d'adresse d'un navigateur ou `curl`.
-
-En revanche les requêtes de l'application UI ne sont acceptées QUE si la page de cette application a été chargée depuis une des URLs acceptées par la configuration du serveur. Ce contrôle de _l'origine_ de l'application UI protège le serveur d'un accès depuis une application UI _pirate_, non distribuée par le site bien identifié de distribution de l'application UI.
-
-### Base de données
-La base a un volume modeste et stocke les informations sur les comptes et les textes de leur notes, mais **pas** les fichiers attachés aux notes.
-
-**Selon sa configuration, le serveur accède à une _base de données_** : une classe dite _provider_ est écrite pour chaque modèle de base de données souhaité.
-- chaque _provider_ offre le même jeu d'une quarantaine de méthodes d'accès (environ 500 lignes de code),
-- la signature en est identique pour tous les providers de sorte qu'utiliser l'un ou l'autre n'est qu'un choix de l'administrateur technique. Hors de ces classes, les autres ignorent la technologie sous-jacente implémentée.
-
-#### Provider `sqlite`
-De manière générique à peu près toute base SQL peut êtte employée en n'adaptant que des éléments de syntaxe et de connexion spécifique.
-
-L'administrateur technique du site doit mettre en place le backup en continu de cette base sur un site distant et sa reprise après sinistre en un temps limité.
-
-#### Provider `firestore`
-Cette base orientée _document_ NOSQL, est hébergée sur des sites multiples sécurisés et administrés par Google qui en assure la haute disponibilité à coût supportable.
-
-Du fait de l'uniformité de l'interface d'accès, l'utilitaire `export-db` permet d'exporter une base vers une autre de technologie éventuellement différente.
-
-> Remarque: l'export de `firestore` vers `firestore` est techniquement limité par les contraintes d'environnement d'API de Google (un seul `projectId` étant possible dans une exécution) mais on peut utiliser un double export `firestore -> sqlite` puis `sqlite -> firestore`.
-
-_Langue_ : quelques très rares textes gérés par le serveur apparaissent dans des traces techniques et sont généralement écrites en français pour un usage de développement / debug.
-
-Les logs sont gérés par le module _Winston_ et dans le cas d'un déploiement GAE sont intégrés au système de log de Google Cloud (sinon ce sont des logs sur fichiers classiques).
-
-### Storage
-Un _storage_ stocke les fichiers attachés aux notes (cryptées).
-
-Chaque _provider_ est une classe d'une dizaine de méthodes (environ 250 lignes de code), tous les providers implémente le même interface.
-
-Le choix du provider se fait à la configuration de lexécution par l'administrateur.
-
-#### Provider `fs` - File-system
-Le stockage s'effectue dans un répertoire local du serveur et son uUtilisation concrète se limite aux tests.
-
-#### Provider `gc` - Google Cloud Storage
-Le stockage redondant est assuré par Google sur des sites externes spécialisés.
-
-#### Provider `s3` - Amazon S3
-S3 est le nom du protocole et plusieurs fournisseurs (en plus de Amazon) proposent ce type de services. 
-
-Il existe entre autre une application `minio` qui permet de mettre en œuvre son propre stockage sur le(s) serveur(s) de son choix.
-
-Du fait de l'uniformité de l'interface d'accès, l'utilitaire `export-st` permet d'exporter un storage vers un autre de technologie éventuellement différente.
-
-> Remarque: l'export de `gc` vers `gc` est techniquement limité par les contraintes d'environnement d'API de Google (un seul `projectId` étant possible dans une exécution) mais on peut utiliser un double export `gc -> fs` puis `fs -> gc`.
-
-> Remarque: il est donc simple d'effectuer une photo d'un environnement de production vers un autre de test et le cas échéant d'ailleurs de permettre aux utilisateurs d'accéder au choix aux deux.
+# Déploiements
+Il existe plusieurs choix de déploiement à partir du même logiciel. C'est l'administrateur technique qui effectue ces choix:
+- dans des fichiers de configuration,
+- par des commandes de _build_,
+- enfin par des commandes déploiement effectif sur site(s).
 
 ## Déploiement sur serveur classique _VM_ ou _Google App Engine (GAE)_
-Selon le choix de l'administrateur technique, le déploiement du ou des instances de serveurs peut s'effectuer:
-- **sur un serveur classique**, par exemple une VM hébergée (voire plusieurs) chez un hébergeur, avec l'usage éventuel d'un frontal de type `nginx` qui n'est indispensable que quand il y a plusieurs instances de serveurs et d'application UI à configurer et déployer.
-- sur **Google App Engine (GAE)**. Dans ce cas la base de données est `firestore` et logiquement le provider de storage est `gc` (plutôt que `s3`).
+Selon le choix de l'administrateur technique, le déploiement du ou des instances de serveur peut s'effectuer:
+- **sur un serveur classique**, par exemple une VM hébergée (voire plusieurs) chez un hébergeur, avec ou sans frontal de type `nginx` qui n'est indispensable que quand il y a plusieurs instances de serveurs et d'application UI à configurer et déployer sur une même VM.
+- **Google App Engine (GAE)**. Dans ce cas la base de données est `firestore` et logiquement le provider de storage est `gc` (plutôt que `s3`).
 
 Les coûts, la sécurité et la charge d'administration diffèrent fortement d'une option à l'autre.
 
@@ -94,20 +18,17 @@ La **synchronisation des données** entre le serveur et une session UI peut pass
 Remarques:
 - Le déploiement **GAE** interdit l'usage de l'option a).
 - Le choix du provider **sqlite** interdit le b).
-- Bien que techniquement possible le choix b) avec un provider **firebase** n'a pas d'intérêt et n'a pas été autorisé.
+- Bien que techniquement possible, le choix b) avec un provider **firebase** n'a pas d'intérêt et n'a pas été autorisé.
 - Dans le code des opérations quelques rares points nécessitent de savoir si le choix WebSocket a été fait ou non, les deux variantes de code ayant été implémentées.
 
 ### Préparation du déploiement
-Elle consiste dans les points suivants :
-- ajustement de la configuration :
-  - dans le fichier `src/config.mjs`, en particulier en listant les _origines_ des applications UI acceptées,
-  - en inscrivant dans le répertoire ./keys les quelques fichiers confidentiels (certificats, signatures, jetons d'accès ...).
+Elle consiste en un ajustement de la configuration :
+- dans le fichier `src/config.mjs`, en particulier en listant les _origines_ des applications UI acceptées,
+- en inscrivant dans le répertoire `./keys` les quelques fichiers confidentiels (certificats, signatures, jetons d'accès ...).
 - **pour un déploiement GAE** en configurant de plus le fichier `app.yaml`,
 - **pour les autres déploiements** en effectuant un _build_ `webpack` générant deux fichiers distribuables.
 
-## L'application UI
-C'est une page Web développée en `Quasar`, une surcouche de composants au dessus de `vuejs`, écrite en Javascript / css / HTML.
-
+## Préparation du déploiement de l'application UI
 Cette application supporte un _build_ par webpack qui en délivre une application Web PWA de quelques (gros) fichiers distribuables sur un site hébergeur:
 - 5 fichiers `.js`
 - 2 fichiers `.css`
@@ -125,50 +46,27 @@ Cette application supporte un _build_ par webpack qui en délivre une applicatio
   - **en déploiement**. Par simplification, quand l'application est chargée depuis le serveur lui-même (et non un autre serveur frontal comme `nginx`) cette adresse peut être laissée vierge et est obtenue en runtime de `window.location`: dans ce cas la configuration d'une instance de l'application UI est nulle.
 - `quasar.config.js` : deux variables sont à ajuster pour la génération du déploiement par webpack.
 
-_Langue_
-- tous les textes lisibles par l'utilisateur sont gérés par un composant `I18n` qui permet de les traduire dans différentes langues que l'utilisateur peut choisir par une icône dans sa barre inférieure.
-- la traduction a été testée en français et en anglais: toutefois les 1500 textes utilisés sont écrits en français et restent à traduire en anglais, voire d'autres langues. Ces _dictionnaires_ font partie du source de l'application (ils ne sont pas externes) mais sont dans des fichiers bien distincts.
-- les panels d'aide en ligne font également partie du source de l'application ce qui permet de les utiliser en mode _avion_, déconnecté d'Internet. Ils sont aussi traduisibles en une autre langue que le français.
-
 ## Site Web documentaire
-Il est géré dans `asocial-doc`.
+Ses fichiers sont dans `asocial-doc`.
 
 Les _pages_ sont,
 - soit écrites directement en HTML,
 - soit écrites en MD et un script les traduits en HTML.
 
-Un script de _déploiement_ permet de générer le folder à déployer avec les pages en HTML (plutôt qu'en MD) et les images utilisées sans avoir à déployer les quelques fichiers techniques de script ou les sources MD des pages générées.
+Un script de _déploiement_ permet de générer le folder à déployer avec les pages en HTML (plutôt qu'en MD) et les images utilisées.
 
 _Langue_
 - les pages sont nativement écrites en français.
-- au fil du temps elles seront traduites en anglais, voire en d'autres langues.
+- au fil du temps certaines pourraient être traduites en anglais, voire en d'autres langues.
 
 ## L'utilitaire `upload`
 C'est un micro serveur Web qui reçoit en entrée des fichiers et en copie le contenu dans un folder local au choix de l'utilisateur. 
 
-Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes et leurs fichiers sélectionnées par l'utilisateur, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait donc appel au micro-serveur Web `upload`.
-
-Le source consiste en moins de 100 lignes de code écrite en `node.js` / Javascript.
-
 Un _build_ permet de récupérer deux exécutables, un pour Linux, l'autre Windows, autonomes: ils embarquent un runtime `node.js` qui dispense l'utilisateur d'une installation un peu technique de `node.js`.
 
-## _ES6_ versus _CommonJs_
-Ces deux systèmes de gestion de modules co-existent avec une certaine difficulté:
-- **ES6** est désormais le standard: les modules ne présentant que la forme `require()` de CommonJs se raréfient mais existent encore.
-- **CommonJs** était le système de gestion de modules de Node.js avant la normalisation ES6.
-
-**L'application a été centrée sur ES6** avec quelques contorsions vis à vis des modules étant resté en CommonJs sans offrir d'importation ES6.
-
-### Application UI
-Un seul module est concerné: `pako`.
-
-Un seul source `src/boot/appconfig.js` effectue à l'initialisation de l'application un `require('pako')` et met le résultat à disposition du module `src/app/util.mjs`.
-
-Hormis cette ligne, les autres scripts de l'application sont ES6 (`.mjs`).
-
-### Application Serveur
+### Rappel
 Le fichier de démarrage `src/server.js` est un module ES6, malgré son extension `.js`:
-- le déploiement GAE **exige** que ce soit un `.js` et que `package.json` ait une directive `"type": "module"`.
+- le déploiement GooGle App Engine (GAE) **exige** que ce soit un `.js` et que `package.json` ait une directive `"type": "module"`.
 - pour les tests usuels, il faut `"type": "module"`.
 - MAIS pour un déploiement **NON GAE**, un build `npx webpack` est requis et cette dernière directive **DOIT** être enlevée ou renommée `"typeX"`.
 
@@ -176,11 +74,7 @@ _Remarques pour le build du serveur pour déploiement NON GAE_
 - `webpack.config.mjs` utilise le mode `import` plutôt que `require` (les lignes pour CommonJs sont commentées).
 - une directive spécifique dans la configuration `webpack.config.mjs` a été testée pour que `better-sqlite3` fonctionne en ES6 après build par webpack. Mais ça n'a pas fonctionné et `better-slite3` reste chargé par un require() dans `src/loadreq.mjs` (qui ne sert qu'à ça).
 
-> Remarque : il n'existe donc que 2 entorses à ES6 et la présence de `require`: 
-- a) pour `pako` dans l'application UI : fichier `src/boot/appconfig.js`,
-- b) `better-sqlite3` dans le serveur : fichier `src/loadreq.mjs`.
-
-# Développement / déploiement
+# Environnements de développement et de déploiement
 
 > Les fichiers de configuration de l'application serveur (dans `./keys` et `src/config.mjs`) sont décrits en détail en annexe du document `API-Serveur.md`.
 
@@ -256,7 +150,7 @@ Quelques commandes `firebase` souvent employées:
 ### Utilisation et authentification `gcloud`
 Page Web d'instruction: https://cloud.google.com/sdk/docs/install?hl=fr
 
-#### NON utilisation de Application Default Credentials (ADC)
+#### NON utilisation de _Application Default Credentials_ (ADC)
 ADC permet de s'authentifier pour pouvoir utiliser les librairies. Cette option (il y en a d'autres) est systématiquement mise en avant par Google pour sa _simplicité_ mais finalement pose bien des problèmes.
 
 Les commandes principales sont les suivantes:
@@ -385,34 +279,6 @@ En mode `emulator`, cette option n'étant pas implémentée, il a fallu contourn
 
 Pour générer une URL signée, sur PUT, il faut spécifier le `content-type` des documents envoyés sur PUT. `application/octet-stream` fait l'affaire MAIS encore faut-il émettre ce `content-type` du côté application UI dans l'appel du PUT (`src/app/net.mjs`), ce qui n'avait pas été fait (laissé vide) et a provoqué une erreur `403` pas très représentative de la situation.
 
-### Variable d'environnement `GOOGLE_CLOUD_PROJECT`
-Assez systématiquement une librairie se plaint : `cannot determine the project_id ...`
-
-C'est parce que la variable d'environnement `GOOGLE_CLOUD_PROJECT` n'a pas été initialisée avec le code du projet.
-
-Pour éviter cet oubli cette variable est générée par `src/server.js` en fonction de la valeur trouvée dans `src/config.mjs`.
-
-## Environnements DEV / PROD
-
-Le folder `./jeys` est ignoré par git et contient quelques fichiers:
-- `fullchain.pem privkey.pem` : le certificat HTTPS du site. Ces fichiers sont renouvelés avec `letsencrypt` tous les 3 mois et ne sont pas à rendre public.
-- `firebase_config.json service_account.json s3_config.json` : voir ci-avant. Ils n'ont pas à être renouvelés mais ne doivent surtout pas être rendus public.
-- `app_keys.json` qui contient les clés de l'application,
-- `favicon.ico`, plus par commodité que par sécurité (c'était le seul fichier externe de configuration).
-
-En développement le folder `./keys` est à ce path, en production il peut être ailleurs: ce path relatif figure dans `src/config.mjs >>> pathconfig`
-
-### Paths
-D'autres paths sont cités dans `src/config.mjs` et peuvent différer en développement et en production:
-- `pathapp: './app'` Localisation relative du folder de l'application UI quand elle est servie par le serveur.
-- `pathconfig: './config'` Localisation relative du folder contenant les 5 fichiers de configuration.
-- `pathlogs: './logs'` Localisation du folder contenant les logs.
-
-Quand le provider de storage est `fs` (file-system), sa configuration mentionne aussi un path. C'est plutôt une option d'environnement de test.
-
-### Configuration des providers
-Chaque provider a sa configuration: _path_, _nom de bucket_ ...
-
 ### Logs
 Ils sont gérés par Winston: 
 - sauf pour App engine `combined.log error.log` : le path est fixé dans `src/config.mjs >>> pathlogs` mais les noms sont en dur dans` src/server.js`.
@@ -433,6 +299,175 @@ Ils sont gérés par Winston:
   - `delete.sql` : script pour RAZ d'une base
   - `schema.sql` : script de création d'une base db3
   - `schema.EXP.sql` : script exporté depuis une base existante par la commande `sqlite3 test1.db3 '.schema' > schema.EXP.sql` dans le folder `sqlite`.
+
+**Autres Fichiers apparaissant à la racine en DEV**
+- `firebase.json` : utilisé par emulator et les opérations CLI de Firebase.
+- `firestore.indexes.json firestore.indexes.EXP.json firestore.rules` : index et rules de Firestore, utilisé par CLI Firebase pour les déployer en production.
+- `app.yaml` : pour le déploiement sur App Engine.
+
+# Configuration du serveur dans `config.mjs et ./keys`
+Ce fichier est un script exécutable ce qui facilte la gestion de plusieurs versions usuelles à partir d'un ou deux switch globaux. Il a plusieurs sections:
+
+    export const config = {
+      // Paramètres fonctionnels
+      tarifs: [
+        { am: 202201, cu: [0.45, 0.10, 80, 200, 15, 15] },
+        { am: 202305, cu: [0.45, 0.10, 80, 200, 15, 15] },
+        { am: 202309, cu: [0.45, 0.10, 80, 200, 15, 15] }
+      ],
+
+Injection des valeurs des compteurs tarifaires:
+- une entrée par mois de changement dans l'ordre chronologique;
+- pas de retour dans le passé s'une version à la suivante;
+- les 6 compteurs unitaires applicables (en _centimes_).
+
+      // HTTP server: configuration des paths des URL
+      prefixop: '/op',
+      prefixapp: '/app',
+      pathapp: './app',
+      prefixwww: '/www',
+      pathwww: './www',
+      pathlogs: '../logs',
+      pathkeys: './keys',
+
+Donne les valeurs des préfixes des URLs (qui n'ont pas besoin de change) et des paths physiques variables entre test et production.
+
+Interprétation des URLs:   
+- `prefixop: '/op'` : il n'y a pas de raisons de le changer.
+- `prefixapp: '/app'` : commenter la ligne si le serveur ne doit pas servir les URLs statiques de l'application UI.
+
+`pathapp: './app'`
+- si le serveur sert aussi les pages de l'application UI, folder ou cette application est distribuée.
+
+`prefixwww: '/www'`
+- si le serveur sert aussi les pages statiques Web, préfixe des URLs correspondantes.
+
+`pathwww: './www'`
+- si le serveur sert aussi les pages statiques Web, folder ou ces pages résident.
+
+`pathlogs: './logs'`
+- path ou ranger les logs, sauf en déploiement GAE.
+
+`pathkeys: './keys'`
+- Le répertoire contenat les fichiers _secrets_ à ne pas publier dans git.
+
+    keys: {
+      app: 'app_keys.json',
+      favicon: 'favicon.ico',
+      pub: 'fullchain.pem',
+      priv: 'privkey.pem',
+      firebase_config: 'firebase_config.json',
+      s3_config: 's3_config.json',
+      service_account: 'service_account.json'
+    }
+
+Enumération des fichiers _secrets_ déployés dans `./keys` et leurs noms symboliques pour le reste de la configuration et le code.
+- `pub priv`: le certificat SSL sauf en déploiement GAE et _passenger_.
+- `service_acount` : indispensable pour Firestore et provider de storage `gc`.
+- `firebase_config` : indispensable pour Firestore.
+- `s3_config` : indispensable si le provider de storage est `s3`.
+- `favicon.ico` : requis.
+
+    env: {
+      GOOGLE_CLOUD_PROJECT: 'asocial-test1',
+      GOOGLE_APPLICATION_CREDENTIALS: '@service_account',
+      STORAGE_EMULATOR_HOST: 'http://127.0.0.1:9199', // 'http://' est REQUIS
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080'
+    }
+
+Énumérations des variables d'environnement requises, nécessaires ou non selon le déploiement et / ou le test. Typiquement les variables `...EMULATOR...` ne sont pertinentes qu'en test.
+
+`GOOGLE_CLOUD_PROJECT` : requis en usage Firestore / Google Cloud Storage mais ne gêne pas d'en mettre un dans les autres cas.
+
+    run: {
+      site: 'A',
+      // URL externe d'appel du serveur 
+      rooturl: 'https://test.sportes.fr:8443',
+      // Port d'écoute si NON gae
+      port: 8443,
+      // Origines autorisées
+      origins: [ 'localhost:8343' ],
+      // Provider Storage
+      storage_provider: 'fs_a',
+      // Provider DB
+      db_provider: 'sqlite_a',
+    }
+
+Configuration du serveur. N'est pas utilisé en exécution d'utilitaires.
+- `site` : voir plus avant.
+- les deux _providers_ donnent les noms des entrées décrivant leurs configurations respectives. Le nom avant _ spécifie la classe de provider et le suffixe donne sa section de configuration.
+
+`rooturl: 'https://test.sportes.fr:8443'`
+- L'URL d'appel du serveur. Est utilisée pour faire des liens d'upload / download de fichiers du provider de storage `fs` (et des autres en test / simulation).
+
+`port: 8443`  
+- Numéro de port d'écoute du serveur. En GAE ce paramètre est inutilisé (c'est la variable `process.env.PORT` qui le donne), en mode 'passenger' également, mais ça ne nuit pas d'en mettre un.
+
+`origins: ['https://192.168.5.64:8343', 'https://test.sportes.fr:8443']`  
+- Liste des origines autorisées. Si l'application UI est distribuée par le même serveur (déploiement GAE et mono serveur), la liste peut être vide et est remplie avec la combinaison `rooturl` et `port` (ou nod.ENV.port).
+
+      s3_a: { bucket: 'asocial' },
+      fs_a: { rootpath: '../fsstorage'},
+      gc_a: {
+        bucket: 'asocial-test1.appspot.com', // Pour emulator
+        // bucket: 'asocial' // Pour prod, quoi que ...
+      },
+
+      sqlite_a: { path: './sqlite/test.db3' },
+      firestore_a: { }
+    }
+
+Paramètres spécifiques de chaque type de _provider_:
+- storage S3 : nom du buscket
+- storage file-system: parh du folder racine
+- storage google_cloud_storage: nom du bucket
+- DB sqlite: path du fichiers .db3
+- DB firestore: rien.
+
+`admin:  ['tyn9fE7zr...=']`
+- Hash du PBKFD de la phrase secrète de l'administrateur technique.
+
+`ttlsessionMin: 60`
+- durée de vie en minutes d'une session sans activité (mode SQL seulement).
+
+`apitk: 'VldNo2aLLvXRm0Q'  `
+- Jeton d'autorisation d'accès à l'API. Doit figurer à l'identique dans la configuration (`src/app/config.js` de l'aplication UI).
+
+## `.keys/app_keys.json`
+Ce fichier donne les clés secrètes déclarées par l'administrateur du site.
+
+Mais riien n'interdit qu'il existe plusieurs _sites_, chacun ayant _son_ administrateur. Le code du site est donné localement par une lettre A, B, ...
+
+`"admin":  ["FCp8r..."]`
+- c'est le SHA du PBKFD de la phrase secrète de connexion de l'administrateur du site, son organisation étant `admin`. La page d'outils de l'application UI permet de déclarer une phrase secrète et en affiche ce SHA afin d'être inscrit ici.
+- il n'y a que l'administrateur lui-même qui peut connaître la phrase qu'il a donnée por récupérer ce SHA.
+
+`"sites": { "A": "YC...C0=",`
+- chaque site a besoin d'une clé de cryptage qui crypte certaines données, par exemple les compteurs de comptabilité, plutôt que de les laisser en clair (certains traitements _seveur_ ont à accéder aux compteurs de tout le monde). C'est la seule clé de cryptage connue du serveur.
+- elle a été générée depuis une phrase secrète.
+- **elle ne doit pas changer** pour un site donné au cours de sa vie.
+
+Mais il est possible d'exporter la base d'un site A et de l'importer dans un site B. Chaque row exporté est _décrypté_ par la clé de A et _crypté_ par celle de B.
+
+Pour un transfert entre deux sites dont les administrateurs veulent garder leurs clés secrètes, ils doivent convenir d'un pseudo site de transfert T,
+- A export de A vers T,
+- B exporte de T vers B,
+- A et B n'ont qu'à se mettre d'accord sur la clé du site T temporaire disparaissant après l'opération.
+
+> Remarque: ce problème ne se pose pas pour les _storages_, les fichiers étant cryptés exclusivement par clés des utilisateurs.
+
+    {
+      "admin":  ["FCp8r..."],
+      "sites":  {
+        "A": "YC...C0=",
+        "B": "FG...HBC0="
+      },
+      "apitk": "VldN...Rm0Q"
+    }
+
+
+
+
 
 ### Rappel : variables d'environnement
 Elles sont générées par `src/sever.js` en fonction de `src/config.mjs` : elles n'ont pas à être gérées extérieurement.
