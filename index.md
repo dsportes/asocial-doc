@@ -2,34 +2,38 @@
 
 Introduction - [README](./README.md)
 
-Vue d'ensemble de l'application - [Présentation](./Présentation.md)
+## Fonctionnalités détaillées
 
-## Spécification Fonctionnelle détaillée
+Vue d'ensemble de l'application - [Présentation](appli/Présentation.md)
 
-Les comptes et leurs avatars - [Comptes](./Comptes.md)
+Les comptes et leurs avatars - [Comptes](appli/Comptes.md)
 
-Groupes et membres des groupes - [Groupes](./Groupes.md)
+Groupes et membres des groupes - [Groupes](appli/Groupes.md)
 
-Notes - [Notes](./Notes.md)
+Notes - [Notes](appli/Notes.md)
 
-Mots clés - [Motsclés](./Motsclés.md)
+Mots clés - [Motsclés](appli/Motsclés.md)
 
-Détection et gestion des disparitions - [Disparitions](./Disparitions.md)
+Détection et gestion des disparitions - [Disparitions](appli/Disparitions.md)
 
-Les _micro_ bases locales des comptes dans les navigateurs (en chantier) - [BasesLocales](.BasesLocales.md)
+Les _micro_ bases locales des comptes dans les navigateurs (en chantier) - [BasesLocales](appli/BasesLocales.md)
 
-Réflexions sur la logique de la maîtrise des volumes - [Volumes](./Volumes.md)
+Réflexions sur la logique de la maîtrise des volumes - [Volumes](appli/Volumes.md)
 
-Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique - [Ethique](./Ethique.md)
-
-## Spécification Technique détaillée
-
-Structuration des données centrales en _documents_ - [Documents](./Documents.md)
-
-Liste des tables de la base de données centrale - [Tables-DB](./Tables-DB.md)
-
-Application front-end (à réviser entièrement) - [Client-UI](./Client-UI.md)
+Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique - [Ethique](appli/Ethique.md)
 
 ## Aide en ligne
 
 Page de test - [help/page3_fr-FR](./help/page3_fr-FR.md)
+
+## Spécifications Techniques
+
+Architecture Générale - [Documents](tech/Architecture.md)
+
+API du serveur - [Documents](tech/API-Serveur.md)
+
+Structuration des données en _documents_ - [Documents](tech/Documents.md)
+
+Déploiements - [Déploiements](tech/Déploiements.md)
+
+Application Web UI - [ui-app](tech/ui-app.md)
