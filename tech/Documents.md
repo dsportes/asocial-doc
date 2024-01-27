@@ -27,22 +27,13 @@ Un espace est identifié par `ns`, **un entier de 10 à 69**. Chaque espace à s
 - `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL) a pour valeur le `ns` de l'espace. Path pour le `ns` 24 par exemple : `espaces/24` `syntheses/24`.
 - tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le `ns` de leur espace. Les propriétés des documents peuvent citer l'id d'autres documents mais sous la forme d'une _id courte_ dont les deux premiers chiffres ont été enlevés.
 
-### Exportation / purge d'un espace
-Un utilitaire permet, en se basant exclusivement sur la valeur de l'attribut `id` des documents:
-- d'exporter un _espace_ d'une base (SQL ou Firestore) dans une autre en changeant éventuellement son `ns` (passant par exemple de `24` à `32`).
-- purger les données d'un _espace_ d'une base.
-
 ### Code organisation attaché à un espace
 A la déclaration d'un espace sur un serveur, l'administrateur technique déclare un **code organisation**:
 - ce code ne peut plus changer.
 - le Storage de fichiers comporte un _folder_ racine portant ce code d'organisation ce qui partitionne le stockage de fichiers.
-- les connexions aux comptes citent ce _code organisation_: il préfixe les _phrases secrètes_ et de contact des comptes et avatars. Les PBKFD et autres hash stockés dans les documents en dépendent directement, ce qui exclut de pouvoir les changer.
+- les connexions aux comptes citent ce _code organisation_.
 
-> Un Storage pour une organisation peut être exporté dans un autre Storage:
-- les fichiers sont physiquement recopiés,
-- à cette occasion le code de l'organisation (la racine du Storage) peut être changé, celui de la _cible_ pouvant différer de celui de la _source_. Le changement de code a pour seul intérêt d'effectuer un cliché (pour _backup_ ou test).
-
-### Tables / collections
+### Tables / collections de documents
 #### Entête de l'espace: `espaces syntheses`
 - `espaces` : `id` est le `ns` (par exemple `24`) de l'espace. Le document contient quelques données générales de l'espace.
   - Clé primaire : `id`. Path : `espaces/24`
@@ -89,7 +80,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 
 - `notes` : un document représente une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire.
 - `transferts` : un document représente un transfert (upload) en cours d'un fichier d'une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire. Un document transfert est créé immuable: il est détruit quand le transfert a été un succès ou constaté abandonné par le GC.
-- `sponsorings` : un document représente un sponsoring d'un avatar. Son identifiant relatif est le hash de la phrase de reconnaissance entre le sponsor et son sponsorisé.
+- `sponsorings` : un document représente un sponsoring d'un avatar. Son identifiant relatif est _ns +  hash de la phrase_ de reconnaissance entre le sponsor et son sponsorisé.
 - `chats` : un chat entre 2 avatars A et B se traduit en deux documents : 
   - l'un sous-document de A a pour identifiant secondaire `ids` un hash des clés de B et A.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
@@ -109,12 +100,14 @@ Il a pour rôle majeur de gérer les espaces:
   - `q1` : nombre maximal autorisé des notes, chats, participations aux groupes,
   - `q2` : volume total autorisé des fichiers attachés aux notes.
   - `qc` : quota de calcul mensuel total en unité monétaire.
-- ces quotas sont _indicatifs_ mais sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
+- ces quotas sont _indicatifs_ sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
 
 Ses autres rôles sont :
-- la gestion d'une _notification / blocage_ par espace, soit pour information technique importante, soit pour figer un espace avant sa migration vers une autre base (ou sa destruction).
-- le transfert d'un espace d'une base vers une autre,
-- le transfert des fichiers d'un espace d'un Storage à un autre.
+- la gestion d'une _notification / blocage_ par espace, 
+  - soit pour information technique importante, 
+  - soit pour _figer_ un espace avant sa migration vers un autre (ou sa destruction).
+- l'export de la base d'un espace vers un autre,
+- l'export des fichiers d'un espace d'un Storage à un autre.
 
 ### Comptable de chaque espace
 Pour un espace, `24` par exemple, il existe un compte `2410000000000000` qui est le **Comptable** de l'espace. 
@@ -1710,4 +1703,4 @@ Il y a donc une stricte identité entre les documents extraits de SQL / Firestor
 
 _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
-- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`. Voir la documentation sur `ui-doc.md`.
+- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`. Voir la documentation sur `ui-app.md`.

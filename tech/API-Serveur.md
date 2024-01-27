@@ -12,13 +12,13 @@ Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
 ### `args.token` : le jeton d'authentification du compte
 Requis dans la quasi totalité des requêtes ce jeton est formé par la sérialisation de la map `{ sessionId, shax, org, hps1 }`:
 - `sessionId` : identifiant aléatoire (string) de session générée par l'application pour s'identifier elle-même (et transmise sur WebSocket en implémentation SQL).
-- `org` : code l'organisation.
-- `shax` : SHA256 du PBKFD de la phrase secrète en UTF-8.
+- `org` : code de l'organisation.
+- `shax` : SHA256 du PBKFD de la phrase secrète.
 - `hps1` : Hash (sur un entier _safe_ en Javascript) du SHA256 de l'extrait de la phrase secrète.
 
 > Remarque: le code `ns` ne figure pas en tête de `hps1`. A la connexion d'un compte celui-ci connaît son organisation pas son `ns`, il le récupère en retour, le serveur ayant lui la correspondance entre tous codes `org` et `ns`.
 
-L'extrait consiste à prendre certains bytes du début de la représentation en UTF-8 de la phrase complète.
+L'extrait d'une phrase secrète consiste à prendre certains bytes du début de la représentation en UTF-8 de la phrase complète.
 
 ### Headers requis
 - `origin` : site Web d'où l'application Web a été chargée. Au cas ou `origin` ne peut pas être obtenu, c'est `referer` qui est considéré. Les origines autorisées sont listées dans `config.mjs`.
@@ -36,18 +36,18 @@ L'extrait consiste à prendre certains bytes du début de la représentation en 
 - autre statuts (500, 0 ...) : une exception `AppExc` est générée (E_SRV, 0, ex.message)
 
 #### Retour OK d'un GET
-- requête `/fs` : retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL.
-- requêtes `/op/yo` et `op/yoyo` : texte. 
+- requête `/fs` : retour 'true' si le serveur implémente Firestore, 'false' s'il implémente SQL (synchronisation par WebSocket).
+- requêtes `/op/yo` et `/op/yoyo` : texte. 
   - `yo` est traitée _avant_ contrôle de l'origine et retourne `yo`.
-  - `yoyo` est traitée _après__ contrôle de l'origine et retourne `yoyo`.
+  - `yoyo` est traitée _après_ contrôle de l'origine et retourne `yoyo`.
 - autres requêtes : `arrayBuffer` (binaire).
 
 #### Retour OK d'un POST
 Le résultat binaire est désérialisé, on en obtient une map dont les éléments sont :
 - de manière générique :
   - `dh` : le `getTime` de l'exécution de la transaction,
-  - `sessionId` : la valeur de `sessionId` passée dans le token en argument ou 666
-  - les autres termes sont spécifiques du _retour_ de chaque opération.
+  - `sessionId` : la valeur de `sessionId` passée dans le token en argument ou 666.
+- les autres termes sont spécifiques du _retour_ de chaque opération quand il y en a.
 
 ### Synthèse des URLs traitées
 OPTIONS `/*`
@@ -73,19 +73,19 @@ GET `/app/...`
 
 GET `/www/...`
 - en déploiement mono-serveur et GAE, ce sont les URLs du site Web statique.
-- pour des raisons de relativité d'URLs, `/www` renvoie sur `/www/index.html` qui est une redirection vers `/www/homme.html`, la véritable entrée du site statique.
+- pour des raisons de relativité d'URLs, `/www` renvoie sur `/www/index.html` qui est une redirection vers `/www/home.html`, la véritable entrée du site statique.
 
 GET `/storage/...`
-- utilisé pour télécharger un fichier quand le provider de storage est `fs` ou `gc` en mode simulé. Retourne le fichier crypté en binaire `application/octet-stream`.
+- utilisé pour télécharger un fichier quand le provider de storage est `fs` (ou `gc` en mode simulé). Retourne le fichier crypté en binaire `application/octet-stream`.
 
 PUT `/storage/...`
-- utilisé pour uploader un fichier quand le provider de storage est `fs` ou `gc` en mode simulé. Le fichier est crypté en binaire `application/octet-stream` dans le `body` de la requête.
+- utilisé pour uploader un fichier quand le provider de storage est `fs` (ou `gc` en mode simulé). Le fichier est crypté en binaire `application/octet-stream` dans le `body` de la requête.
 
 POST `/op/...`
 - les `opérations` de l'application détaillées ci-après.
 
 ## Opérations `/op/...`
-Voir dans le code le commentaire de signature de caque opération.
+Voir dans le code le commentaire de signature de chaque opération.
 
 Les opérations sont les suivantes:
 - OP_AboTribuC: 'Abonnement / désabonnement à la tranche courante',
@@ -187,7 +187,7 @@ Les attributs _data_ contiennent toutes les propriétés sérialisées, celles e
 - la méthode `row = tribu.toRow()` reconstitue un objet au format _row_ depuis une instance `tribu`.
 
 En session UI le même principe est adopté avec deux différences : 
-- `compile()` sur le serveur est **synchrone et unique**.
+- `compile()` sur le serveur est **synchrone et générique**.
 - en session `async compile()` est à écrire pour chaque classe : les méthodes effectuent des opérations de cryptage / décryptage asynchrones et de calculs de propriétés complémentaires spécifiques de chaque classe de document.
 - en session il n'y a pas d'équivalent à `toRow()`. Pour des créations de document la construction s'effectue directement en format _row_ et non sur un objet qui serait sérialisé ensuite. 
 
@@ -197,24 +197,24 @@ Sur le serveur, le _data_ de certains documents cités dans `GenDoc.rowCryptes` 
 
 ### Opérations authentifiées de création de compte et connexion
 **Remarques:**
-- le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'appel des opérations qui le concernent lui seul. Le hash de sa phrase secrète est enregistrée dans la configuration du serveur.
+- le compte _Administrateur_ n'est pas vraiment un compte mais simplement une autorisation d'appel des opérations qui le concernent lui seul. Le hash de sa phrase secrète est enregistrée dans la configuration du serveur `/keys/app_keys.json`.
 - le compte _Comptable_ de chaque espace est créé par l'administrateur à la création de l'espace. Ce compte est normal. Sa phrase secrète a été donnée par l'administrateur et le comptable est invité à la changer au plus tôt.
 - les autres comptes sont créés par _acceptation d'un sponsoring_ qui fixe la phrase secrète du compte qui se créé : après cette opération la session du nouveau compte est normalement active.
-- les deux opérations suivantes sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du hash de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
+- ces opérations sont _authentifiées_ et transmettent les données d'authentification par le _token_ passé en argument porteur du hash de la phrase secrète: dans le cas de l'acceptation d'un sponsoring, la reconnaissance du compte précède de peu sa création effective.
 
 ### Opérations authentifiées pour un compte APRÈS sa connexion
 Ces opérations permettent à la session cliente de récupérer toutes les données du compte afin d'initialiser son état interne.
 
 # Design interne du serveur
 ## Providers DB
-Deux classes _provider_ implémente les accès `sqlite` (src/sqlite.mjs) pour l'une, `firestore` (`src/direstore.mjs`) pour l'autre.
-- leurs interfaces son identiques, leurs méthodes publiques ont même signatures.
+Deux classes _provider_ implémentent les accès `sqlite` (`src/sqlite.mjs`) pour l'une, `firestore` (`src/direstore.mjs`) pour l'autre.
+- leurs interfaces son identiques, leurs méthodes publiques ont mêmes signatures.
 - il devrait être aisé d'en ajouter d'autres dans le futur.
 
 ### Synchronisations
 **sqlite**
 - une session de l'application est connectée par WebSocket qui lui notifie les mises à jour des documents `espaces comptas tribus versions` (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
-- les backups de la base peuvent être stockés sur un Storage.
+- remarque: les backups en continu de la base peuvent être stockés dans un Storage.
 
 **firestore + GAE (Google App Engine)**
 Le stockage persistant est Google Firestore.
@@ -223,12 +223,12 @@ Le stockage persistant est Google Firestore.
 - une session de l'application reçoit de Firestore les mises à jour sur les `espaces comptas tribus versions` qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
 
 ### Providers Storage
-Selon le même principe trois classes _provider_ gèrent le storage et ont un m^me interface. Par simplification elles figurent dans `src/storage.mjs`:
+Selon le même principe trois classes _provider_ gèrent le storage et ont un même interface. Par simplification elles figurent dans `src/storage.mjs`:
 - `fs` : un file-system local du serveur,
 - `s3` : un Storage S3 de AWS (éventuellement minio).
 - `gc` : un Storage Google Cloud Storage.
 
-En pratique il n'y a pas de raisons fortes à assurer un Storage `s3` sous GAE.
+En pratique il n'y a pas de raisons à assurer un Storage `s3` sous GAE.
 
 ## Modules dans `src/`
 
@@ -238,7 +238,7 @@ Point d'entrée du serveur:
 - si un argument figure en première position, c'est un fonctionnement en mode _utilitaire_ (CLI), sinon le serveur Web est initialisé.
 
 **Actions:**
-- détection de la configuration et initialisation des providers DB et Storage choisi dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
+- détection de la configuration et initialisation des providers DB et Storage choisis dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
 - lancement de l'écoute Express:
   - traitement local des URLs simples: `/fs /favicon /robots.txt`.
   - traitement des requêtes `OPTIONS`.
@@ -246,13 +246,27 @@ Point d'entrée du serveur:
   - met en forme les requêtes `/op/...` les vérifie et les route vers le module `operations.mjs` qui a les classes de traitement.
 - initialise les écoutes et réceptions de messages WebSocket dans le cas de l'implémentation SQL.
 
+### `ws.mjs`
+### `ws.mjs`
+Gestion des WebSocket ouverts avec les sessions UI (sauf en _firestore_):
+- gère l'ouverture / enregistrement d'une session,
+- stocke pour chaque session la liste de ses abonnements,
+- à chaque fin de transaction dispatche sur les WebSocket des sessions les _row_ mis à jour qui les intéresse et envoie le message aux sessions UI,
+- gère un heartbeat sur les sockets pour détecter les sessions perdues.
+
+Ce module reçoit, en mode SQL, les mises à jour effectuées sur la base et pour chaque document mis à jour transmet à chaque session abonnée à ce document, la notification de sa mise à jour:
+
+**Remarque:**
+- pour les documents `comptas tribus espaces`, c'est le row du document qui sert de notification.
+- pour un document `versions` c'est aussi son row mais ceci est une notification de changement valable pour tout _l'arbre_ des sous-document d'un avatar ou d'un groupe. Les mises à jour de ces sous-documents ne sont pas transmises en tant que telles, mais seulement par l'avis d'évolution de la version du sous-arbre de leur avatar ou groupe.
+
 ### `config.mjs`
 Donne directement les options de configuration qui sont accessibles par simple import.
 
-Détail de la configuration en annexe.
+Détail de la configuration dans le document relatif au déploiement.
 
 ### `api.mjs`
-Ce module **est strictement le même** que `api.mjs` dans l'application UI afin d'être certain que certaines interprétation sont bien identiques de part et d'autres:
+Ce module **est strictement le même** que `api.mjs` dans l'application UI afin d'être certain que certaines interprétations sont bien identiques de part et d'autres:
 - quelques constantes exportées.
 - les classes,
   - `AppExc` : format général d'une exception permettant son affichage en session, en particulier en supportant la traduction des messages.
@@ -265,13 +279,6 @@ Module présent aussi dans l'application UI, donnant une implémentation locale 
 
 ### `util.mjs`
 Quelques fonctions générales qu'il fallait bien mettre quelque part et les quelques fonctions de cryptographie requises sur le serveur avec leur implémentation par Node.
-
-### `ws.mjs`
-Gestion des WebSocket ouverts avec les sessions UI (sauf en _firestore_):
-- gère l'ouverture / enregistrement d'une session,
-- stocke pour chaque session la liste de ses abonnements,
-- à chaque fin de transaction dispatche sur les WebSocket des sessions les _row_ mis à jour qui les intéresse et envoie le message aux sessions UI,
-- gère un heartbeat sur les sockets pour détecter les sessions perdues.
 
 ### `export.mjs`
 Utilitaires:
@@ -288,64 +295,30 @@ Voir Annexe.
 Trois classes gérant le storage selon son type `fs s3 gc` avec le même interface vu des opérations.
 
 ### `gendoc.mjs`
-La classe `GenDoc` représente un document _générique_ et ses méthodes d'accès. Détail ci-après.
+La classe `GenDoc` représente un document _générique_.
 
-### `modele.mjs`
-Données :
-- la classe `Cache` conservant en static une mémoire cache des objets majeurs accédés. Détail ci-après.
-- la class `GenDoc` représentant un document _générique_ et ses méthodes d'accès. Détail ci-après.
-- la classe `Operation` : chaque opération est une instance héritant de cette classe générique. Quelques méthodes utilisées par plus d'une classe d'opération s'y retrouve.
+Une classe y est déclarée pour chaque collection / table de documents:
+- elle hérite de `GenDoc`
+- elle n'est porteuse que de quelques méthodes.
 
-### `operations.mjs`
-Toutes les opérations de l'API figurant ci-avant dans ce document (qui héritent de Operation décrite dans `modele.mjs`).
+    Espaces Gcvols Tribus Tribu2s COmptas Versions Avataars Groupes
+    Notes Transferts Sponsorings Chats Membres
 
-## `Cache` : cache des objets majeurs `espaces tribus comptas avatars groupes`
-
-Cet objet gére une mémoire cache des derniers documents demandés dans leur version la plus récente.
-
-Le test pour savoir si la version détenue est la dernière s'effectue dans une transaction et permet de ne pas lire le document de la table ou de la collection si sa version n'est pas plus récente ce qui évite des lectures coûteuses inutiles (et coûteuses monaiterement en Firestore).
-
-Cache gère aussi une mémoire cache de `checkpoint` le document de suivi du GC.
-
-En stockant les document `espaces`, `Cache` fournit également le code de l'organisation d'un espace connu par son ns (son id).
-
-### `static getRow (transaction, nom, id)`
-Obtient le row de la cache ou va le chercher.
-- Si le row actuellement en cache est le plus récent on a évité une lecture effective et la méthode s'est limité à un filtre sur index qui ne coûte rien en FireStore et pas grand chose en SQL.
-- Si le row n'était pas en cache ou que la version lue est plus récente IL Y EST MIS:
-  - certes la transaction _peut_ échouer, mais au pire on a lu une version, pas forcément la dernière, mais plus récente.
-
-### `static update (newRows, delRowPaths)`
-Utilisée en fin de transaction pour enrichir la cache APRES le commit de la transaction avec tous les rows créés, mis à jour ou accédés (en ayant obtenu la _dernière_ version).
-
-### `static async getCheckpoint ()`
-Retourne le dernier checkpoint enregistré parle GC.
-
-### `async setCheckpoint (obj)`
-Enregistre en base et dans Cache le dernier objet de checkpoint défini par le GC.
-
-### `async org (id)`
-Retourne le code de l'organisation pour une id donnée (un ns).
-
-## La classe `GenDoc`
 ### Fonction `compile (row) -> Objet`
 Cette fonction aurait pu être déclarée static de `GenDoc` et a été écrite comme fonction pour raccourcir le texte d'appel très fréquent.
 
 Chaque **row** d'une table SQL ou **document** Firestore apparaît sous deux formes :
 - **row** : c'est l'objet Javascript directement stocké en tant que row d'une table SQL ou document Firestore.
-- **objet compilé** : c'est une instance de la classe de document :
-
-    Espaces Gcvols Tribus Tribu2s COmptas Versions Avataars Groupes
-    Notes Transferts Sponsorings Chats Membres
-
-Ces classes héritent de la classe générique `GenDoc`.
-
-Les noms symboliques sont ceux des classes ci-dessus avec une minuscule au lieu d'une majuscule en tête.
+- **objet compilé** : c'est une instance d'un des classes de document ci-dessus.
 
 La méthode `compile()` retourne l'objet compilé depuis sa forme row et son nom symbolique : si l'argument row est null, le retour est null (sans levée d'exception).
 
 ### Méthode `GenDoc.toRow()`
 Réciproquement depuis un objet `a` par exemple de classe `Avatars`, `a.toRow()` retourne sa forme **row** prête à être stockée en row SQL ou document Firestore.
+
+La fonction `compile()` retourne la forme compilée (un objet de sa class spécifique) depuis un row, est dans l'esprit une méthode `statique` de GenDoc mais sous la forme d'une fonction pour commodité d'écriture.
+
+Deux autres fonctions `decryptRow (op, row)` et `prepRow (op, row)` sont utilisés par les providers DB pour crypter / décrypter le _data_ d'un row des classes pour lesquelles le _data_ est crypté par la clé du site.
 
 ### Liste restrictive des attributs d'un row
 Cette liste est fermée : pour chaque classe la liste exhaustive est donnée.
@@ -363,79 +336,95 @@ Cette liste est fermée : pour chaque classe la liste exhaustive est donnée.
 En forme compilé la propriété `_data_` n'est pas elle-même présente mais à la place tous les attributs de la classe sont présents.
 - quand _data_ n'existe pas ou est null dans le format row, l'attribut _zombi de la classe correspondante vaut true.
 
-### Méthodes statiques _publiques_ de `GenDoc`
-Elles offrent les accès,
-- soit en SQL aux tables,
-- soit en Firestore aux collections et sous-collections de documents.
+En statique `GenDoc` donne aussi des listes de documents selon leurs modes de gestion afin de faciliter les traitements génériques en particulier d'export et des accès génériques (documents _majeurs-, documents _sous-collection d'un document majeur_) ...
 
-Chaque méthode _publique_ invoque l'une des deux méthodes _privées_ correspondant aux implémentations SQL et Firecstore.
+### `modele.mjs`
+Ce module comporte trois classes: `Cache Operation AuthSession`.
 
-Des méthodes _privées_ utilitaires existent pour chacun des deux modes.
+#### `Cache` : cache des objets majeurs `espaces tribus comptas avatars groupes`
 
-`static async getV (transaction, nom, id, v)`
-- pour les collections _majeures_ retourne le row de nom donné, pour cette id si sa version est postérieure à v.
+Cet objet gére une mémoire cache des derniers documents demandés dans leur version la plus récente.
 
-`static async get (transaction, nom, id, ids)`
-- pour les sous-collections, retourne le row de nom donné pour cette id et cette ids sans considérer sa version (donc la plus récente).
+Le test pour savoir si la version détenue est la dernière s'effectue dans une transaction et permet de ne pas lire le document de la table ou de la collection si sa version n'est pas plus récente ce qui évite des lectures coûteuses inutiles (et coûteuses monaiterement en Firestore).
 
-`static async getAvatarVCV (transaction, id, vcv)`
-- retourne l'avatar compilé d'id donnée si la version de sa carte de visite est postérieure à vcv.
+Cache gère aussi une mémoire cache de `checkpoint` le document de suivi du GC.
 
-`static async getChatVCV (transaction, id, ids, vcv)`
-- retourne le chat compilé si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
+En stockant les document `espaces`, `Cache` fournit également le code de l'organisation d'un espace connu par son ns (son id).
 
-`static async getMembreVCV (transaction, id, ids, vcv)`
-- retourne le membre compilé si sa carte de visite est antérieure à vcv (bref, n'est pas à jour).
+##### `static getRow (op, nom, id)`
+Obtient le row de la cache ou va le chercher.
+- Si le row actuellement en cache est le plus récent on a évité une lecture effective et la méthode s'est limité à un filtre sur index qui ne coûte rien en FireStore et pas grand chose en SQL.
+- Si le row n'était pas en cache ou que la version lue est plus récente IL Y EST MIS:
+  - certes la transaction _peut_ échouer, mais au pire on a lu une version, pas forcément la dernière, mais plus récente.
 
-`static async getVersionsDlv (dlvmin, dlvmax)`
-- retourne **l'array des id** des `versions` dont la dlv est entre min et max incluses. 
+##### `static async getEspaceLazy (op, ns)`
+Retourne l'espace depuis celui détenu en cache. C'est seulement s'il a plus de PINGTO minutes d'âge qu'on vérifie sa version et qu'on la recharge le cas échéant.
+PAR PRINCIPE, elle est retardée: convient pour checker une restriction éventuelle.
 
-`static async getMembresDlv (dlvmax)`
-- retourne **l'array des id** des `membres` dont la dlv est inférieure ou égale à dlvmax.
+##### `static update (newRows, delRowPaths)`
+Utilisée en fin de transaction pour enrichir la cache APRES le commit de la transaction avec tous les rows créés, mis à jour ou accédés (en ayant obtenu la _dernière_ version).
 
-`static async getGroupesDfh (dfh)`
-- retourne l'array des id des `groupes` dont la fin d'hébergement est inférieure ou égale à dfh
+##### `static async getCheckpoint ()`
+Retourne le dernier checkpoint enregistré parle GC.
 
-`static async coll (transaction, nom)`
-- retourne tous les rows de la collection de nom donné, tous espaces confondus.
+##### `async setCheckpoint (obj)`
+Enregistre en base et dans Cache le dernier objet de checkpoint défini par le GC.
 
-`static async collNs (transaction, nom, ns)`
-- retourne tous les rows de la collection de nom donné, pour l'espace ns.
+##### `static async getEspaceOrg (op, org)`
+Retourne le row compilé de l'espace obtenu par son code d'organisation.
 
-`static async scoll (transaction, nom, id, v)`
-- retourne tous les rows de la sous-collection de nom donné (`notes transferts membres sponsorings chats`) de version postérieure à v.
+##### `static async org (op, id)`
+Retourne le code de l'organisation pour un ns donné.
 
-`static async delScoll (nom, id)`
-- purge, hors transaction, tous les documents de la sous-collection de nom et d'id donné.
+#### `AuthSession`
+Cette classe conserve une entrée par session authentifiée et en gère la disparition par défaut d'activité (heartbeat).
 
-`static async delAvGr (id)`
-- purge, hors transaction, le groupe ou l'avatar d'id donné.
+#### `Operation`
+C'est la classe générique ancêtre des opérations. Chaque opération a une classe spécifique dans le module `operation.mjs` qui hérite de cette classe générique:
+- authentification de l'opération,
+- enchaînement des phases 1 2 et 3,
+- enregistrement effectif des mises à jour en fin de phase-2 (juste avant commit de la transaction),
+- signalement des mises à jour au module ws.mjs (en SQL) pour synchronisation WebSocket,
+- retour du résultat.
 
-`static async getComptaHps1 (transaction, hps1)`
-- retourne le row `comptas` dont l'attribut hps1 est celui donné en argument (accès par le hash de la phrase secrète raccourcie).
+Cette classe propose des méthodes d'interface vers les métodes des providers DB et vers l'accès à Cache: ce ne sont que des commodités syntaxiques.
 
-`static async getAvatarHpc (transaction, hpc)`
-- retourne le row `avatars` dont l'attribut hpc est celui donné en argument (accès par le hash de la phrase de contact raccourcie).
+Enfin cette classe expose aussi une dizaine de méthodes fonctionnelles ayant à être sollicitées depuis plus d'une opération.
 
-`static async getSponsoringIds (transaction, ids)`
-- retourne le row `sponsorings` dont l'attribut ids est celui donné en argument (accès par le hash de la phrase de sponsorings raccourcie).
+_Remarque_: la logique aurait voulu que la classe `Operation` soit incrite dans le module `operations.mjs` : il a été préféré d'isoler le code générique dans un module à part, choix discutable certes mais qui se défend aussi.
 
-`static async getGcvols (ns)`
-- retourne tous les rows gcvols de l'espace ns donné (pour traitement à la fin de la phase de connexion du Comptable de l'espace).
+Plus de détail en annexe.
 
-`static async setVdlv (id, dlv)`
-- force la dlv, hors transaction et sans changer la version v, du document `versions` d'id donné (utilisé par le GC).
+### `operations.mjs`
+Toutes les opérations de l'API figurent dans ce module elles héritent de Operation décrite dans `modele.mjs`.
 
-## Classe `Operation`
+Environ 80 classes: documentation de la signature dans le code.
+
+### `sqlite.mjs` `firestore.mjs`
+Ce sont les deux classes provider d'accès à la base.
+
+Elles implémente les mêmes méthodes, mêmes signatures mais code différent.
+
+Leurs signatures commentées sont à lire directement dans le code.
+
+Les méthodes `async` de lecture retournent UN row (ou null) ou un array de rows (possiblement vide). Dans quelques cas le row retourné est retourné compilé.
+
+La classe Operation interface certaines de ces méthodes en proposant un dernier paramètre supplémentaire `assert`: quand il est, au lieu de retourner null la méthode lève une exception A_SRV (assertion).
+
+
+# Annexe: détails à propos de la classe `Operation`
 Le déclenchement d'une opération `MonOp` sur réception d'une requête `.../op/MonOp`,
 - créé un objet `MonOp` héritant de `Operation`,
 - invoque successivement :
   - sa méthode `phase1()` qui s'exécute hors de toute transaction, typiquement pour des contrôles d'argments,
   - sa méthode `phase2()` qui s'exécute dans le contexte d'une unique transaction.
+  - sa `phase3()` qui s'exécute après le commit de la transaction pour certaines actions de nettoyge et / ou d'accès au storage.
 
 Dans une transaction Firestore aucune lecture n'est autorisée dès qu'une mise à jour a été effectuée. Les mises à jour sont de ce fait _enregistrées et mises en attente_ au cours de la phase 2 et ne seront effectivement faites qu'après la phase 2.
 
-En conséquence, les opérations doivent prendre en compte que la modification d'un document n'est jamais perceptible dans la même transction par une lecture : le cas échéant si nécessaire stocker en mémoire de l'objet opération les mises à jour si elles participent de la logique de l'opération.
+En conséquence, 
+- les opérations doivent prendre en compte que la modification d'un document n'est jamais perceptible dans la même transction par une lecture : le cas échéant si nécessaire stocker en mémoire de l'objet opération les mises à jour si elles participent de la logique de l'opération.
+- une opération doit veiller à ne pas construire plusieurs mies à jour d'un même document dans des méthodes qui s'ignoreraient.
 
 ### Authentification avant `phase1()`
 Chaque classe Operation spécifie un attribut authMode qui déclare comment interpréter l'attribut `token` reçu dans l'objet `args` (argments sérialisés reçu dans le body de la requête ou queryString de l'URL). Cet objet est disponible dans `this.args` :
@@ -460,86 +449,3 @@ Chaque classe Operation spécifie un attribut authMode qui déclare comment inte
 
 `delete (row) `
 - Inscrit row dans les rows à détruire en phase finale d'écritue, juste après la phase 2.
-
-### Méthodes `async` de lecture
-Selon la méthode,
-- retourne UN row (ou null) ou un array de rows (possiblement vide).
-- quand le dernier paramètre `assert` est true, au lieu de retourner null, lève une exception A_SRV (assertion).
-
-async getAllRowsEspace ()
-
-async getRowEspace (id, assert)
-- de Cache
-
-async getAllRowsTribu ()
-
-async getRowTribu (id, assert)
-- de Cache
-
-async getRowSynthese (id, assert)
-- de Cache
-
-async getRowCompta (id, assert)
-- de Cache
-
-async getRowVersion (id, assert, nonZombi)
-- de Cache.
-- génère une assert si le rowVersion est zombi et l'argument `nonZombi` à true.
-
-async getRowAvatar (id, assert)
-- de Cache
-
-async getRowGroupe (id, assert)
-- de Cache
-
-async getAllRowsNote(id, v)
-
-async getRowNote (id, ids, v, assert)
-
-async getAllRowsChat(id, v)
-
-async getRowChat (id, ids, v, assert)
-
-async getAllRowsSponsoring(id, v)
-
-async getRowSponsoring (id, ids, v, assert)
-
-async getAllRowsMembre(id, v)
-
-async getRowMembre (id, ids, v, assert)
-
-async setFpurge (idag, lidf) 
-- créé, hors transaction, un document `Fpurge` pour un avatar / groupe idag et une liste éventuelle restrictive de fichiers.
-- Retourne l'id générée
-
-async unsetFpurge (id)
-- supprime, hors transaction, un document `fpurges`.
-
-async listeFpurges ()
-- retourne une array des rows `fpurges` existants.
-
-async listeTransfertsDlv (dlv)
-- retourne une array des couples [id, ids] des documents `transferts` ayant une dlv inférieure ou égale à celle passée en argument.
-
-async purgeTransferts (id, ids)
-- purge hors transaction le document transfert.
-
-async purgeDlv (nom, dlv)
-- purge hors transaction les sponsorings ou versions (selon le nom en argument) ayant une dlv inférieure ou égale à dlv.
-
-### Méthodes invoquées depuis plus d'une opération
-`async majVolumeGr (idg, dv1, dv2, simu, assert)`
-- Met à jour les volumes du groupe.
-- Refuse si le volume est en expansion et qu'il dépasse le quota.
-- si l'objet `versions` du groupe n'existe pas, une exception est levée (par une assert).
-- Son changement de version et update est fait SAUF si simu est true.
-- Retourne la version du document `versions`.
-
-`async majCompteursCompta (idc, dv1, dv2, vt, ex, assert)`
-- Si `ex` lève une exception en cas de dépassement de quota
-- si l'objet `comptas` n'existe pas, une exception est levée (par une assert).
-- Retourne `compta` ou null s'il n'y avait rien à faire.
-
-`async MajSynthese (tribu, noupd)`
-- Met à jour le document syntheses de l'espace suite à la mise à jour d'une tribu.
-- si noupd, le this.update de la synthèse n'est pas effectuée car il y en a une autre à effectuer ensuite.

@@ -5,7 +5,7 @@ L'application est une application Web, une **_PWA Progressive Web App_**:
 - elle pourra ensuite l'être depuis ce même navigateur sans connexion à Internet (en mode _avion_, consultation seulement).
 
 Quatre grands composants contribuent à ce service :
-- **un serveur joignable sur Internet** par exemple sur l'URL https://asocial.demo.net.
+- **un serveur HTTPS joignable sur Internet** par exemple sur l'URL https://asocial.demo.net.
 - **une application UI d'interface utilisateur s'exécutant dans un navigateur** qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app/index.html).
 - **un site Web statique** principalement documentaire accessible depuis le navigateur à l'URL https://asocial.demo.net/www. Dépôt git `asocial-doc`.
 - **un programme utilitaire de chargement local de fichiers** dans un répertoire local pouvant être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (`upload.exe` pour la version Windows). 
@@ -80,6 +80,13 @@ Du fait de l'uniformité de l'interface d'accès, l'utilitaire `export-st` perme
 
 > Remarque: il est donc simple d'effectuer une photo d'un environnement de production vers un autre de test et le cas échéant d'ailleurs de permettre aux utilisateurs d'accéder au choix aux deux.
 
+### GC _garbage collector_ quotidien
+Ce traitement s'exécute automatiquement sur le serveur une fois par jour à des fins de nettoyage de données obsolètes et de détection de non utilisation de comptes.
+
+Il intervient aussi pour nettoyer le _storage_.
+
+C'est le seul traitement qui n'est pas sollicité par une requête reçue par le serveur HTTP.
+
 ## Synthèse
 **Le serveur est _frontal_ de _sa_ base de données:** il n'y a que lui qui accède à cette base. Celle-ci est mise à jour par suite de l'exécution _d'opérations_ soumises par les sessions UI.
 - toute opération est _atomique et consistante_, effectuée en totalité ou pas du tout, peut concerner plusieurs documents et garantit la cohérence fonctionnelle, le respect des règles, sur l'ensemble des documents.
@@ -89,16 +96,17 @@ Du fait de l'uniformité de l'interface d'accès, l'utilitaire `export-st` perme
 - les fichiers sont transférés directement entre sessions et storage (sans passer par le serveur frontal);
 - la validation de l'existence des fichiers est assurée par le serveur frontal, ainsi que la soumission des ordres de suppression.
 
-**Utilitaire de l'administrateur technique d'un site** : par commodité de développement, il est hébergé dans le logiciel du serveur. 
-
-Il se lance en ligne de commande d'un terminal d'un PC et propose les fonctions suivantes:
-- transfert (export) de la partie de la base données relative à une organisation dans une autre base (ou la même).
-- transfert (export) des fichiers d'une organisation d'un _storage_ à un autre (ou le même).
-- purge des données d'une organisation dans une base.
-- purge des fichiers d'une organisation dans un storage.
+# Utilitaire de l'administrateur technique
+Par commodité de développement, il est intégré au logiciel du serveur, lancé en ligne de commande dans un terminal avec pour premier argument le nom de l'utilitaire
+- `export-db` : export de la partie de la base données relative à une organisation dans une autre base (ou la même).
+- `export-st` : export des fichiers d'une organisation d'un _storage_ à un autre (ou le même).
+- `purge-db` : purge des données d'une organisation dans une base.
+- `purge-st` : purge des fichiers d'une organisation dans un storage.
 
 # L'application UI
-C'est une application Web s'exécutant dans un browser. Elle est écrite (en Javascript / HTML / SASS) en utilisant la couche `vuejs.org` et au-dessus de celle-ci des composants de `quasar.dev`. Dépôt git `asocial-app`.
+C'est une application Web (buildée en _Progressive Web App_) s'exécutant dans un browser. 
+
+Elle est écrite (en Javascript / HTML / SASS) en utilisant la couche `vuejs.org` et au-dessus de celle-ci des composants de `quasar.dev`. Dépôt git `asocial-app`.
 
 Les données affichées à l'écran,
 - a) ont été initialement téléchargées à la connexion de l'utilisateur,
@@ -164,16 +172,50 @@ L'application UI comporte plusieurs logiques:
 - **les commandes de _navigation_** permettant de choisir ce qu'on voit à l'écran.
 - **les dialogues de _saisie_** des données paramètres des opérations souhaitées et la soumission de ces opérations.
 
-# `upload` 
-Cet utilitaire permet de stocker dans un répertoire local d'un poste (Windows / Linux) des notes et des fichiers attachés aux notes. Dépôt git `upload`.
+# Téléchargement de notes sur un poste: `upload` 
+Cet utilitaire permet de stocker dans un répertoire local d'un poste (Windows / Linux) des notes et leurs fichiers attachés. Dépôt git `upload`.
 
-Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes et leurs fichiers sélectionnées par l'utilisateur, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait donc appel au micro-serveur Web `upload`.
+Une page Web standard n'est pas autorisée à écrire sur le système de fichier du poste, sauf quand l'utilisateur en donne l'autorisation et la localisation fichier par fichier : pour télécharger en local toutes les notes sélectionnées par l'utilisateu et leurs fichiers, ce qui peut représenter des centaines / milliers de fichiers et des Go d'espace, l'application UI fait appel à un micro-serveur HTTP `upload` qui s'exécute localement sur le poste.
 
 Le source consiste en moins de 100 lignes de code écrite en `node.js` / Javascript.
 
 `upload` peut être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (`upload.exe` pour la version Windows). Dépôt git `upload`.
 
-Une fois téléchargé et lancé sur le poste où s'exécute le navigateur accédant à l'application, cet utilitaire permet de récupérer (en clair) dans un répertoire local au poste les notes et leurs fichiers de la sélection opérée par l'utilisateur. 
+Une fois téléchargé et lancé sur le poste où s'exécute le navigateur accédant à l'application, ce micro serveur HTTP permet de récupérer (en clair) dans un répertoire local au poste les notes sélectionnées par l'utilisateur et leurs fichiers. 
+
+# Espaces
+Un _site_ constitué d'un **serveur** (et sa base de données) et d'un **storage**, peut héberger plusieurs organisations de manière totalement étanche entre elles.
+
+Chaque site a,
+- son _administrateur technique_, ayant sa phrase secrète de connexion qu'il est seul à connaître en clair,
+- une _clé technique de cryptage spécifique du site_ pour certains cryptages techniques (mais qui ne permet en rien d'accéder aux données cryptées par les comptes). Seul l'administrateur technique en connaît la source en clair.
+- un brouillage de ces deux clés est enregistré dans le fichier de configuration technique `keys/app_keys.json`. Pour exporter seule la forme brouillée est requise.
+
+**Une organisation est identifiée par un code** de 4 à 8 lettres ou chiffres ou - comme `monorg`:
+- à la connexion un utilisateur fournit le code de son organisation et sa phrase secrète.
+- dans le _storage_ chaque organisation a un _folder_ portant le nom de l'organisation. Autre expression plus exacte les noms des fichiers des notes de l'organisation `monorg` commencent tous par `monorg/...`.
+
+En base de données chaque organisation est identifiée par un code `ns` (_name space_) valant de `10` à `69`:
+- le document de la collection `espaces` d'id `12` par exemple donne la correspondance entre ce numéro `12` et le nom de l'organistion `monorg`.
+- un autre document de la collection `syntheses` a aussi pour identifiant ce numéro `12`.
+- tous les autres documents ont, soit un identifiant principal _id_, soit un couple d'identifiants principal et secondaire _id ids_.
+- les identifiants principaux ont 16 chiffres, les deux premiers étant le `ns` attribué à l'organisation dans la base.
+- quelques documents (collections `comptas avatars sponsorings`) ont une propriété indexée qui porte aussi une valeur de 16 chiffres dont les 2 premiers sont le `ns` de l'organisation.
+- toutes les autres propriétés des documents référençant un autre document par son id, ne porte qu'une id à 14 chiffres (sans le ns).
+
+**Conséquences**
+- **on peut exporter une base** en lui changeant son couple `12 monorg` en un autre `24 monorg2`:
+  - le document exporté `espaces` contient la correspondance `24 monorg2`
+  - les id des documents exportés (et les quelques propriétés indexées), sont exportées en remplaçant les deux premiers chiffres `12` par `24`.
+  - la base de données destinataire peut être accédée par des utilisateurs donnant à la connexion `monorg2` comme organisation (et même phrase secrète): ils voient les données dans le même état qu'avec leur connexion avec `monorg`.
+- **on peut exporter un storage** `monorg` en `monorg2`, les fichiers étant copiés à l'identique mais avec un nom qui commence par `monorg2/...` au lieu de `monorg/...`
+- on peut purger une base de données d'un `ns` donné (12 par exemple).
+- on peut purger un espace de nom `monorg` donné.
+
+Il est simple de procéder à l'exportation d'une organisation vers un autre site, de technologie différente ou non pour la base de données et le storage, et adminsitrée par une entité complètement différente et autonome de celle source.
+
+Il est aussi simple de _prendre une photo_ à un instant donné d'un espace 12 par exemple et de l'exporter sur un espace 24 à des fins d'audit, d'archivage ou de debug.
+- pendant l'export, l'espace source est figé par l'administrateur technique en lecture seule pour disposer d'un cliché cohérent, il est ensuite réouvert à la mise à jour à la fin de l'export.
 
 # Annexe : _ES6_ versus _CommonJs_
 Les logiques de l'application UI comme du serveur sont écrites en Javascript: la question se pose donc du système de modularisation choisi.

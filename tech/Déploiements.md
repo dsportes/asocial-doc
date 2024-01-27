@@ -465,10 +465,6 @@ Pour un transfert entre deux sites dont les administrateurs veulent garder leurs
       "apitk": "VldN...Rm0Q"
     }
 
-
-
-
-
 ### Rappel : variables d'environnement
 Elles sont générées par `src/sever.js` en fonction de `src/config.mjs` : elles n'ont pas à être gérées extérieurement.
 

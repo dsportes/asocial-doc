@@ -1,5 +1,5 @@
 # Application UI
-Une première partie décrit la structure visuelle de l'application en App et pages, panels / dailogues / components.
+Une première partie décrit la structure visuelle de l'application en App et pages, panels / dalogues / components.
 
 La seconde partie décrit les données qui sont affichées, le _modèle_ et les données le cas échéant persistentes localement.
 
