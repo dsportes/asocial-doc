@@ -28,9 +28,9 @@ Page de test - [help/page3_fr-FR](./help/page3_fr-FR.md)
 
 ## Spécifications Techniques
 
-Architecture Générale - [Documents](tech/Architecture.md)
+Architecture Générale - [Architecture](tech/Architecture.md)
 
-API du serveur - [Documents](tech/API-Serveur.md)
+API du serveur - [API-Serveur](tech/API-Serveur.md)
 
 Structuration des données en _documents_ - [Documents](tech/Documents.md)
 
