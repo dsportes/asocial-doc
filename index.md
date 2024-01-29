@@ -18,7 +18,7 @@ Détection et gestion des disparitions - [Disparitions](appli/Disparitions.md)
 
 Les _micro_ bases locales des comptes dans les navigateurs (en chantier) - [BasesLocales](appli/BasesLocales.md)
 
-Réflexions sur la logique de la maîtrise des volumes - [Volumes](appli/Volumes.md)
+En savoir plus sur la maîtrise des coûts d'hébergement - [Couts-Hebergement](appli/Couts-Hebergement.md)
 
 Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique - [Ethique](appli/Ethique.md)
 

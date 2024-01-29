@@ -378,10 +378,11 @@ Toute opération porte un `token` portant lui-même le `sessionId`:
 
 **`token`** : sérialisation encodée en base 64 de :
 - `sessionId`
+- `org` : le code l'organisation (qui permet au serveur de retrouver le `ns` associé).
 - `shax` : SHA de X (PBKFD de la phrase secrète complète).
-- `hps1` : hash du PBKFD du début de la phrase secrète.
+- `hps1` : hash du PBKFD du début de la phrase secrète (**sans** le `ns`).
 
-Le serveur recherche l'`id` du compte par `hps1` (index de `comptas`)
+Le serveur recherche l'`id` du compte par `ns + hps1` (index de `comptas`)
 - vérifie que le SHA de `shax` est bien celui enregistré dans `comptas` en `shay`.
 - inscrit en mémoire `sessionId` avec l'`id` du compte et un `ttl`.
 
@@ -617,7 +618,7 @@ _data_:
 - en cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ d'être toujours _en attente_ (ne pas avoir de date de réception). Le ticket est physiquement effacé de `tickets` et de la liste `comptas.tickets`.
 
 **Réception d'un paiement par le Comptable**
-- le Comptable ne peut _que_ compléter un ticket _en attente_ (pas de date de réception) dans le mois d'émission du ticket ou le précédent. Au delà le ticket est _auto-détruit_.
+- le Comptable ne peut _que_ compléter un ticket _en attente_ (pas de date de réception) **dans le mois d'émission du ticket ou le précédent**. Au delà le ticket est _auto-détruit_.
 - sur le ticket correspondant le Comptable peut remplir:
   - le montant `mc` du paiement reçu, sauf indication contraire par défaut égal au montant `ma`.
   - une référence textuelle libre `refc` justifiant une différence entre `ma` et `mc`. Ce peut être un numéro de dossier de _litige_ qui pourra être repris ensuite entre le compte A et le Comptable.
@@ -626,7 +627,7 @@ _data_:
 
 **Lorsque le compte A va sur sa page de gestion de ses crédits,** 
 - les tickets dont il possède une version plus ancienne que celle détenue dans tickets du Comptable sont mis à jour.
-- les tickets émis un mois M toujours non réceptionnés avant la fin de M+1 sont supprimés.
+- les tickets émis un mois M toujours non réceptionnés avant la fin de M+2 sont supprimés.
 - les tickets de plus de 2 ans sont supprimés. 
 
 **Incorporation du crédit dans le solde du compte A**
@@ -643,18 +644,18 @@ _data_:
 - la mise à jour ultime qui inscrit `di` à titre documentaire ne concerne que l'exemplaire du compte A.
 
 #### Listes disponibles en session
-Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut, sauf ceux auto-détruits parce que non réceptionnés avant fin M+1 de leur génération.
+Un compte A dispose de la liste de ses tickets sur une période de 2 ans, quelque soit leur statut, sauf ceux auto-détruits parce que non réceptionnés avant fin M+2 de leur génération.
 
 Le Comptable dispose en session de la liste des tickets détenus dans tickets. Cette liste est _synchronisée_ (comme pour tous les sous-documents).
 
 #### Arrêtés mensuels
-Le Comptable effectue des arrêtés mensuels. Chaque arrêté mensuel d'un mois M,
-- récupère tous les tickets générés à M-1 et les efface de la liste `tickets`,
-- les stocke dans un _fichier_ **CSV** dans la note `Tickets` du Comptable.
+Le GC effectue des arrêtés mensuels consultables seulement par le Comptable. Chaque arrêté mensuel d'un mois M,
+- récupère tous les tickets générés à M-2 et les efface de la liste `tickets`,
+- les stocke dans un _fichier_ **CSV** crypté dans le fichier `T_202407` du Comptable.
 
 Pour rechercher un ticket particulier, par exemple pour traiter un _litige_ ou vérifier s'il a bien été réceptionné, le Comptable,
-- dispose de l'information en ligne pour tout ticket de M et M-1,
-- dans le cas contraire, ouvre l'arrêté mensuel correspondant au mois du ticket cherché qui est un fichier CSV basique.
+- dispose de l'information en ligne pour tout ticket de M M-1 M-2,
+- dans le cas contraire, ouvre l'arrêté mensuel correspondant au mois du ticket cherché qui est un fichier CSV basique (crypté dans le storage).
 
 #### Numérotation des tickets
 L'ids d'un ticket est un entier de la forme : `aammrrrrrrrrrr`
@@ -666,7 +667,7 @@ Un code à 6 lettres majuscules en est extrait afin de le joindre comme référe
 - la première lettre  donne le mois de génération du ticket : A-L pour les mois de janvier à décembre si l'année est paire et M-X pour les mois de janvier à décembre si l'année est impaire.
 - les autres lettres correspondent à `r...r`.
 
-Le Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+1 de sa date de génération à partir d'un code à 6 lettres désigné par un compte pour audit éventuel de l'enregistrement.
+Le Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+2 de sa date de génération à partir d'un code à 6 lettres désigné par un compte pour audit éventuel de l'enregistrement.
 
 > **Personne, pas même le Comptable,** ne peut savoir quel compte A a généré quel ticket. Cette information n'est accessible qu'au compte A lui-même et est cryptée par sa clé K.
 

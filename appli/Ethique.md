@@ -1,17 +1,21 @@
-@@Index général de la documentation - [index](./index.md)
+@@Index général de la documentation - [index](../index.md)
 
-# Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique
-Des organisations / associations / rencontres informelles de personnes, peuvent décider d'avoir leur propre **réseau A-social**. 
+@@Introduction - [README](../README.md)
+
+@@Vue d'ensemble de l'application - [Présentation](./Présentation.md)
+
+# Réflexions à propos des espaces a-sociaux et du contrôle de l'éthique
+Des organisations / associations / rencontres informelles de personnes, peuvent décider d'avoir leur propre **espace A-social**. 
 
 Ci-après quelques réflexions sur leurs profils types et les approches qu'elles peuvent avoir sur la maîtrise des ressources consommées par les comptes.
 
 ### Organisation payant l'hébergement pour ses adhérents
 L'accès à l'application est un service de l'organisation, gratuit pour ses adhérents, du moins invisiblement inclus dans leur adhésion, ou les crédits de sponsoring dont elle bénéficie.
 - L'organisation connaît ses adhérents et leurs rôles : elle propose des quotas conformes aux exigences des rôles tenus, aux statuts (salariés, ...).
-- L'organisation fait le rapprochement entre chaque adhérent et le nom de l'avatar principal de son compte dans l'application. Mais elle ne peut pas le faire avec les autres avatars du compte, les groupes auxquels il participe.
+- L'organisation fait le rapprochement entre chaque adhérent et le nom de l'avatar principal de son compte dans l'application. Mais elle ne peut pas le faire avec les autres avatars secondaires du compte ni les groupes auxquels il participe.
 - **Sujets à traiter:**
   - (1) si un adhérent quitte l'organisation, il faut souvent lui retirer son accès -sous quel délai- et de facto récupérer ses ressources.
-  - (2) si des personnes rapportent l'usage par un compte du réseau pour des fins étrangères à l'objet de l'organisation, voire opposées à cet objet, comment lui retirer son accès.
+  - (2) si des personnes rapportent l'usage par un compte de l'espace pour des fins étrangères à l'objet de l'organisation, voire opposées à cet objet, comment lui retirer son accès.
 
 ### Organisation par _cotisation_
 L'organisation, formelle ou informelle, qu'elle soit à but lucratif ou non, a opté pour laisser chaque adhérent choisir son niveau de quotas et corrélativement en payer l'usage.
@@ -26,24 +30,24 @@ L'organisation, formelle ou informelle, qu'elle soit à but lucratif ou non, a o
 ### Contrôle éthique ou non
 Si l'usage de comptes _autonomes_ impose bien à ceux-ci de payer leur abonnement, il ne donne pas les moyens d'exercer un contrôle _éthique_.
 
-> Si une organisation veut conserver un contrôle _éthique_ sur les notes partagées dans les groupes de ses adhérents, il suffit qu'elle interdise les comptes _autonomes_: elle pourra faire usage du blocage. Encore faut-il pouvoir établi une corrélation entre un compte et les écrits d'un de ses avatars, ce qui est abordé ci-dessous.
+> Si une organisation veut conserver un contrôle _éthique_ sur les notes partagées dans les groupes de ses adhérents, il suffit qu'elle interdise les comptes _autonomes_: elle pourra faire usage du blocage. Encore faut-il pouvoir établir une corrélation entre un compte et les écrits d'un de ses avatars, ce qui est abordé ci-dessous.
 
 ### Un compte peut-il devenir _préjudiciable_ aux autres ?
 L'organisation, voire la justice, est-elle fondée à qualifier un compte _d'indésirable_ et en obtenir la clôture ?
 
-Corréler un compte et les notes de ses avatars n'est pas possible. Le sponsor du compte connaît le nom / pseudo du compte qu'il a sponsorisé mais ce dernier a pu créer des avatars secondaires connus de lui seul:
+Corréler un compte et les notes personnelles de ses avatars n'est pas possible. Le sponsor du compte connaît le nom / pseudo du compte qu'il a sponsorisé mais ce dernier a pu créer des avatars secondaires connus de lui seul:
 - personne ne peut en avoir connaissance des notes personnelles de ses avatars: elles ne peuvent donc causer aucun préjudice à qui que ce soit.
-- les notes qu'un de ses avatars écrit ne peuvent pas être reliées à son compte. Si elles _déplaisent_ dans le groupe, 
-  - son avatar peut s'en faire exclure s'il n'est pas animateur,
+- les notes qu'un de ses avatars écrit dans un groupe ne peuvent pas être reliées à **son compte**, ce sont les notes _d'un_ avatar. Si elles _déplaisent_ dans le groupe, 
+  - son avatar peut se faire retirer les droits d'accès aux notes et aux membres s'il n'est pas animateur,
   - si son avatar est animateur, les autres membres peuvent _l'isoler_:
     - créer un autre groupe,
     - récupérer les notes du premier,
     - ne pas inviter _l'intrus_ dans le nouveau groupe. 
 
-En résumé, tout groupe peut s'isoler d'un membre jugé indésirable, qui finira seul dans des groupes dont il est l'unique participant avec une capacité de nuisance publique nulle.
+En résumé, tout groupe peut s'isoler d'un membre jugé indésirable, qui finira seul dans des groupes (m^me si ily a un pouvoir d'animateur) dont il est l'unique participant avec une capacité de nuisance publique nulle.
 
 ### Protection des libertés individuelles
-Le titulaire d'un comptes, ou un groupe de titulaires, peut se mettre à l'abri de l'arbitraire d'une autorité en devenant comptes _autonomes_ et ne pas risquer ainsi un blocage _d'opinion_.
+Le titulaire d'un compte, ou un groupe de titulaires, peut se mettre à l'abri de l'arbitraire d'une autorité en devenant comptes _autonomes_ et ne pas risquer ainsi un blocage _d'opinion_.
 
 La liberté de chacun est certes encadrée par la loi dans son expression _**publique**_, pas dans les pensées / écrits / conversations privées. C'est leur publication, accès au public, qui est restreinte. 
 
