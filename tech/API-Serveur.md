@@ -222,13 +222,67 @@ Le stockage persistant est Google Firestore.
 - le stockage est assurée par Firestore : l'instance FireStore est découplée du GAE, elle a sa propre vie et sa propre URL d'accès. En conséquence elle _peut_ être accédée depuis n'importe où, et typiquement par un utilitaire d'administration sur un PC pour gérer un upload/download avec une base locale _SQLite_ sur le PC.
 - une session de l'application reçoit de Firestore les mises à jour sur les `espaces comptas tribus versions` qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
 
-### Providers Storage
+## Providers Storage
 Selon le même principe trois classes _provider_ gèrent le storage et ont un même interface. Par simplification elles figurent dans `src/storage.mjs`:
-- `fs` : un file-system local du serveur,
-- `s3` : un Storage S3 de AWS (éventuellement minio).
-- `gc` : un Storage Google Cloud Storage.
+- `FsProvider` : un file-system local du serveur,
+- `S3Provider` : un Storage S3 de AWS (éventuellement _minio_).
+- `GcProvider` : un Storage Google Cloud Storage.
 
 En pratique il n'y a pas de raisons à assurer un Storage `s3` sous GAE.
+
+**Méthodes:**
+
+    async ping ()
+    getUrl (org, id, idf)
+    putUrl (org, id, idf)
+    async getFile (org, id, idf)
+    async putFile (org, id, idf, data)
+    async delFiles (org, id, lidf)
+    async delId (org, id)
+    async delOrg (org)
+    async listFiles (org, id)
+    async listIds (org)
+
+Le **serveur** gère le storage pour:
+- `del...` les suppressions,
+  - suppressions individuelles de fichiers,
+  - disparition d'un avatar,
+  - traitement des _uploads_ perdus.
+- `putFile` : pour enregistrer un rapport généré sur le serveur comme l'export CSV des compteurs d'abonnement / consommation.
+
+L'utilitaire `export-st purge-st` utilise les providers,
+- pour lister des fichiers (`listFiles listIds`),
+- pour supprimer des fichiers (`delOrg`),
+- pour transférer des fichiers (`getFile, putFile`).
+
+En conséquence, sauf le cas très particulier des rapports générés sur le serveur, **le serveur n'utilise pas `getFile putFile`**:
+- les sessions **accèdent directement** au storage pour upload / download : le contenu des fichiers ne transitent pas par le serveur.
+- mais il n'est pas question de transmettre aux sessions les données d'authentification d'accès aux storages pour d'évidentes raisons de sécurité.
+- pour permettre à une session de _lire / écrire_ un fichier, un provider génère sur demande du serveur (qui a les accréditations nécessaires) une URL de GET / PUT:
+  - elle est fort complexe et contient un jeton d'accès valide pour CE fichier précis pendant une durée limitée.
+  - la session emploie juste cette URL sur un simple GET HTTP (download) ou un PUT HTTP (upload).
+
+Ainsi en toute sécurité les sessions échangent des contenus avec le storage (des fichiers attachés aux notes, plus rarement un rapport généré par le serveur), directement et sans que ce contenu ne transite par le serveur.
+
+### Cas particulier du provider File-System
+Ce provider ne sert que:
+- en test local,
+- pour des exports entre deux storages nécessitant un tampon intermédiaire faute de pouvoir techniquemnt utiliser deux instances du même type de storage (_Google Cloud Storage_ exigeant un seul `projectId`).
+
+Dans ce cas le contenu d'un fichier en GET ou en PUT tansite par le serveur puisqu'il est lui-même serveur de storage sur un directory local du host supportant le serveur / utilitaire.
+
+L'URL du serveur `https://.../storage/azer789...` en GET et en PUT est utilisé pour un download / upload:
+- l'URL est décodée pour retrouver l'identification du fichier à 3 niveaux `org/id/fichier`,
+- le provider courant de storage est sollicité pour effectuer un `getFile / putFile`.
+- le contenu du fichier a transité par le serveur avant d'être redirigé vers / depuis le provider courant.
+
+Tout provider doit implémenter `getUrl / putUrl` mais il peut toujours utiliser l'URL générique `https://.../storage/...`
+- c'est moins performant puisque le contenu des fichiers va transiter par le serveur,
+- ça marche toujours.
+
+Le provider `GcProvider` (_Google Cloud Storage_) propose bien `getUrl / putURL` **MAIS pas en mode _emulator_** où le service est omis. 
+- C'est pour celà que l'implémentation de `getUrl / putUrl` utilise l'URL générique et le transfert intermédiaire par le serveur, ce qui n'a aucune importance en test. 
+- A noter qu'in fine les fichiers se retrouvent bien dans le storage émulé, ils ont juste fait un transit supplémentaire en mémoire dans le cas d'usage de _emulator_.
 
 ## Modules dans `src/`
 

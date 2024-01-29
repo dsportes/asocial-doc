@@ -86,7 +86,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
   - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
 - `chatgrs`: un seul document par groupe. `id` est celui du groupe et `ids` vaut toujours `1`.
-- `tickets`: un document par ticket de crédit généré par un compte A. `ids` est un nombre aléatoire tel qu'il s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
+- `tickets`: un document par ticket de crédit généré par un compte A. `ids` est un nombre aléatoire tel qu'il puisse s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
 La _disparition_ d'un avatar ou d'un groupe, se traduit par :
 - son document `versions` ayant un statut de _zombi_, indiquant que l'avatar ou le groupe a disparu,

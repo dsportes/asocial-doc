@@ -1,46 +1,25 @@
-## Mots clés de la configuration : traductions
+## Dev
+GC à réviser / compléter.
 
-## Traductions
-- components
+Comptable: export historique des paiements
 
-## Couple et groupe
-- détection de la disparition d'un membre / conjoint : opération de MAJ du serveur.
-- vérifier extension / réduction du volume max
+Vérifier les conditions de prise d'hébergement d'un groupe
 
-## Contact
-- suppression : à réviser (cv.x à 1)
-- vérifier que A et C ne peuvent pas valider deux contacts symétriques.
-- maj du contact quotas contact et compte, ardoise, ne pas m'inviter en état attente / hors délai (avec prolongation) ???
+Suppression d'un avatar / groupe sur note-store.js: vérifier / tester
 
-## Rencontre / parrainage
-- vérifier suppression, prolongation, refus
-- vérifier refus parrainage
-- rencontre : A1 découvre que A0 est déjà contact ? chelou, le nom de A1 peut être détecté par A0 au moment de la demande de rencontre. Refus de A1 (ou non)
-- vérifier la pertinence du booléen - `parrain` : vrai si parrain dans un `contact`
+## Doc
+UI
 
-## Suppression d'un avatar (volontairement) : 
-- groupes hébergés : terminer l'hébergement.
-- récupérer l'espace pour le compte.
-- panel de progression : retrait des couples, retrait des groupes, suppression des secrets
-- suppression sauf primitif
-- suppression primitif = suppression compte
+Présentation ...
 
-## Affichage compta avatar(s)
-- à compléter (historique)
+Aide en ligne
 
-## Ralentissement de download
+## Tests
+Retester Firestore / Gc
 
-## Textes et pièces jointes en attente en mode avion
+Retester GAE
 
-## Démons serveur
-- quotidiens
-  - détection des disparus
-  - détection des groupes sans hébergement, disparition
-  - gestion des suppressions
-- scan des fichiers orphelins
-
-## Documentation
-- rubriques techniques: signatures et gestion des disparitions
+Retester S3
 
 ## Conversion de MD en HTML
 
@@ -52,3 +31,56 @@
     node md2html.js README
     
     (SANS extension .md)
+
+
+## Remarques diverses
+Dans i18.js 
+- ajouter `legacy: false,` sinon choix-langue ne s'initialise pas bien
+- importer configStore pour récupérer la valeur initiale de la locale
+
+Création du configStore qui va contenir la configuration
+- chargement dans appconfig.js
+
+choix-langue
+- la liste des localeOptions est récupéré de configStore
+- le modèle locale est la locale de i18n
+
+
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Quasar App: chrome",
+      "url": "https://localhost:8343",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMapPathOverrides": {
+        "webpack://asocial/./src/*": "${webRoot}/*"
+      }
+    },
+    {
+      "type": "firefox",
+      "request": "launch",
+      "name": "Quasar App: firefox",
+      "url": "https://localhost:8343",
+      "webRoot": "${workspaceFolder}/src",
+      "pathMappings": [
+        {
+          "url": "webpack://asocial/src",
+          "path": "${workspaceFolder}/src"
+        }
+      ]
+    }
+  ]
+}
+
+### Build et Web server
+quasar build -m pwa
+
+Lancement du serveur npm http-server (en https avec les bons certificats)
+
+http-server D:\git\asocial-app\dist\pwa -p 8343 -C D:\git\asocial-test1\config\fullchain.pem -K D:\git\asocial-test1\config\privkey.pem -S -P https://test.sportes.fr:8343

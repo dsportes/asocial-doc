@@ -466,3 +466,117 @@ Il y a deux sources de mise à jour :
   - les mises à jour éventuelles de chaque `AvSecret` pour chaque objet `Secret` existant correspondant.
   - les suppressions des `AvSecret` (et donc des idf dans `fdata / fetat`) pour chaque `AvSecret` pour lequel il n'existe plus de `Secret` (existant) associé.
 - **à la synchronisation pour chaque mise à jour / suppression** d'un `Secret` entraînant le cas échéant une mise à jour ou une suppression de l'`AvSecret` correspondant.
+
+# Données en mémoire, réactives (stores) ou non
+#### `config-store`
+Données de configuration récupérées au boot (par `boot/appconfig.js`) de `assets/config/app-config.json`
+
+#### `session-store`
+État courant de la session active (cf ci-dessus).
+
+#### `avatar-store`
+Map par id d'un avatar des avatars du compte (objet de classe Avatar)
+
+## Modèle des données en mémoire
+Il est consitué :
+- des stores, pour toutes les données susceptibles d'être affichées ou surveillées.
+- du répertoire des cartes de visite.
+
+#### Répertoire des cartes de visite
+##### Classe : `NomGenerique`
+- 4 variantes : `NomAvatar`, `NomGroupe`, `NomContact`, `NomTribu`
+- propriétés :
+  - `nom` : nom court immuable de l'objet
+  - `rnd` : u8(32) - clé d'encryption
+  - `id` : 
+    - pour tous les objets sauf le Comptable : `hash(rnd)`. Hash entier _js safe_ de rnd.
+      - type: reste de la division par 4 de l'id: 0:avatar 1:contact 2:groupe 3:tribu
+    - pour le Comptable : `IDCOMPTABLE` de api.mjs : `9007199254740988`
+
+##### Map statique `repertoire` de `modele.mjs`
+Fonctions d'accès
+- `resetRepertoire ()` : réinitialisation
+- `getCle (id)` : retourne le rnd du nom générique enregistré avec cette id
+- `getNg (id)` : retourne le nom générique enregistré avec cette id
+
+`repertoire` a une entrée pour :
+- 1-chaque avatar du compte,
+- 2-chaque groupe dont un avatar du compte est membre
+- 3-chaque contact dont un avatar du compte est conjoint interne
+- 4-chaque avatar externe,
+  - membre d'un des groupes ci-dessus,
+  - conjoint externe d'un des contacts ci-dessus
+
+Chaque entrée a pour clé `id` et pour valeur `{ ng, x }`
+- `ng` : objet `NomGenerique`
+- `x` : statut de disparition, `true` si disparu sinon `undefined` (vivant).
+
+Une entrée de répertoire est quasi immuable : la seule valeur qui _peut_ changer est `x` : inscrite à la connexion du compte, elle n'est mise à jour par synchronisation (c'est le GC qui le positionne au plus une fois).
+
+Le répertoire grossit en cours de session mais ne se réduit jamais. Il contient des objets "obsolètes":
+- avatar du compte détruit.
+- groupe n'ayant plus d'avatars du compte membre.
+- contact quitté par leur conjoint interne.
+- avatar externe n'étant plus membre d'aucun groupe ni conjoint externe d'aucun couple.
+
+# Annexe: l'arbre des notes
+Remarques et règles de gestion applicables à l'arbre des notes `note-store.js`
+
+Une note peut être :
+- top : elle est rattachée directement à son avatar ou groupe.
+- rattachée à une autre note définie par :
+  - rid : l'id de la note de rattachement,
+  - rids : l'ids de la note de rattachement,
+  - rnom : quand rid est une id de groupe, le nom de son groupe.
+
+**Règles :**
+- une note de groupe ne peut être rattachée qu'à une note du même groupe,
+- une note d'avatar peut être rattachée,
+  - soit à une note du même avatar,
+  - soit à une note de groupe.
+- donc un arbre de groupe peut contenir des notes de lui-même et d'avatars: les sous-arbres dont la tête est une note d'avatar n'ont que des notes du même avatar.
+
+### Racines _avatar_
+- des notes d'avatar ne peuvent parvenir qu'après que leur avatar ait été connu.
+- les racines _avatar_ sont toujours réelles.
+
+### Racines _groupe_, réelles et zombi
+- des notes de groupes ne peuvent parvenir qu'après que son groupe ait été déclaré : leur racines _groupe_ sont réelles.
+- mais des notes d'avatars peuvent parvenir en déclarant être rattachées à un groupe qui n'est pas encore, ou ne sera plus, déclaré: leurs racines _groupe_ est **zombi**. On a fabriqué pseudo groupe dans l'arbre qui représente un groupe inconnu (temporairement ou non) de la session.
+
+### Notes _fake_
+Une note _fake_ n'a aucun contenu et a été construite pour permettre à une ou d'autres notes qui en référençaient l'id/ids de s'y rattacher. Une note _fake_ peut figurer :
+- sous une racine _avatar_ réelle,
+- sous une racine _groupe_ réelle (le groupe existe),
+- sous une racine _groupe_ **zombi**, le groupe a existé un jour (sinon la note n'aurait pas pu être créée) mais n'existe plus, du moins dans la session en cours (résiliation ...).
+
+Pour des raisons de lisibilité, un goupe _zombi_ a un _nomc_ :
+- comme il n'existe que parce qu'une note _avatar_ y est rattachée,
+- comme cette note a été créée (ou bougée) sur un groupe qui a été connu,
+- la note _avatar_ a identifié son rattachement par `id/ids/nomc` ou `nomc` est celui du groupe auquel elle s'est rattachée et qui un jour ou l'autre dans le passé a bien été un nom de groupe réel (et l'est peut-être encore dans une autre session).
+
+### Disparition d'une note
+Si cette note est référencée par d'autres notes qui s'y rattache,
+- elle est transformée en note _fake_,
+- comme toute note _fake_ elle est attachée à une racine,
+  - avatar rèelle,
+  - groupe réelle,
+  - ou groupe zombi.
+- tout le sous-arbre depuis cette note reste attachée sur la note devenue _fake_.
+
+### Déplacement d'une note
+- **note _groupe_** : elle ne peut l'être que par rattachement à une autre note, réelle ou _fake_ du **même** groupe. Tout son sous-arbre suit.
+- **note _avatar_** : elle peut être déplacée (avec son sous-arbre qui ne contient que des notes du même avatar):
+  - derrière n'importe quelle note du même avatar, réelle ou _fake_,
+  - directement sous son avatar,
+  - derrière une note de groupe, réelle ou _fake_.
+  - directement sous un groupe réel ou zombi.
+
+### Visibilité des notes par avatar / groupe
+**Avatar**
+- toutes les notes portant comme id celle de l'avatar _visible_ sont visibles.
+
+**Groupe**
+- toutes les notes portant comme id celle du groupe _visible_ sont visibles.
+- **mais aussi** toutes les notes d'avatar telles qu'en remontant à leur rattachements successifs on tombe sur la racine du groupe. Mais cette information ne figure **pas** dans la note qui ne mentionne que son rattachement juste supérieur. Il faut donc par transitivité remonter jusqu'à la racine.
+
