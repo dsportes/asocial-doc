@@ -4,19 +4,33 @@
 
 @@Vue d'ensemble de l'application - [Présentation](./Présentation.md)
 
-# Répartition des coûts d'hébergement de l'application
+# Coûts d'hébergement de l'application
 
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
-#### Abonnement
-Il correspond aux coûts récurrents mensuels pour un compte même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
-- **Nombre total de documents sur la base de données**: `nn + nc + ng`
-  - **(nn) nombre de notes** personnelles et notes d'un groupe hébergé par le compte,
-  - **(nc) nombre de chats personnels** créés, 
-  - **(ng) nombre de participations actives aux groupes**.
-- **Volume des fichiers attachés aux notes** stocké sur un _Storage_.
+#### Espace de _base de données_ et espace de _fichiers_ (Storage)
+Ces deux espaces ont des coûts unitaires très différents (facteur de 1 à 25). Les fichiers sont stockés dans des _Storage_, des espaces techniques ayant une gestion très spécifique mais économique, et de plus soumis à peu d'accès (mais de plus fort volume).
 
-Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _volumes maximaux_** fixés pour le compte (qui lui est possible d'utiliser).
+#### Abonnement
+Il correspond aux coûts récurrents mensuels pour un compte, même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
+- **Nombre total de documents dans la base de données**: `nn + nc + ng`
+  - **(nn) nombre de notes** personnelles et notes d'un groupe hébergé par le compte,
+  - **(nc) nombre de chats personnels** non _raccrochés_, 
+  - **(ng) nombre de participations actives aux groupes**.
+- **Volume des fichiers attachés aux notes** stockés sur le _Storage_.
+
+Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _volumes maximaux_** fixés pour le compte (ce qu'il peut utiliser).
+
+> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les volumes maximaux de l'abonnement, sauf dans le cas où ceux-ci ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés. Dans ce dernier cas les volumes n'auront plus le droit de croître.
+
+#### Consommation de calcul
+La consommation correspond à l'usage effectif de l'application quand une session d'un compte est ouverte: elle est la somme de 4 facteurs, chacun ayant son propre tarif:
+- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc.
+- **(ne) nombre _d'écritures_** (en base de données): mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.
+- **(vd) volume _descendant_** (download) de fichiers téléchargés en session depuis le _Storage_.
+- **(vm) volume _montant_** (upload) de fichiers envoyés dans le _Storage_. Chaque création / mise à jour d'un fichier est décompté dans ce volume.
+
+> **Remarque par anticipation: les comptes O (_de l'organisation_) ont une _limite de coût mensuel de calcul_.**. Si le coût de consommation sur le mois en cours et le précédent dépasse cette limite ramenée au prorata des jours de ces deux mois, le compte subit une _restriction d'accès_.
 
 _L'ordre de grandeur_ des prix du marché, donne les coûts suivants en centimes d'euro annuel:
 
@@ -53,12 +67,12 @@ _L'ordre de grandeur_ des prix de marché donne les coûts unitaires suivants en
 > Les estimations d'un coût annuel pour un compte sont arbitraires car très dépendantes de l'usage de chacun et en particulier de la fréquence des sessions.
 
 ### Coût total
-Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `m1*u1 + m2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
-- `m1` = _volume maximal_ de la somme `nn + nc + ng`
-- `m2` = _volume maximal_ des fichiers attachés aux notes.
-- `nl ne` : nombres de lectures et d'écritures,
+Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `n1*u1 + v2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
+- `n1` = _nombre maximal de notes, chats, participations aux groupes_
+- `v2` = _volume maximal_ des fichiers attachés aux notes.
+- `nl ne` : nombres de lectures et d'écritures (en millions),
 - `vd vm` : volume descendant et montant.
-- les coûts d'abonnement `m1 m2` sont calculés au prorata du temps d'existence du compte dans le mois et de la durée elle-même du mois.
+- les coûts d'abonnement `n1 v2` sont calculés au prorata du temps d'existence du compte dans le mois et de la durée elle-même du mois.
 
 Un compte peut consulter à tout instant, en particulier:
 - le détail des coûts _exacts_ cumulés pour le mois en cours et les 3 précédents,
@@ -69,6 +83,24 @@ Un compte peut consulter à tout instant, en particulier:
 >_L'ordre de grandeur_ d'un coût total par compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible. Ce n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement pour un millier de comptes ...
 
 ## Le Comptable, les comptes _A_ et _O_
+
+Une organisation peut avoir des comptes ayant des modes de fonctionnement différents:
+- _A_ chaque compte est libre de son abonnement et de sa consommation mais les paye.
+- _O_ l'organisation paye pour le compte mais en contrepartie,
+  - fixe des limites d'abonnement / consommation,
+  - peut bloquer le compte, par exemple s'il quitte l'organisation, est décédé, etc. 
+
+### Le Comptable
+_Le Comptable_ désigne une personne, voire un petit groupe de personnes physiques qui:
+- a négocié avec le prestataire hébergeur les conditions et le prix de l'hébergement.
+- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour les comptes O, pris en charge par l'organisation.
+
+C'est un compte _O_ (c'est l'organisation qui paye ses coûts) _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Il a le privilège,
+- **de gérer les forfaits gratuits attribués par l'organisation**.
+- de déclarer si l'organisation accepte ou non des comptes autonomes,
+- de pouvoir sponsoriser des comptes autonomes.
+
+> Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
 
 #### Gestion des crédits
 Les crédits sont exprimés en _unité monétaire_ (signe €).

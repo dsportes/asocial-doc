@@ -4,76 +4,91 @@
 
 # Vue d'ensemble de l'application
 
-Une organisation, association, quelques amis ... peut décider de créer et d'utiliser son propre **espace a-social**, par exemple `monasso`, et a choisi un hébergeur qui a donné l'identification du service correspondant par une URL comme `https://srv1.monhebergeur.net/` 
+Une organisation, association, un groupe de quelques amis ... peut décider de disposer de son propre **espace a-social**, par exemple `monasso`, et a choisi un prestataire d'hébergement qui lui a donné l'identification du service correspondant par une URL comme `https://srv1.monhebergeur.net/` 
 
-Un compte se connecte en ouvrant la page à cette adresse et donne: 
+Pour se connecter à son espace, il suffit d'ouvrir dans un navigateur la page Web à cette adresse et de fournir: 
 - `monasso` : le code de son organisation enregistrée par l'hébergeur, 
-- `mabellephrasetressecrete` une phrase secrète d'au moins 24 signes qu'il est seul à connaître et n'est stockée en clair nulle part.
+- `mabellephrasetressecrete` une phrase secrète personnelle d'au moins 24 signes.
  
-Ce serveur Web permet d'obtenir l'application et gère aussi un serveur d'arrière plan contrôlant les accès à la base centrale où les données de chaque organisation sont stockées.
+Au bout de cette URL, un serveur délivre l'application et gère les accès à une base centrale où les données de chaque organisation sont stockées.
 
->Sur une URL d'hébergement telle que ci-dessus, jusqu'à 70 organisations peuvent être hébergées, toutes soigneusement étanches les unes des autres. Ceci permet à l'hébergeur d'enregistrer une nouvelle organisation en moins d'une minute à partir du moment où la question de la participation aux frais d'hébergement technique a été agréée entre l'hébergeur et l'organisation.
+> Derrière cette URL, jusqu'à 80 organisations étanches les unes des autres peuvent être gérées. Le prestataire peut enregistrer une nouvelle organisation en moins d'une minute après s'être mis d'accord sur le prix de l'hébergement.
 
->Une organisation n'est pas attachée à son hébergeur initial, il peut faire exporter ses données vers un autre, ce qui ne prend que le temps de la copie des données.
+> Une organisation n'est pas attachée à son prestataire initial, il peut faire exporter ses données vers un autre, ce qui ne prend que le temps de la copie des données, ou même s'il en a le minimum de compétences informatiques devenir son propre hébergeur, le logiciel de l'application étant disponible _open source_.
 
 ## Avatars, notes, groupes
-Pour pouvoir accéder à l'application une personne doit **se faire sponsoriser par une autre y ayant déjà un compte**. Un _sponsoring_ est identifié par une _phrase de sponsoring_ : sponsor et sponsorisé se sont concertés sur le nom du sponsorisé, par exemple `Charles` et la phrase qui reste secrète entre eux, par exemple `le hibou n'est pas chouette`. 
+Avant de pouvoir accéder à l'application une personne doit créer son propre compte **sponsorisé par une autre y ayant déjà un compte**. 
 
-Le sponsorisé crée ensuite lui-même son compte en fournissant cette phrase de parrainage et déclare sa **phrase secrète de connexion**:
-- elle a au moins 24 signes et reste uniquement dans la tête du titulaire, n'est enregistrée sous aucune forme nulle-part : elle pourra être changée à condition de pouvoir fournir celle actuelle.
-- une partie de la phrase, située vers principalement au début, ne doit pas _ressembler_ celle d'une autre phrase déjà enregistrée afin d'éviter de tomber par hasard sur la phrase d'un autre compte.
-- la phrase secrète crypte toutes les données du compte aussi bien dans la base centrale que dans les micro bases locales de chacun des navigateurs utilisés par le compte. Un piratage des appareils des titulaires des comptes ou de la base centrale centrale ne donnerait au _pirate_ que des informations indéchiffrables.
+Sponsor et sponsorisé se sont seulement concertés sur,
+- le nom du sponsorisé, par exemple `Charles`,
+- une phrase de reconnaissance qui reste secrète entre eux, par exemple `le hibou n'est pas chouette`, qui va être demandée au _sponsorisé_ pour prouver qu'il l'est au moment de l'auto-création de son compte.
+- le nouveau compte, s'il accepte les conditions proposées par le sponsor, déclare sa **phrase secrète de connexion**.
+  - elle a au moins 24 signes et reste uniquement dans la tête du titulaire, n'est enregistrée sous aucune forme nulle-part et pourra être changée à condition de pouvoir fournir celle actuelle.
+  - une partie de la phrase, située vers principalement au début, ne doit pas _ressembler_ à celle d'une autre phrase déjà enregistrée afin d'éviter de tomber par hasard sur la phrase d'un autre compte.
 
-> _Revers de cette sécurité_ : si la personne titulaire d'un compte oublie sa **phrase secrète de connexion**, elle est ramenée à l'impuissance du pirate. Son compte s'autodétruira un jour et toutes ses données et notes disparaîtront.
+La phrase secrète crypte toutes les données du compte aussi bien dans la base centrale que dans les micro bases locales de chacun des navigateurs utilisés par le compte. Un piratage des appareils des titulaires des comptes ou de la base centrale centrale ne donnerait au _pirate_ que des informations indéchiffrables.
+
+> _Revers de cette sécurité_ : si la personne titulaire d'un compte oublie sa **phrase secrète de connexion**, elle est ramenée à l'impuissance du pirate. Son compte s'autodétruira dans un délai d'un an et toutes ses données et notes disparaîtront.
 
 ### Avatars principal et secondaires d'un compte
-En créant son compte, le titulaire a créé son **avatar principal**. Un avatar dispose:
-- d'un _numéro_ identifiant de 16 chiffres (dont 13 aléatoires) et immuable ne portant aucune information utile.
-- d'un **nom** lui-même aussi immuable, par exemple `Charles`.
-- d'une **carte de visite** facultative constituée d'une photo et / ou d'un court texte, par exemple `Charles III, roi des esturgeons et d’Écosse`, tous deux modifiables uniquement par son titulaire.
+En créant son compte, le titulaire a créé son **avatar principal**. Un avatar,
+- est identifié par un _numéro_ à 16 chiffres (dont 13 aléatoires) immuable.
+- a un **nom** immuable, par exemple `Charles`.
+- peut avoir une **carte de visite** cryptée constituée d'une photo et / ou d'un court texte, par exemple `Charles III, roi des esturgeons et d’Écosse`, tous deux modifiables uniquement par son titulaire.
 
-Ultérieurement le titulaire du compte peut créer des **avatars secondaires**, chacun ayant un numéro, un nom et une carte de visite facultative. Il peut ensuite utiliser à son gré des circonstances l'un ou l'autre de ses avatars, ayant de ce fait plusieurs personnalités.
+Ultérieurement le titulaire du compte peut créer des **avatars secondaires**, chacun ayant un numéro, un nom et une carte de visite facultative. 
 
-> **Le titulaire du compte est le seul à connaître la liste de ses avatars secondaires**: un autre compte connaissant deux avatars n'est jamais en mesure de savoir s'ils correspondent au même titulaire ou non et même l'administrateur technique du site ne peut pas s'affranchir de cette contrainte assise sur une cryptographie forte.
+Il peut ensuite utiliser à son gré des circonstances l'un ou l'autre de ses avatars, ce qui confère plusieurs _personnalités_.
 
-Selon la situation un avatar peut avoir connaissance d'un autre avatar,
-- parfois et rarement par son seul numéro (autant dire rien),
-- son numéro et son nom,
-- son numéro, son nom et **sa carte de visite cryptée**: dans ce dernier cas **c'est réciproque** et a été assumé / voulu explicitement de part et d'autre.
+> **Le titulaire du compte est le seul à connaître la liste de ses avatars secondaires**. En regardant deux avatars, personne (même l'administrateur technique) n'est en mesure de savoir s'ils correspondent au même compte.
 
-> Comme dans la vraie vie **plusieurs avatars peuvent porter le même "nom"**, les homonymes sont possibles : à l'écran les 4 derniers chiffres du numéro identifiant permet certes de distinguer `Charles#9476` et `Charles#5432` mais ce sont surtout les cartes de visite de chacun qui donneront des informations pertinentes pour distinguer Charles "le _général_" de Charles "_le roi des esturgeons_".
+> Comme dans la vraie vie **plusieurs avatars peuvent porter le même "nom"**: à l'écran les 4 derniers chiffres du numéro identifiant complète les noms ( `Charles#9476` et `Charles#5432`). Leurs cartes de visite permettront aux autres de distinguer Charles "_Général de brigade_" de Charles "_Roi des esturgeons_".
 
 ### Notes personnelles
 **Un note porte un texte** d'au plus 5000 caractères pouvant s'afficher avec un minimum de _décoration_, gras, italique, titres, listes ... Ce texte est modifiable.
 
-**Des fichiers peuvent être attachés à une note** : beaucoup de types de fichiers (`.jpg .mp3 .mp4 .pdf ...`) s'affichent directement dans le navigateur. Il est possible d'ajouter et de supprimer des fichiers attachés à une note: plusieurs fichiers portant le même nom dans la note sont vus comme des révisions successives.
+**Des fichiers peuvent être attachés à une note**
+- beaucoup de types de fichiers (`.jpg .mp3 .mp4 .pdf ...`) s'affichent directement dans le navigateur. 
+- il est possible d'ajouter et de supprimer des fichiers attachés à une note.
+- quand plusieurs fichiers portant le même _nom_ dans la note, ils sont vus comme des révisions successives, qu'on peut garder, ou ne garder que la dernière, ou celle de son choix.
 
-**Une note peut faire référence à UNE note _parent_** : les notes apparaissent à l'écran sous forme hiérarchique. Les notes _racine_ ne sont référencées par aucune autre et sont rattachées à un des avatars du compte.
+**Une note PEUT faire référence à UNE note _parent_**
+- les notes apparaissent à l'écran sous forme hiérarchique, une note parent ayant en dessous d'elle des notes _enfants_ (ou aucune).
+- les notes n'ayant pas de notes _parent_ apparaissent rattachées à un des avatars du compte, _racine_ de cette hiérarchie.
 
-> Un avatar peut créer des notes **personnelles**, les mettre à jour, les supprimer, les indexer par des mots clés personnels. Elles sont cryptées comme toutes les données des comptes et seul le titulaire du compte a, par l'intermédiaire de sa phrase secrète, la clé de cryptage apte à les décrypter.
+> Un avatar peut créer des notes **personnelles**, les mettre à jour, les supprimer et les indexer par des mots clés personnels. Elles sont cryptées, comme toutes les données des comptes, et seul le titulaire du compte a, par l'intermédiaire de sa phrase secrète, la clé de cryptage apte à les décrypter.
 
-### "Chats" entre avatars
-Deux avatars _en contact_ (comment entrer en contact est vu plus avant) peuvent ouvrir un _chat_ dans lequel ils peuvent écrire des textes de moins de 5000 signes:
+### Contacts
+Un compte peut rester totalement isolé et n'avoir aucun contact avec les autres: à la création de son compte par _sponsoring_, le sponsor comme le sponsorisé peuvent déclarer vouloir ou non être _contacts mutuels_.
+
+Il y a d'autres occasions d'établir pour un compte d'établir un _contact_:
+- directement en rencontrant le titulaire d'un compte dans n'importe quel contexte réel ou virtuel et en se mettant d'accord pour devenir _contact_.
+- en étant membre d'un même _groupe_ (voir plus avant).
+
+Un contact est _un avatar_ affiché avec son nom (et son numéro): **sa carte de visite** est visible. 
+
+Un contact est réciproque, si A à B dans ses contacts, B à A dans ses contacts: chacun a échangé avec l'autre la clé de cryptage qui permet de lire la carte de visite de l'autre.
+
+**Un compte peut attacher des mots clés** à ses _contacts_ ce qui facilite le filtrage dans des listes selon des critères variables: lui seul les déclarent et les voit.
+
+> Techniquement un contact ne peut pas être dissous, sauf disparition de l'avatar en contact. Mais les mots clés attribués peuvent le classe comme _indésirable_ ce qui permet de le filtrer et ne plus le voir dans les listes.
+
+### "Chats" entre contacts
+Deux avatars _en contact_ peuvent ouvrir un _chat_ dans lequel ils peuvent écrire des échanges, des textes courts:
 - un échange sur un chat ne peut plus y être modifié mais peut être supprimé par son auteur,
 - le volume total des échanges sur le chat est limité à 5000 signes, les plus anciens échanges étant perdus en cas de dépassement de cette limite.
 
-Une fois créé le chat ne disparaît que quand les deux avatars qui la partagent ont disparu.
+Une fois créé un chat ne disparaît que quand les deux avatars qui la partagent ont disparu.
 - pour ne pas être importuné, l'un des 2 peut _raccrocher_ le chat, ne plus y écrire. L'autre peut toujours l'alimenter mais sans être certain d'être lu ...
-- chacun peut attacher au _chat_ ses propres mots clés (par exemple _indésirable_ ou _important_ ...) que l'autre ne voit pas, et filtrer les chats en évitant ceux _raccrochés_ ou _indésirable_.
+- chacun peut attacher au _contact du chat_ ses propres mots clés (par exemple _indésirable_ ou _important_ ...) que l'autre ne voit pas, et filtrer les chats en évitant ceux _raccrochés_ ou _indésirable_.
 
-Pour partager une ardoise de chat avec un avatar B, un avatar A doit connaître son interlocuteur B par son nom complet c'est à dire avec _sa carte de visite_:
-- B est membre d'un des groupes auxquels A participe (voir ci-après),
-- B a sponsorisé A ou A a sponsorisé B, ce qui a créé entre eux un chat (sauf refus explicite de l'un ou l'autre),
-- A a connaissance d'une **phrase de contact** de B.
-
-#### Établissement d'un chat par une _phrase de contact_
+#### Établissement d'un contact / chat par une _phrase de contact_
 B peut déclarer une _phrase de contact_, unique dans l'application et pas trop semblable à une déjà déclarée. Par exemple : `les courgettes sont bleues au printemps`
 - B peut la changer ou la supprimer à tout instant.
-- B peut communiquer, par un moyen de son choix, cette phrase à A qui peut ainsi ouvrir un chat avec B. A et B devenus contacts l'un de l'autre pourront aussi inviter, ou faire inviter, l'autre à un de ses groupes (voire plus si affinités).
+- B peut communiquer, par un moyen de son choix, cette phrase à A qui peut ainsi à la fois inscrire B comme contact et ouvrir un chat avec lui. 
+- A et B devenus contacts l'un de l'autre pourront aussi inviter, ou faire inviter, l'autre aux groupes auxquels ils participent (voire plus si affinités).
 
-> Il est recommandé que les _phrases de contact_ aient une durée de vie le plus limité possible afin d'éviter que des personnes non souhaitées n'ouvrent un chat (ce qui a toutefois un impact limité, on n'est pas obligé de la lire!).
-
-Dès qu'un chat est ouvert entre A et B, leurs cartes de visite sont mutuellement visibles.
+> Une _phrase de contact_ a une durée de vie courte afin d'éviter que des personnes non souhaitées mises au courant de la phrase de contact, n'ouvrent un chat: l'impact est toutefois limité, on n'est pas obligé de le lire!.
 
 ### Groupes
 Un avatar peut créer un **groupe** dont il sera le premier membre _actif_ et y aura un pouvoir _d'animateur_. Un groupe a,
@@ -81,136 +96,155 @@ Un avatar peut créer un **groupe** dont il sera le premier membre _actif_ et y 
 - un **chat partagé par les membres du groupe**.
 - un **espace de notes partagées** entre les membres du groupes qui peuvent les lire et les éditer.
 
-Um avatar du groupe a plusieurs états:
+Um avatar connu dans un groupe y a plusieurs états:
 - **simple contact**: il a été inscrit comme contact du groupe mais lui-même ne le sait pas et ne connaît pas le groupe.
-- **contact invité**: un membre ayant pouvoir d'animateur a invité le contact à devenir membre actif: s'il accepte il devient membre actif, sinon il retourne à l'état de simple contact. Nul ne devient membre actif à son insu, il faut l'accepter explicitement.
+- **contact invité**: un membre actif ayant pouvoir d'animateur a invité le contact à devenir membre actif: s'il accepte il deviendra membre actif, sinon il retournera à l'état de simple contact. Nul ne devient membre actif à son insu, il faut l'accepter explicitement.
 - **membre actif**: il peut participer à la vie du groupe.
 
 #### Accès aux membres et / ou aux notes
-Un membre actif reçoit lors de son invitation des _droits_:
-- **d'accès aux autres membres** et au chat (ou non),
-- **d'accès aux notes** en lecture, en lecture et écriture ou pas du tout.
+Un membre actif _peut_ recevoir lors de son invitation deux _droits_:
+- **droit d'accès aux autres membres** et au chat (ou non),
+- **droit d'accès aux notes** en lecture, en lecture et écriture ou pas du tout.
 
-> Certains groupes peuvent être créés à la seule fin d'être un répertoire de contacts identifiés avec possibilités de chat. Personne n'y lit / écrit de notes.
+Lors de son invitation il peut aussi recevoir le **pouvoir d'animation**. S'il ne l'a pas, un membre actif l'ayant peut lui conférer ce pouvoir (mais ne pourra plus l'enlever).
 
-> Certains groupes peuvent être créés autour d'un animateur ayant seul connaissance des membres du groupe, mais où les notes de discussion sont partagées et de facto anonymes.
+> **Certains groupes peuvent être créés à la seule fin d'être un répertoire de contacts** cooptés par affinité avec possibilités de chat. Personne n'y lit / écrit de notes.
+
+> **Certains groupes peuvent être créés afin de partager des notes de discussion**, un animateur ayant seul connaissance des membres du groupe avec des notes de facto anonymes.
+
+Enfin des groupes sont créés avec le double objectif de réunir des avatars qui se connaissent mutuellement et partagent des notes et échangent sur le chat.
+
+**Tout membre actif peut attacher ses propres mots clés à un groupe** afin de faciliter sa recherche quand il est membre de beaucoup de groupes: les autres membres ne savant pas quels sont ces mot clés.
 
 #### Quelques règles simples:
-- seul um membre actif **ayant pouvoir d'animateur** peut,
-  - donner / retirer l'accès aux autres membres et au chat à un membre actif donné,
-  - donner / retirer l'accès aux notes à un membre actif donné, 
-  - donner un pouvoir d'animateur à un membre actif qui n'en n'a pas,
-  - inviter un contact à devenir membre actif, avec ou sans accès aux autres membres et au chat, avec ou sans accès aux notes, avec ou sans pouvoir d'animateur,
+- seul um membre actif **ayant pouvoir d'animation** peut,
+  - donner / retirer le droit d'accès aux autres membres et au chat à un membre actif donné,
+  - donner / retirer le droit d'accès aux notes à un membre actif donné (en lecture ou lecture / écriture), 
+  - donner un pouvoir d'animation à un membre actif qui ne l'a pas,
+  - inviter un _simple contact_ à devenir membre actif, avec ou sans droit accès aux autres membres et au chat, avec ou sans droit d'accès aux notes, avec ou sans pouvoir d'animateur,
   - décider _d'oublier_ un simple contact qui n'apparaîtra plus dans le groupe.
 - **tout membre actif** peut,
-  - inscrire comme simple contact un des avatars de sa connaissance,
-  - se retirer à lui-même le droit d'accès aux autres membres et notes,
-  - décider de redevenir simple contact, voir d'être _oublié_ par le groupe (ne figurant même plus comme simple contact).
+  - s'il a droit d'accès aux membres, inscrire comme _simple contact_ un de ses contacts,
+  - se retirer à lui-même les droits d'accès aux membres et aux notes,
+  - décider de redevenir _simple contact_, voir d'être _oublié_ par le groupe (ne figurant même plus comme _simple contact_).
 
-> Un _animateur_ ne peut pas changer les droits d'un autre _animateur_ (sauf à lui-même).
+> Un _membre actif ayant pouvoir d'animation_ ne peut pas changer les droits et pouvoir d'un autre _animateur_ (sauf à lui-même).
 
-> Un _animateur ne peut pas résilier un membre actif indésirable_ mais peut lui retirer (s'il n'est pas _animateur_) ses droits d'accès aux autres membres et aux notes, donc de facto lui interdire tout accès au groupe.
+> Un _animateur_ ne peut pas _résilier_ un membre actif indésirable mais peut lui retirer (s'il n'est pas _animateur_) ses droits d'accès aux autres membres et aux notes, donc de facto lui interdire tout accès au groupe.
 
-Tout membre actif d'un groupe ayant accès aux membres accèdent de fait à leurs cartes de visites:
-- il peut ouvrir un chat avec n'importe quel membre. Toutefois si ce membre est un simple contact (n'a pas -encore- accepté formellement d'invitation), il ne peut pas le faire, sauf s'il le connaît par ailleurs, actif dans un autre groupe ...
+Tout membre actif d'un groupe ayant accès aux membres, les a comme _contact_ en connaît leurs cartes de visites:
+- il peut ouvrir un chat avec n'importe quel membre. Toutefois si ce membre est un _simple contact_ (qui n'a pas -encore- accepté formellement d'invitation), il ne peut pas le faire (sauf s'il le connaît par ailleurs, actif dans un autre groupe ...).
+
+> Le fait d'établir un _chat_ avec un membre du groupe en fait un contact permanent, même si le groupe est dissous ou que le membre cesse d'y être actif.
+
+> Un groupe disparaît de lui-même dès lors qu'il n'a plus de membres actifs.
 
 #### Notes du groupe
 - elles sont cryptées par une clé aléatoire spécifique au groupe qui a été transmise lors de l'invitation au groupe.
-- hormis les membres actifs du groupe ayant droit d'accès aux notes, personne ne peut accéder aux notes du groupe ni même savoir que le groupe existe.
-- quand un nouveau membre accepte une invitation au groupe avec droits d'accès aux notes, il a immédiatement accès à toutes les notes existantes du groupe. S'il redevient simple contact ou perd son droit d'accès aux notes, il n'a plus accès à aucune de celles-ci.
+- hormis les membres actifs du groupe ayant droit d'accès aux notes, personne ne peut accéder aux notes du groupe.
+- quand un nouveau membre accepte une invitation au groupe avec droits d'accès aux notes, il a immédiatement accès à toutes les notes existantes du groupe. S'il redevient _simple contact_ ou perd son droit d'accès aux notes (de par sa volonté ou celle d'un _animateur_), il n'a plus accès à aucune de celles-ci. Ceci allège ses sessions.
 - pour écrire / modifier / supprimer une note du groupe, il faut avoir le droit d'accès en écriture aux notes.
 - chaque note est signée par la succession des membres qui y sont intervenu.
 
-Tout membre peut attacher ses propres mots clés à un groupe afin de faciliter sa recherche quand il est membre de beaucoup de groupes: les autres membres ne savant pas quels sont ces mot clés.
-- un _animateur_ peut toutefois attacher des mots clés spécifiques du groupe à une note, ceux-ci étant visibles de tous.
+**Tout membre ayant accès aux notes peut attacher ses propres mots clés à chaque note du groupe** afin de faciliter ses recherches. Le filtrage par mots clés s'effectue tous groupes confondus. Les autres membres ne savant pas quels sont ces mot clés.
+- un _animateur_ peut attacher des mots clés spécifiques du groupe à une note, ceux-ci étant visibles de tous.
 
-Une note de groupe peut être rattachée à une autre note parent du groupe, ce qui fait apparaître visuellement à l'écran une hiérarchie.
+**Une note de groupe peut être rattachée à une autre note parent du groupe**, ce qui fait apparaître visuellement à l'écran une hiérarchie.
 - un avatar peut attacher une note personnelle à une note de groupe pour la compléter / commenter: toutefois il sera seul à la voir (puisqu'elle est _personnelle_).
 
 #### Membre _hébergeur_ d'un groupe
 Celui-ci s'est dévoué pour supporter les coûts d'abonnement de stockage (nombres de notes et volume des fichiers) des notes du groupe.
-- il fixe des maximum à ne pas dépasser afin de protéger ses propres dépenses,
-- il peut cesser d'berger le groupe, un autre membre prenant la suite.
+- il fixe des maximum à ne pas dépasser afin de protéger son budget,
+- il peut cesser d'héberger le groupe, un autre membre prenant la suite. Si personne ne se propose, 
+  - le nombre de notes et le volume de leurs fichiers ne peut plus croître,
+  - au bout de 3 mois le groupe s'autodétruit.
 
 # Modes *synchronisé*, *incognito* et *avion*
-Pour se connecter à son compte, le titulaire d'un compte choisit d'abord sous quel **mode** sa session va s'exécuter: _synchronisé_, _avion_ ou _incognito_.
+Pour se connecter à son compte, le titulaire d'un compte choisit sous quel **mode** sa session va s'exécuter: _synchronisé_, _avion_ ou _incognito_.
 
 #### Mode _synchronisé_ 
-C'est le mode préférentiel où toutes les données du périmètre d'un compte sont stockées dans une micro base locale cryptée dans le navigateur puis remises à niveau depuis le serveur central à la connexion d'une nouvelle session. Durant la session la micro base locale est maintenue à jour, y compris lorsque d'autres sessions s'exécutent en parallèle sur d'autres navigateurs et mettent à jour les données du compte : par exemple quand une note de groupe est mise à jour par un autre membre du groupe.
+C'est le mode préférentiel où toutes les données du périmètre d'un compte sont stockées dans une micro base locale cryptée dans le navigateur puis remises à niveau depuis le serveur central à la connexion d'une nouvelle session.
 
-La connexion ultérieure à un compte ainsi synchronisé est rapide, l'essentiel des données étant déjà dans le navigateur, seules quelques _nouveautés_ sont tirées du serveur central.
+Durant la session la micro base locale est maintenue à jour, y compris lorsque d'autres sessions s'exécutent en parallèle sur d'autres navigateurs et mettent à jour les données du compte : par exemple quand une note de groupe est mise à jour par un autre membre du groupe.
+
+Une connexion ultérieure dans le même navigateur à un compte après une session synchronisée est rapide, l'essentiel des données étant déjà dans le navigateur, seules quelques _nouveautés_ sont tirées du serveur central.
 
 #### Mode _avion_
-Pour que ce mode fonctionne il faut qu'une session antérieure en mode _synchronisé_ ait été exécutée dans ce navigateur. L'application présente à l'utilisateur l'état dans lequel étaient ses données à la fin de la dernière session synchronisée pour ce compte dans ce navigateur.
+Pour que ce mode fonctionne il faut qu'une session antérieure en mode _synchronisé_ ait été exécutée dans ce navigateur pour le compte. Il y voit l'état dans lequel étaient ses données à la fin de la dernière session synchronisée.
 
 **L'application ne fonctionne qu'en lecture**, aucune mise à jour n'est possible. Aucun accès à Internet n'est effectué, ce qui est précieux _en avion_ ou dans les _zones blanches_ ou quand l'Internet est suspecté d'avoir de grandes oreilles indiscrètes : certes tout est crypté et illisible mais en mode avion personne ne peut même savoir que l'application a été ouverte, l'appareil peut être physiquement isolé du Net.
 
 En mode avion les fichiers attachés aux notes ne sont pas accessibles, **sauf** ceux qui ont été déclarés devoir l'être. Cette déclaration pour un compte s'effectue fichier par fichier pour chaque navigateur et ils sont mis à niveau à l'ouverture de chaque session en mode _synchronisé_ (puis en cours de session).
 
-> Il est conseillé de couper le réseau (le mode _avion_ sur un mobile), de façon à ce que l'ouverture de l'application ne cherche même pas à vérifier si une version plus récente est disponible.
+> On peut couper le réseau (le mode _avion_ sur un mobile), de façon à ce que l'ouverture de la page de l'application ne cherche même pas à vérifier si une version plus récente est disponible.
 
 #### Mode _incognito_
 **Aucun stockage local n'est utilisé, toutes les données viennent du serveur central**, l'initialisation de la session est plus longue qu'en mode synchronisé. Aucune trace n'est laissée sur l'appareil (utile au cyber-café ou sur le mobile d'un.e ami.e) : certes les traces en question sont inutilisables car cryptées, mais il n'est pas poli d'encombrer la mémoire d'un appareil qu'on vous a prêté.
 
-> Il est conseillé d'ouvrir l'application dans une  _fenêtre privée_ du navigateur, ainsi même le code de l'application sera effacé en fermant la page de l'application.
+> On peut ouvrir l'application dans une _fenêtre privée_ du navigateur, ainsi même le code de la page de l'application sera effacé en fermant la fenêtre.
 
 > **En utilisant des sessions synchronisées sur plusieurs appareils, on a autant de copies synchronisées de ses notes et chats sur chacun de ceux-ci**, et chacun peut être utilisé en mode avion. Les copies ne sont pas exactement les mêmes, les _photographies_ de l'état des données du compte ne pouvant pas être effectuées exactement à la même seconde.
 
-> **L'application invoquée depuis un navigateur y est automatiquement mémorisée** : au prochain appel, étant déjà présente en local, elle ne chargera éventuellement que le minimum nécessaire pour se mettre à niveau de la version logicielle la plus récente.
+> **Le code de la page Web de l'application invoquée depuis un navigateur y est mémorisée**: au prochain appel, étant déjà présente en local, elle ne chargera rien ou juste le minimum nécessaire pour se mettre à niveau de la version logicielle la plus récente.
 
-# Répartition des coûts d'hébergement de l'application
+# Coûts d'hébergement de l'application
 
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
 #### Espace de _base de données_ et espace de _fichiers_ (Storage)
-Ces deux espaces ont des coûts unitaires très différents (facteur de 1 à 25). Les fichiers sont stockés dans des _Storage_, des espaces techniques ayant une gestion très spécifique mais économique, et de plus soumis à peu d'accès (mais de lus fort volume).
+Ces deux espaces ont des coûts unitaires très différents (facteur de 1 à 25). Les fichiers sont stockés dans des _Storage_, des espaces techniques ayant une gestion très spécifique mais économique, et de plus soumis à peu d'accès (mais de plus fort volume).
 
 #### Abonnement
-Il correspond aux coûts récurrents mensuels pour un compte même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
-- **Nombre total de documents sur la base de données**: `nn + nc + ng`
+Il correspond aux coûts récurrents mensuels pour un compte, même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:
+- **Nombre total de documents dans la base de données**: `nn + nc + ng`
   - **(nn) nombre de notes** personnelles et notes d'un groupe hébergé par le compte,
-  - **(nc) nombre de chats personnels** créés, 
+  - **(nc) nombre de chats personnels** non _raccrochés_, 
   - **(ng) nombre de participations actives aux groupes**.
-- **Volume des fichiers attachés aux notes** stocké sur un _Storage_.
+- **Volume des fichiers attachés aux notes** stockés sur le _Storage_.
 
-Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _volumes maximaux_** fixés pour le compte (qui lui est possible d'utiliser).
+Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais **les _volumes maximaux_** fixés pour le compte (ce qu'il peut utiliser).
 
-> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les volumes maximaux de l'abonnement, sauf dans le cas où ceux-ci ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
+> Les volumes _effectivement utilisés_ ne peuvent pas dépasser les volumes maximaux de l'abonnement, sauf dans le cas où ceux-ci ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés. Dans ce dernier cas les volumes n'auront plus le droit de croître.
 
 #### Consommation de calcul
-Les coûts de _calcul_ correspondent directement à l'usage effectif fait de l'application quand une session d'un compte est ouverte. Ils dépendent de _l'activité_ du titulaire du compte et de la façon dont il se sert de l'application. Le coût de calcul est la somme de 4 facteurs, chacun ayant son propre tarif:
-- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc. **Lu** signifie extrait de la base de données. Pour un même service apparent, le coût des _lectures_ peut différer fortement par utilisation du mode _synchronisé_ (en mode _avion_ il est par principe nul).
-- **(ne) nombre _d'écritures_** (en base de données): outre quelques écritures techniques indispensables, il s'agit principalement des mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.
-- **(vd) volume _descendant_** (download) de fichiers téléchargés depuis le _Storage_.
+La consommation correspond à l'usage effectif de l'application quand une session d'un compte est ouverte: elle est la somme de 4 facteurs, chacun ayant son propre tarif:
+- **(nl) nombre de _lectures_** (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc.
+- **(ne) nombre _d'écritures_** (en base de données): mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.
+- **(vd) volume _descendant_** (download) de fichiers téléchargés en session depuis le _Storage_.
 - **(vm) volume _montant_** (upload) de fichiers envoyés dans le _Storage_. Chaque création / mise à jour d'un fichier est décompté dans ce volume.
 
 > **Remarque par anticipation: les comptes O (_de l'organisation_) ont une _limite de coût mensuel de calcul_.**. Si le coût de consommation sur le mois en cours et le précédent dépasse cette limite ramenée au prorata des jours de ces deux mois, le compte subit une _restriction d'accès_.
 
 ### Coût total
-Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `m1*u1 + m2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
-- `m1` = _volume maximal_ de la somme `nn + nc + ng`
-- `m2` = _volume maximal_ des fichiers attachés aux notes.
-- `nl ne` : nombres de lectures et d'écritures,
+Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: `n1*u1 + v2*u2 + nl*cl + ne*ce + vd*cd + vm*cm`
+- `n1` = _nombre maximal de notes, chats, participations aux groupes_
+- `v2` = _volume maximal_ des fichiers attachés aux notes.
+- `nl ne` : nombres de lectures et d'écritures (en millions),
 - `vd vm` : volume descendant et montant.
 
+>_L'ordre de grandeur_ d'un coût total par compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible. Ce n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement pour un millier de comptes ...
+
 ## Le Comptable, les comptes _A_ et _O_
-Une organisation peut avoir des modes de fonctionnement différenciés:
-- soit un mode où chaque compte est libre de son abonnement et de sa consommation mais les paye.
-- soit un mode ou l'organisation paye globalement l'hébergement pour ses _adhérents_ mais en contrepartie,
-  - peut contraindre leur abonnement / consommation afin de maîtriser ses dépenses,
-  - peut bloquer les comptes, par exemple de ceux quittant l'organisation et qui n'ont plus à bénéficier d'un tel service gratuit, ni à avoir accès aux notes et aux chats avec les adhérents.
-- enfin un mode mixte avec cohabitation de comptes _autonomes_ et de comptes _d'organisation_.
 
-### Le compte du "Comptable"
-_Le Comptable_ désigne une personne plus ou moins virtuelle, voire un petit groupe de personnes physiques qui:
-- a négocié avec le prestataire hébergeur représenté par le terme _administrateur technique_ les conditions et le prix de l'hébergement.
-- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour les comptes O, c'est à dire pris en charge par l'organisation.
+Une organisation peut avoir des comptes ayant des modes de fonctionnement différents:
+- **compte _A_** chaque compte est libre de fixer son abonnement et sa consommation n'est pas limitée, mais les paye.
+- **compte _O_** l'organisation paye pour le compte mais en contrepartie,
+  - fixe des limites d'abonnement / consommation,
+  - peut bloquer le compte, par exemple s'il quitte l'organisation, est décédé, etc. 
 
-C'est un compte de l'organisation _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. 
-- **Il a le privilège important de gérer les forfaits gratuits attribués par l'organisation**.
-- Il a lz privilège de déclarer si l'organisation accepte ou non des comptes autonomes et lui-m^me peut sponsoriser des comptes autonomes.
+### Le Comptable
+_Le Comptable_ désigne une personne, voire un petit groupe de personnes physiques qui:
+- a négocié avec le prestataire hébergeur les conditions et le prix de l'hébergement.
+- est en charge de contrôler le mode de création des comptes et le cas échéant l'attribution de _forfaits_ gratuits pour les comptes O, pris en charge par l'organisation.
+
+C'est un compte _O_ (c'est l'organisation qui paye ses coûts) _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Il a le privilège,
+- **de gérer les forfaits gratuits attribués par l'organisation**.
+- de déclarer si l'organisation accepte ou non des comptes autonomes,
+- de pouvoir sponsoriser des comptes autonomes.
 
 > Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
+
+> **L'administrateur technique** est le représentant technique de l'hébergeur: il n'a pas de compte mais une clé d'accès afin d'initialiser un espace pour une organisation et effectuer quelques actions techniques.
 
 ### Compte _autonome_ "A"
 **Un compte _autonome_ fixe lui-même, son niveau d'abonnement**, c'est à dire ses _volumes maximum_ et peut les changer à son gré, mais pas en-dessous des seuils déjà occupés.
