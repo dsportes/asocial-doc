@@ -6,7 +6,7 @@
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
 ## _Base de données_ et _fichiers_ (Storage)
-Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 25).
+Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 6).
 - les _bases de données_ requièrent un stockage très proche du serveur et des accès très rapide,
 - les fichiers sont enregistrés dans des _Storage_, des stockages techniques distants ayant une gestion spécifique et économique du fait d'être soumis à peu d'accès (mais de plus fort volume).
 
@@ -31,14 +31,19 @@ La consommation correspond à l'usage effectif de l'application quand une sessio
 ## Prix unitaires de marché
 _L'ordre de grandeur_ des prix du marché, donne les coûts suivants en centimes d'euro annuel:
 
-    Unité u1 : 250 notes chats / groupes -> 0,45c/an
-    Unité u2 : 100Mo                     -> 0,10c/an
+    1 Gb Firestore      216 c / an
+    1 Gb GCP Storage     32 c / an (6 fois moins)
 
-    Pour un compte XXS ( 1 u1 :   250n /  1 u2 :  100Mo) ->   1,6 c/an
-    Pour un compte MD  ( 8 u1 :  2000n /  8 u2 :  800Mo) ->  13,0 c/an
-    Pour un compte XXL (64 u1 : 16000n / 64 u2 : 6,4Go ) -> 102,0 c/an
+    Unité u1 : 5Mo 250 notes chats / groupes  -> 1,08c/an
+    Unité u2 : 100Mo                          -> 3,20c/an
 
-> Les volumes V1 apparaissent environ 25 fois plus coûteux au méga-octet que les volumes V2, mais comme les fichiers peuvent être très volumineux, le coût d'utilisation dépend de ce que chacun met en textes des notes et en fichiers attachés.
+    Pour un compte XXS ( 1 u1 :   250n /  1 u2 :  100Mo) ->   4,3 c/an
+    Pour un compte MD  ( 8 u1 :  2000n /  8 u2 :  800Mo) ->  34,4 c/an
+    Pour un compte XXL (64 u1 : 16000n / 64 u2 : 6,4Go ) -> 275,0 c/an
+
+> Le volume V1 est difficile à estimer puisqu'il s'agit du volume _technique_ avec les index, clés, etc. Forfaitairement il a été pris 20K par document. Le volume V2 est assez proche du volume utile.
+
+> Les volumes V1 apparaissent environ 6 fois plus coûteux au méga-octet que les volumes V2, mais comme les fichiers peuvent être très volumineux, le coût d'utilisation dépend de ce que chacun met en textes des notes et en fichiers attachés.
 
 > Les volumes _effectivement utilisés_ ne peuvent pas dépasser les volumes maximaux de l'abonnement, sauf dans le cas où ceux-ci ont été volontairement réduits a posteriori en dessous des volumes actuellement utilisés.
 

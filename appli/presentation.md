@@ -211,7 +211,7 @@ En mode avion les fichiers attachés aux notes ne sont pas accessibles, **sauf**
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
 ## _Base de données_ et _fichiers_ (Storage)
-Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 25).
+Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 6).
 - les _bases de données_ requièrent un stockage très proche du serveur et des accès très rapide,
 - les fichiers sont enregistrés dans des _Storage_, des stockages techniques distants ayant une gestion spécifique et économique du fait d'être soumis à peu d'accès (mais de plus fort volume).
 
