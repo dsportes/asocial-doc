@@ -2,11 +2,11 @@
 
 Introduction - [README](./README.md)
 
-## Fonctionnalités détaillées
+## L\'application "a-social"
 
-Vue d'ensemble de l'application - [Présentation](appli/Présentation.md)
+Présentation générale [presentation](appli/presentation.md)
 
-Les comptes et leurs avatars - [Comptes](appli/Comptes.md)
+Information détaillée à propos de la gestion des comptes [comptes](appli/comptes.md)
 
 Groupes et membres des groupes - [Groupes](appli/Groupes.md)
 
@@ -16,24 +16,26 @@ Mots clés - [Motsclés](appli/Motsclés.md)
 
 Détection et gestion des disparitions - [Disparitions](appli/Disparitions.md)
 
-Les _micro_ bases locales des comptes dans les navigateurs (en chantier) - [BasesLocales](appli/BasesLocales.md)
+Les micro bases locales des comptes dans les navigateurs (en chantier) - [BasesLocales](appli/BasesLocales.md)
 
-En savoir plus sur la maîtrise des coûts d'hébergement - [Couts-Hebergement](appli/Couts-Hebergement.md)
+Maîtrise des coûts d\'hébergement de l\'application [coutshebergement](appli/coutshebergement.md)
 
 Réflexions à propos des réseaux a-sociaux et du contrôle de l'éthique - [Ethique](appli/Ethique.md)
 
-## Aide en ligne
+## Les vues, interprétation et saisie
 
-Page de test - [help/page3_fr-FR](./help/page3_fr-FR.md)
+Page de test [help/page3_fr-FR](./help/page3_fr-FR.md)
 
-## Spécifications Techniques
+## Développer, héberger et déployer l\'application
 
-Architecture Générale - [Architecture](tech/Architecture.md)
+Architecture Générale - [architecture](tech/architecture.md)
 
-API du serveur - [API-Serveur](tech/API-Serveur.md)
+API du serveur [apiserveur](tech/apiserveur.md)
 
-Structuration des données en _documents_ - [Documents](tech/Documents.md)
+Structuration des données en _documents_ [documents](tech/documents.md)
 
-Déploiements - [Déploiements](tech/Déploiements.md)
+Déploiements [deploiements](tech/deploiements.md)
 
-Application Web UI - [ui-app](tech/ui-app.md)
+Application Web UI [uiapp](tech/uiapp.md)
+
+L'usage de la cryptographie dans a-social [crypto](tech/crypto.md)
