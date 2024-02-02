@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>.\appli\Présentation</title>
+<meta charset="utf-8">
+<style>
+#content, body {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color: black;
+    font-family: "Ubuntu"; font-size: 0.85em; line-height: 1.2;
+    word-wrap: break-word;
+    padding: 1rem; max-width:800px; margin:0 auto;
+    background: white;
+}
+h1,h2,h3,h4,h5,h6 { font-family:"Calibri"; line-height: 1.2; color:#29B6F6;padding-top:0.2rem;padding-bottom:0.2rem;}
+h1 { font-size:1.5em; font-weight:200; margin:2rem -0.5rem 1rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 3px solid #37474F; }
+h2 { font-size:1.3em; font-weight:200; margin:1.75rem -0.5rem 0.75rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #37474F; }
+h3 { font-size:1.15em; font-weight:200; margin:1.5rem -0.5rem 0.5rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem; border-bottom: 1px solid #78909C; }
+h4 { font-size:1em; font-weight:200; margin:1.4rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h5 { font-size:0.875em; font-weight:200; margin:1.3rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+h6 { font-size:0.85em; font-weight:200; margin:1.2rem 0 0.5rem 0; padding-left:0; padding-right:0;}
+blockquote, p, table, th, td, ul, ol {
+    font-family: "Ubuntu"; font-size: 1rem; line-height: 1.3; text-justify:inter-word;
+}
+em { font-style: italic; }
+strong { font-weight:bold; }
+blockquote { color:#690c03; margin:1rem 0; padding: 0.2rem 0.5rem; border-left:0.4rem solid #690C03; font-style:italic;}
+code, pre { font-family:'Ubuntu Mono'; color:#06065d !important; padding:0 0.2rem; background: white; }
+table, th, td { border: 1px solid #044c70; border-collapse: collapse; padding:0.5em; }
+p { margin:0.3em 0; }
+ul, ol { padding:0 0 0 2rem; margin-top:0.2rem; margin-bottom:0; }
+ol ol, ul ol { list-style-type: lower-roman; }
+ul ul ol, ul ol ol, ol ul ol, ol ol ol { list-style-type: lower-alpha; }
+hr { height:0.2rem; padding:0; margin:1.2rem 0; background-color:#78909C; border: 0 none; }
+li>p { margin-top:0.5rem; }
+h1,h2,h3,h4,h5,h6 { page-break-after:avoid;page-break-inside:avoid; }
+
+</style>
+<p>@@Index général de la documentation - <a href="../index.md">index</a></p>
+<p>@@Introduction - <a href="../README.md">README</a></p>
+<h1 id="vuedensembledelapplication">Vue d'ensemble de l'application</h1>
+<p>Une organisation, association, un groupe de quelques amis … peut décider de disposer de son propre <strong>espace a-social</strong>, par exemple <code>monasso</code>, et a choisi un prestataire d'hébergement qui lui a créé un espace accessible par une URL comme <code>https://srv1.monhebergeur.net/</code> </p>
+<p>Pour se connecter à son espace, il suffit d'ouvrir dans un navigateur la page Web à cette adresse et de fournir: </p>
+<ul>
+<li><code>monasso</code> : le code de son organisation enregistrée par l'hébergeur, </li>
+<li><code>mabellephrasetressecrete</code> une phrase secrète personnelle d'au moins 24 signes.</li>
+</ul>
+<p>Au bout de cette URL, un serveur délivre l'application et gère les accès à une base centrale où les données de chaque organisation sont stockées.</p>
+<blockquote>
+  <p>Derrière cette URL, jusqu'à 80 organisations étanches les unes des autres peuvent être gérées. Le prestataire peut enregistrer une nouvelle organisation en moins d'une minute après s'être mis d'accord sur le prix de l'hébergement.</p>
+  <p>Une organisation n'est pas attachée à son prestataire initial, il peut faire exporter ses données vers un autre, ce qui ne prend que le temps de la copie des données, ou même s'il en a le minimum de compétences informatiques devenir son propre hébergeur, le logiciel de l'application étant disponible <em>open source</em>.</p>
+</blockquote>
+<h2 id="avatarsnotesgroupes">Avatars, notes, groupes</h2>
+<p>Avant de pouvoir accéder à l'application une personne doit créer son propre compte <strong>sponsorisé par une autre y ayant déjà un compte</strong>. </p>
+<p>Sponsor et sponsorisé ont convenu entre eux,</p>
+<ul>
+<li>du nom du sponsorisé, par exemple <code>Charles</code>,</li>
+<li>d'une preuve de sponsoring par une expression comme <code>le hibou n'est pas chouette</code>.</li>
+</ul>
+<p>Le nouveau compte, s'il accepte les conditions proposées par le sponsor, procède à la création de son compte après avoir cité le nom de l'organisation <code>monasso</code> et la preuve de sponsoring.</p>
+<p>Il finalise la création de son compte en déclarant sa <strong>propre phrase secrète de connexion</strong>.</p>
+<ul>
+<li>elle a au moins 24 signes et reste uniquement dans la tête du titulaire, n'est enregistrée sous aucune forme nulle-part et pourra être changée à condition de pouvoir fournir celle actuelle.</li>
+<li>une partie de la phrase, située vers principalement au début, ne doit pas <em>ressembler</em> à celle d'une autre phrase déjà enregistrée afin d'éviter de tomber par hasard sur la phrase d'un autre compte.</li>
+</ul>
+<blockquote>
+  <p>La phrase secrète crypte indirectement toutes les données du compte aussi bien dans la base centrale que dans les micro bases locales de chacun des navigateurs utilisés par le compte. Un piratage des appareils des titulaires des comptes ou de la base centrale centrale ne donnerait au <em>pirate</em> que des informations indéchiffrables.</p>
+  <p><em>Revers de cette sécurité</em> : si la personne titulaire d'un compte oublie sa <strong>phrase secrète de connexion</strong>, elle est ramenée à l'impuissance du pirate. Son compte s'autodétruira dans un délai d'un an et toutes ses données et notes disparaîtront.</p>
+</blockquote>
+<h3 id="avatarsprincipaletsecondairesduncompte">Avatars principal et secondaires d'un compte</h3>
+<p>En créant son compte, le titulaire a créé son <strong>avatar principal</strong>. Un avatar,</p>
+<ul>
+<li>est identifié par un <em>numéro</em> à 16 chiffres (dont 13 aléatoires) immuable.</li>
+<li>a un <strong>nom</strong> immuable, par exemple <code>Charles</code>.</li>
+<li>peut avoir une <strong>carte de visite</strong> cryptée constituée d'une photo et / ou d'un court texte, par exemple <code>Charles III, roi des esturgeons et d’Écosse</code>, tous deux facultatifs et modifiables uniquement par son titulaire.</li>
+</ul>
+<p>Ultérieurement le titulaire du compte peut créer des <strong>avatars secondaires</strong>, chacun ayant un numéro, un nom et une carte de visite facultative. Il peut utiliser à son gré des circonstances l'un ou l'autre de ses avatars, ce qui confère plusieurs <em>personnalités</em>.</p>
+<blockquote>
+  <p><strong>Le titulaire du compte est le seul à connaître la liste de ses avatars secondaires</strong>. En regardant deux avatars, personne (même l'administrateur technique) n'est en mesure de savoir s'ils correspondent au même compte.</p>
+  <p>Comme dans la vraie vie <strong>plusieurs avatars peuvent porter le même "nom"</strong>: à l'écran les 4 derniers chiffres du numéro identifiant complète les noms ( <code>Charles#9476</code> et <code>Charles#5432</code>). Leurs cartes de visite permettront aux autres de distinguer Charles "<em>Général de brigade</em>" de Charles "<em>Roi des esturgeons</em>".</p>
+</blockquote>
+<h3 id="notespersonnelles">Notes personnelles</h3>
+<p><strong>Un note porte un texte</strong> d'au plus 5000 caractères pouvant s'afficher avec un minimum de <em>décoration</em>, gras, italique, titres, listes … Ce texte est modifiable.</p>
+<p><strong>Des fichiers peuvent être attachés à une note</strong></p>
+<ul>
+<li>beaucoup de types de fichiers (<code>.jpg .mp3 .mp4 .pdf ...</code>) s'affichent directement dans le navigateur. </li>
+<li>il est possible d'ajouter et de supprimer des fichiers attachés à une note.</li>
+<li>quand plusieurs fichiers portant le même <em>nom</em> dans la note, ils sont vus comme des révisions successives, qu'on peut garder, ou ne garder que la dernière, ou celle de son choix.</li>
+</ul>
+<p><strong>Une note PEUT faire référence à UNE note <em>parent</em></strong></p>
+<ul>
+<li>les notes apparaissent à l'écran sous forme hiérarchique, une note parent ayant en dessous d'elle des notes <em>enfants</em> (ou aucune).</li>
+<li>les notes n'ayant pas de note <em>parent</em> apparaissent rattachées à celui des avatars du compte qui a été choisi: cet avatar est une <em>racine</em> de la hiérarchie des notes.</li>
+</ul>
+<blockquote>
+  <p>Un avatar peut créer des notes <strong>personnelles</strong>, les mettre à jour, les supprimer et les indexer par des mots clés personnels. Elles sont cryptées, comme toutes les données des comptes, et seul le titulaire du compte a, par l'intermédiaire de sa phrase secrète, la clé de cryptage apte à les décrypter.</p>
+</blockquote>
+<h3 id="contacts">Contacts</h3>
+<p>Un compte peut rester totalement isolé et n'avoir aucun contact avec les autres: à la création de son compte par <em>sponsoring</em>, le sponsor comme le sponsorisé peuvent déclarer vouloir ou non être <em>contacts mutuels</em>.</p>
+<p>Il y a d'autres occasions d'établir pour un compte d'établir un <em>contact</em>:</p>
+<ul>
+<li>directement en rencontrant le titulaire d'un compte dans n'importe quel contexte réel ou virtuel et en se mettant d'accord pour devenir <em>contact</em>.</li>
+<li>en étant membre d'un même <em>groupe</em> (voir plus avant).</li>
+</ul>
+<p>Un contact est <em>un avatar</em> affiché avec son nom (et son numéro): <strong>sa carte de visite</strong> est visible. </p>
+<p>Un contact est réciproque, si A a B dans ses contacts, B a A dans ses contacts: chacun a échangé avec l'autre la clé de cryptage qui permet de lire la carte de visite de l'autre.</p>
+<p><strong>Un compte peut attacher un commentaire personnel et ses propres mots clés</strong> à ses <em>contacts</em> ce qui facilite le filtrage dans des listes selon des critères variables: lui seul les déclarent et les voit.</p>
+<blockquote>
+  <p>Sauf disparition de l'avatar en contact, un contact ne peut pas être dissous. Les mots clés attribués permettent de le classer comme <em>indésirable</em> ou <em>oubliette</em> et de le filtrer pour ne plus le voir dans les listes.</p>
+</blockquote>
+<h3 id="chatsentrecontacts">"Chats" entre contacts</h3>
+<p>Deux avatars <em>en contact</em> peuvent ouvrir un <em>chat</em> dans lequel ils peuvent écrire des échanges, des textes courts:</p>
+<ul>
+<li>un échange sur un chat ne peut plus y être modifié mais peut être supprimé par son auteur,</li>
+<li>le volume total des échanges sur le chat est limité à 5000 signes, les plus anciens échanges étant perdus en cas de dépassement de cette limite.</li>
+</ul>
+<p>Une fois créé un chat ne disparaît que quand les deux avatars qui le partage ont disparu.</p>
+<ul>
+<li>pour ne pas être importuné, l'un des 2 peut <em>raccrocher</em> le chat, ne plus y écrire. L'autre peut toujours l'alimenter mais sans être certain d'être lu …</li>
+<li>chacun peut attacher au <em>contact du chat</em> ses propres mots clés (par exemple <em>indésirable</em> ou <em>important</em> …) que l'autre ne voit pas, et filtrer les chats en évitant ceux <em>raccrochés</em> ou <em>indésirable</em> par exemple.</li>
+</ul>
+<h4 id="tablissementduncontactchatparune_phrasedecontact_">Établissement d'un contact / chat par une <em>phrase de contact</em></h4>
+<p>B peut déclarer une <em>phrase de contact</em>, unique dans l'application et pas trop semblable à une déjà déclarée. Par exemple : <code>les courgettes sont bleues au printemps</code></p>
+<ul>
+<li>B peut la changer ou la supprimer à tout instant.</li>
+<li>B peut communiquer, par un moyen de son choix, cette phrase à A qui peut ainsi à la fois inscrire B comme contact et ouvrir un chat avec lui. </li>
+<li>A et B devenus contacts l'un de l'autre pourront aussi inviter, ou faire inviter, l'autre aux groupes auxquels ils participent (voire plus si affinités).</li>
+</ul>
+<blockquote>
+  <p>Une <em>phrase de contact</em> a une durée de vie courte afin d'éviter que des personnes non souhaitées mises au courant de la phrase de contact, n'ouvrent un chat: l'impact serait toutefois limité, on n'est pas obligé de le lire!.</p>
+</blockquote>
+<h3 id="groupes">Groupes</h3>
+<p>Un avatar peut créer un <strong>groupe</strong> dont il sera le premier membre <em>actif</em> et y aura un pouvoir <em>d'animateur</em>. Un groupe a,</p>
+<ul>
+<li>un numéro interne, un <strong>nom</strong> immuable et <strong>une carte de visite</strong> (comme un avatar).</li>
+<li>un <strong>chat partagé par les membres du groupe</strong>.</li>
+<li>un <strong>espace de notes partagées</strong> entre les membres du groupes qui peuvent les lire et les éditer.</li>
+</ul>
+<p>Um avatar connu dans un groupe y a plusieurs états:</p>
+<ul>
+<li><strong>simple contact</strong>: il a été inscrit comme contact du groupe mais lui-même ne le sait pas et ne connaît pas le groupe.</li>
+<li><strong>contact invité</strong>: un membre actif ayant pouvoir d'animateur a invité le contact à devenir membre actif: s'il accepte il deviendra membre actif, sinon il retournera à l'état de simple contact. Nul ne devient membre actif à son insu, il faut l'accepter explicitement.</li>
+<li><strong>membre actif</strong>: il peut participer à la vie du groupe.</li>
+</ul>
+<h4 id="accsauxmembresetouauxnotes">Accès aux membres et / ou aux notes</h4>
+<p>Un membre actif <em>peut</em> recevoir lors de son invitation deux <em>droits</em>:</p>
+<ul>
+<li><strong>droit d'accès aux autres membres</strong> et au chat (ou non),</li>
+<li><strong>droit d'accès aux notes</strong> en lecture, en lecture et écriture ou pas du tout.</li>
+</ul>
+<p>Lors de son invitation il peut aussi recevoir le <strong>pouvoir d'animation</strong>. S'il ne l'a pas, un membre actif l'ayant peut lui conférer ce pouvoir (mais ne pourra plus lui enlever).</p>
+<blockquote>
+  <p><strong>Certains groupes peuvent être créés à la seule fin d'être un répertoire de contacts</strong> cooptés par affinité avec possibilités de chat. Personne n'y lit / écrit de notes.</p>
+  <p><strong>Certains groupes peuvent être créés afin de partager des notes de discussion</strong>, un animateur ayant seul connaissance des membres du groupe avec des notes de facto anonymes.</p>
+</blockquote>
+<p>Enfin des groupes sont créés avec le double objectif de réunir des avatars qui se connaissent mutuellement, échangent sur le chat et partagent des notes.</p>
+<p><strong>Tout membre actif peut attacher un commentaire personnels et ses propres mots clés à un groupe</strong> afin de faciliter sa recherche quand il est membre de beaucoup de groupes. Personne d'autre n'en a connaissance.</p>
+<h4 id="quelquesrglessimples">Quelques règles simples:</h4>
+<ul>
+<li>seul um membre actif <strong>ayant pouvoir d'animation</strong> peut,</li>
+<li>donner / retirer le droit d'accès aux autres membres et au chat à un membre actif donné,</li>
+<li>donner / retirer le droit d'accès aux notes à un membre actif donné (en lecture ou lecture / écriture), </li>
+<li>donner un pouvoir d'animation à un membre actif qui ne l'a pas,</li>
+<li>inviter un <em>simple contact</em> à devenir membre actif, avec ou sans droit accès aux autres membres et au chat, avec ou sans droit d'accès aux notes, avec ou sans pouvoir d'animateur,</li>
+<li><em>oublier</em> un simple contact qui n'apparaîtra plus dans le groupe.</li>
+<li><strong>tout membre actif</strong> peut,</li>
+<li>s'il a droit d'accès aux membres, inscrire comme <em>simple contact</em> un de ses contacts,</li>
+<li>décider de plus utiliser ses droits d'accès aux membres et aux notes, et décider de les utiliser à nouveau.</li>
+<li>décider de redevenir <em>simple contact</em>, voire d'être <em>oublié</em> par le groupe (ne figurant même plus comme <em>simple contact</em>).</li>
+</ul>
+<blockquote>
+  <p>Un <em>membre actif ayant pouvoir d'animation</em> ne peut pas changer les droits et pouvoir d'un autre <em>animateur</em> (sauf à lui-même).</p>
+  <p>Un <em>animateur</em> ne peut pas <em>résilier</em> un membre actif indésirable mais peut lui retirer ses droits d'accès aux autres membres et aux notes, donc de facto lui interdire tout accès au groupe.</p>
+</blockquote>
+<p>Tout membre actif d'un groupe ayant accès aux membres, les a comme <em>contact</em> en connaît leurs cartes de visites: il <em>peut</em> ouvrir un chat avec n'importe quel membre <em>actif</em> (qui a formellement accepté  une invitation avec la conséquence d'être visible par les autres membres actifs).</p>
+<blockquote>
+  <p>Le fait d'établir un <em>chat</em> avec un membre du groupe en fait un contact <em>permanent</em>, même si le groupe est ultérieurement dissous ou que le membre cesse d'y être actif.</p>
+  <p>Un groupe disparaît de lui-même dès lors qu'il n'a plus de membres actifs.</p>
+</blockquote>
+<h4 id="notesdugroupe">Notes du groupe</h4>
+<ul>
+<li>elles sont cryptées par une clé aléatoire spécifique au groupe qui a été transmise à chaque membre lors de l'invitation au groupe.</li>
+<li>hormis les membres actifs du groupe ayant droit d'accès aux notes, personne ne peut accéder aux notes du groupe.</li>
+<li>quand un nouveau membre accepte une invitation au groupe avec droits d'accès aux notes, il a immédiatement accès à toutes les notes existantes du groupe. S'il redevient <em>simple contact</em> ou perd son droit d'accès aux notes (de par sa volonté ou celle d'un <em>animateur</em>), il n'a plus accès à aucune de celles-ci. Ceci allège ses sessions.</li>
+<li>pour écrire / modifier / supprimer une note du groupe, il faut avoir le droit d'accès en écriture aux notes.</li>
+<li>chaque note est signée par la succession des membres qui y sont intervenu.</li>
+</ul>
+<p><strong>Tout membre ayant accès aux notes peut attacher ses propres mots clés à chaque note du groupe</strong> afin de faciliter ses recherches. Le filtrage par mots clés s'effectue tous groupes confondus. Les autres membres ne savant pas quels sont ces mot clés.</p>
+<ul>
+<li>un <em>animateur</em> peut attacher des mots clés spécifiques du groupe à une note, ceux-ci étant visibles de tous.</li>
+</ul>
+<p><strong>Une note de groupe peut être rattachée à une autre note parent du groupe</strong>, ce qui fait apparaître visuellement à l'écran une hiérarchie.</p>
+<ul>
+<li>un avatar peut attacher une note personnelle à une note de groupe pour la compléter / commenter: toutefois il sera seul à la voir (puisqu'elle est <em>personnelle</em>).</li>
+</ul>
+<h4 id="membre_hbergeur_dungroupe">Membre <em>hébergeur</em> d'un groupe</h4>
+<p>Celui-ci s'est dévoué pour supporter les coûts d'abonnement de stockage (nombres de notes et volume des fichiers) des notes du groupe.</p>
+<ul>
+<li>il fixe des maximum à ne pas dépasser afin de protéger son budget,</li>
+<li>il peut cesser d'héberger le groupe, un autre membre prenant la suite. Si personne ne se propose, </li>
+<li>le nombre de notes et le volume de leurs fichiers ne peut plus croître,</li>
+<li>au bout de 3 mois le groupe s'autodétruit.</li>
+</ul>
+<h1 id="modessynchronisincognitoetavion">Modes <em>synchronisé</em>, <em>incognito</em> et <em>avion</em></h1>
+<p>Pour se connecter à son compte, le titulaire d'un compte choisit sous quel <strong>mode</strong> sa session va s'exécuter: <em>synchronisé</em>, <em>avion</em> ou <em>incognito</em>.</p>
+<h4 id="mode_synchronis_">Mode <em>synchronisé</em></h4>
+<p>C'est le mode préférentiel où toutes les données du périmètre d'un compte sont stockées dans une micro base locale cryptée dans le navigateur: elle est remise à niveau depuis le serveur central à la connexion d'une nouvelle session.</p>
+<p>Durant une session la micro base locale est maintenue à jour, y compris lorsque d'autres sessions s'exécutent en parallèle sur d'autres navigateurs et mettent à jour les données du compte : par exemple quand une note de groupe est mise à jour par un autre membre du groupe.</p>
+<p>Une connexion ultérieure d'un compte dans le même navigateur après une session synchronisée est rapide: l'essentiel des données étant déjà dans le navigateur, seules les <em>mises à jour</em> sont tirées du serveur central.</p>
+<h4 id="mode_avion_">Mode <em>avion</em></h4>
+<p>Pour que ce mode fonctionne il faut qu'une session antérieure en mode <em>synchronisé</em> ait été exécutée dans ce navigateur pour le compte. A la connexion il y voit l'état dans lequel étaient ses données à la fin de sa dernière session synchronisée dans ce navigateur.</p>
+<p><strong>L'application ne fonctionne qu'en lecture</strong>, aucune mise à jour n'est possible. Aucun accès à Internet n'est effectué, ce qui est précieux <em>en avion</em> ou dans les <em>zones blanches</em> ou quand l'Internet est suspecté d'avoir de grandes oreilles indiscrètes : certes tout est crypté et illisible mais en mode avion personne ne peut même savoir que l'application a été ouverte, l'appareil peut être physiquement isolé du Net.</p>
+<p>En mode avion les fichiers attachés aux notes ne sont pas accessibles, <strong>sauf</strong> ceux qui ont été déclarés devoir l'être. Cette déclaration pour un compte s'effectue fichier par fichier pour chaque navigateur et ils sont mis à jour à l'ouverture de chaque session en mode <em>synchronisé</em> (puis en cours de session).</p>
+<blockquote>
+  <p>On peut couper le réseau (le mode <em>avion</em> sur un mobile), de façon à ce que l'ouverture de la page de l'application ne cherche même pas à vérifier si une version plus récente est disponible.</p>
+</blockquote>
+<h4 id="mode_incognito_">Mode <em>incognito</em></h4>
+<p><strong>Aucun stockage local n'est utilisé, toutes les données viennent du serveur central</strong>, l'initialisation de la session est plus longue qu'en mode synchronisé. Aucune trace n'est laissée sur l'appareil (utile au cyber-café ou sur le mobile d'un.e ami.e) : certes les traces en question auraient été inutilisables car cryptées, mais il n'est pas poli d'encombrer la mémoire d'un appareil qu'on vous a prêté.</p>
+<blockquote>
+  <p>On peut ouvrir l'application dans une <em>fenêtre privée</em> du navigateur, ainsi même le logiciel de la page de l'application sera effacé en fermant la fenêtre.</p>
+  <p><strong>En utilisant des sessions synchronisées sur plusieurs appareils, on a autant de copies synchronisées de ses notes et chats sur chacun de ceux-ci</strong>, et chacun peut être utilisé en mode avion. Les copies ne sont pas exactement les mêmes, les <em>photographies</em> de l'état des données du compte ne pouvant pas être effectuées exactement à la même seconde.</p>
+  <p><strong>Le logiciel de la page Web de l'application invoquée depuis le navigateur y est mémorisée</strong>: au prochain appel de la page, étant déjà présente en local, elle ne chargera rien ou juste le minimum nécessaire pour se mettre à niveau de la version logicielle la plus récente.</p>
+</blockquote>
+<h1 id="cotsdhbergementdelapplication">Coûts d'hébergement de l'application</h1>
+<blockquote>
+  <p><strong>L'administrateur technique</strong> est le représentant technique du prestataire d'hébergement. Il n'a pas de compte mais <em>une clé d'accès</em> à l'application pour initialiser un espace pour une organisation et effectuer quelques actions techniques: exportation d'espaces, suppressions d'espaces, notifications importantes.</p>
+</blockquote>
+<p>Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.</p>
+<h4 id="_basededonnes_et_fichiers_storage"><em>Base de données</em> et <em>fichiers</em> (Storage)</h4>
+<p>Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 25).</p>
+<ul>
+<li>les <em>bases de données</em> requièrent un stockage très proche du serveur et des accès très rapide,</li>
+<li>les fichiers sont enregistrés dans des <em>Storage</em>, des stockages techniques distants ayant une gestion spécifique et économique du fait d'être soumis à peu d'accès (mais de plus fort volume).</li>
+</ul>
+<h4 id="abonnement">Abonnement</h4>
+<p>Un abonnement correspond aux coûts récurrents mensuels pour un compte, même quand il ne se connecte pas. Par simplification ils ont été résumés ainsi:</p>
+<ul>
+<li><strong>Nombre total de documents dans la base de données</strong>: <code>nn + nc + ng</code></li>
+<li><strong>(nn) nombre de notes</strong> personnelles et notes d'un groupe hébergé par le compte,</li>
+<li><strong>(nc) nombre de chats personnels</strong> non <em>raccrochés</em>, </li>
+<li><strong>(ng) nombre de participations actives aux groupes</strong>.</li>
+<li><strong>Volume des fichiers attachés aux notes</strong> stockés sur le <em>Storage</em>.</li>
+</ul>
+<p>Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas <em>le volume effectivement utilisé à chaque instant</em> mais forfaitairement <strong>les <em>volumes maximaux</em></strong> auquel le compte est abonné.</p>
+<blockquote>
+  <p>Les volumes <em>effectivement utilisés</em> ne peuvent pas dépasser les volumes maximum de l'abonnement. Dans le cas où un changement de l'abonnement réduit a posteriori ces maximum en dessous des volumes utilisés, les volumes n'auront plus le droit de croître.</p>
+</blockquote>
+<h4 id="consommationdecalcul">Consommation de calcul</h4>
+<p>La consommation correspond à l'usage effectif de l'application quand une session d'un compte est ouverte: elle est la somme de 4 facteurs, chacun ayant son propre tarif:</p>
+<ul>
+<li><strong>(nl) nombre de <em>lectures</em></strong> (en base de données): nombre de notes lues, de chats lus, de contacts lus, de membres de groupes lus, etc.</li>
+<li><strong>(ne) nombre <em>d'écritures</em></strong> (en base de données): mises à jour des données, notes, chats, cartes de visite, commentaires personnels, etc.</li>
+<li><strong>(vd) volume <em>descendant</em></strong> (download) de fichiers téléchargés en session depuis le <em>Storage</em>.</li>
+<li><strong>(vm) volume <em>montant</em></strong> (upload) de fichiers envoyés dans le <em>Storage</em>. Chaque création / mise à jour d'un fichier est décompté dans ce volume.</li>
+</ul>
+<h3 id="cottotal">Coût total</h3>
+<p>Le coût total est la somme des coûts induits par chacun des 6 compteurs valorisés par leur coût unitaire: <code>n1*u1 + v2*u2 + nl*cl + ne*ce + vd*cd + vm*cm</code></p>
+<ul>
+<li><code>n1</code> = <em>nombre maximal de notes, chats, participations aux groupes</em></li>
+<li><code>v2</code> = <em>volume maximal</em> des fichiers attachés aux notes.</li>
+<li><code>nl ne</code> : nombres de lectures et d'écritures (en millions),</li>
+<li><code>vd vm</code> : volume descendant et montant.</li>
+</ul>
+<blockquote>
+  <p><em>L'ordre de grandeur</em> d'un coût total par compte varie en gros de <strong>0,5€ à 3€ par an</strong>. Individuellement ça paraît faible mais n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement d'un millier de comptes …</p>
+</blockquote>
+<h2 id="lescomptesautonomes_a_etdelorganisation_o_">Les comptes autonomes <em>A</em> et de l'organisation <em>O</em></h2>
+<p>Une organisation peut avoir des comptes ayant des modes de fonctionnement différents:</p>
+<ul>
+<li><strong>autonomes <em>A</em></strong>: chaque compte fixe lui-même son abonnement et sa consommation n'est pas limitée. Il paye les deux.</li>
+<li><strong>de l'organisation <em>O</em></strong> l'organisation paye l'abonnement et la consommation pour le compte mais en contrepartie,</li>
+<li>elle lui fixe des limites potentiellement bloquantes d'abonnement et de consommation,</li>
+<li>elle peut bloquer le compte, par exemple s'il quitte l'organisation, est décédé, etc. </li>
+</ul>
+<h2 id="lecomptable">Le Comptable</h2>
+<p><em>Le Comptable</em> désigne une personne, voire un petit groupe de personnes physiques qui:</p>
+<ul>
+<li>a négocié avec le prestataire hébergeur les conditions et le prix de l'hébergement.</li>
+<li>a été créé par l'administrateur technique du prestataire à la création de l'espace de l'organisation.</li>
+</ul>
+<p>C'est lui-même un compte <em>O</em> (c'est l'organisation qui paye ses coûts) <em>presque</em> normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, créer des avatars secondaires, etc. Il a le privilège,</p>
+<ul>
+<li><strong>de gérer les forfaits gratuits attribués par l'organisation</strong> aux comptes <em>O</em>,</li>
+<li>de déclarer si l'organisation accepte ou non des comptes <em>A autonomes</em>,</li>
+<li>de pouvoir sponsoriser des comptes <em>autonomes</em> (bien qu'étant compte <em>O</em> lui-même)</li>
+</ul>
+<blockquote>
+  <p>Le <strong>Comptable</strong> n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.</p>
+</blockquote>
+<h3 id="compte_autonome_a">Compte <em>autonome</em> "A"</h3>
+<p><strong>Un compte <em>autonome</em> fixe lui-même, son niveau d'abonnement</strong>, c'est à dire ses <em>volumes maximum</em> et peut les changer à son gré, mais pas en-dessous des seuils déjà occupés.</p>
+<p>Un compte autonome a des compteurs de consommation qu'il ne peut que constater.</p>
+<blockquote>
+  <p><strong>Nul ne peut bloquer / résilier un compte <em>autonome</em></strong>, mais le compte peut se retrouver bloqué lui-même s'il n'a pas crédité suffisamment son compte pour supporter ses coûts <strong>d'abonnement et de consommation</strong>.</p>
+</blockquote>
+<p>Il dispose à cet effet d'un compteur de <strong>crédits</strong> qui lui donne le cumul de tous les crédits qu'il a récupérés et enregistrés depuis l'ouverture de son compte ou depuis qu'il est devenu compte <em>autonome</em>, diminués toutefois des crédits qu'il a offert à d'autres comptes <em>A</em> amis ou à l'occasion d'un sponsoring.</p>
+<p>Pour enregistrer un crédit, le compte:</p>
+<ul>
+<li>génère un <em>ticket</em>,</li>
+<li>effectue un paiement (ou fait effectuer un paiement par un tiers) portant en référence ce ticket. C'est le Comptable qui fixe comment recevoir ces paiements et sous quelle forme.</li>
+<li>le Comptable inscrit les paiements reçus avec leur montant et numéro de ticket.</li>
+<li>à la prochaine connexion (ou appui sur un bouton) le compte incorpore dans son solde les paiements reçus par le Comptable.</li>
+<li>ce mécanisme garantit l'anonymat du paiement qui ne peut pas être corrélé à son compte.</li>
+</ul>
+<p>Comme le compte dispose à tout instant de la somme des coûts d'abonnement et de consommation depuis le début de la vie du compte (ou depuis qu'il est <em>devenu compte autonome</em>), il en résulte <strong>un solde qui doit normalement être positif</strong> et enclenche une restriction d'accès s'il est négatif.</p>
+<blockquote>
+  <p>Avant de devenir <em>négatif</em> le solde d'un compte a été <em>faiblement positif</em>. Le compte en est averti lors de sa connexion avec le nombre de jours <em>estimé</em> avant de devenir négatif si son profil de consommation reste voisin de celui constaté sur les 4 mois antérieurs.</p>
+</blockquote>
+<p>Un compte <em>A</em> peut être <em>sponsorisé</em>:</p>
+<ul>
+<li>par le Comptable qui lui offre un petit crédit de bienvenue (supporté par l'organisation).</li>
+<li>par un autre compte <em>A</em> qui lui offre un crédit pris sur le sien propre.</li>
+<li>le crédit initial laisse le temps au nouveau compte de faire parvenir un paiement au Comptable.</li>
+</ul>
+<h3 id="compte_dorganisation_o">Compte <em>d'organisation</em> "O"</h3>
+<p><strong>Un compte <em>d'organisation</em> bénéficie <em>gratuitement</em></strong>:</p>
+<ul>
+<li>_d'un _abonnement_ c'est à dire d'un <em>nombre maximal total</em> de notes / chats / groupes et d'un <em>volume maximal total</em> pour les fichiers attachés aux notes.</li>
+<li><em>d'une limite de coûts mensuel de calcul</em> destinée à couvrir les coûts de <em>lectures / écritures de notes, chats, etc.</em> et de <em>transfert</em> de fichiers. <strong>Le compte subit une restriction d'accès</strong> si sa consommation sur le mois en cours et le précédent (au prorata du nombre de jours effectifs et ramenée à 30 jours) dépasse cette limite <em>mensuelle</em>.</li>
+</ul>
+<p><strong>Un compte <em>O</em> peut être bloqué par l'organisation</strong></p>
+<ul>
+<li>pour de multiples raisons: départ de l'organisation, décès, adhésion à une organisation concurrente ou ayant des buts opposés, etc. selon la charte de l'organisation.</li>
+<li>selon l'option de l'organisation, son accès est restreint,</li>
+<li><em>accès en lecture seule</em>, par exemple pendant un certain temps,</li>
+<li><em>accès minimal</em>, ni lecture ni mise à jour,</li>
+<li>dans les deux cas les <em>chats d'urgence</em> avec le Comptable et ses <em>délégués</em> restent possibles.</li>
+</ul>
+<h3 id="gestiondesabonnementsetlimitesdecalculpar_tranche_">Gestion des abonnements et limites de calcul par <em>tranche</em></h3>
+<p>Le Comptable dispose pour distribution aux comptes <em>O</em>,</p>
+<ul>
+<li>d'un <em>volume maximal total</em> pour les notes, chats, groupes,</li>
+<li>d'un <em>volume maximal total</em> pour les fichiers attachés aux notes,</li>
+<li>d'une <em>limite maximale totale des coûts annuels de calcul</em>. </li>
+</ul>
+<p><strong>Il découpe ces <em>volumes et limites</em> en <em>tranches</em></strong> et est en charge de les ajuster au fil du temps.</p>
+<ul>
+<li>dans chaque <em>tranche</em> le Comptable désigne des <em>comptes délégués</em> à qui il confie la distribution des <em>volumes maximaux et limites de calcul</em> aux comptes <em>O</em> rattachés à la tranche.</li>
+<li>tout compte O <em>d'organisation</em> est attachée à <strong>une tranche</strong>. Le Comptable peut le basculer d'une tranche à une autre.</li>
+</ul>
+<h3 id="basculementduncompteaenoetinversement">Basculement d'un compte A en O et inversement</h3>
+<p>Le Comptable ou un <em>délégué d'une tranche</em> peut transformer un compte <em>O</em> de cette tranche en compte <em>A</em>:</p>
+<ul>
+<li><strong>avec ou sans son accord</strong> selon l'option choisie par le Comptable pour l'organisation.</li>
+<li>le compte acquiert une liberté totale (il ne peut plus être bloqué) mais en contrepartie paie son abonnement / consommation.</li>
+</ul>
+<p>Le Comptable ou un <em>délégué d'une tranche</em>, peut transformer un compte <em>A</em> <strong>qui en fait la demande</strong> en compte <em>O</em> de la tranche:</p>
+<ul>
+<li>le compte n'a plus à payer son accès,</li>
+<li>en contrepartie il est contraint en volume et en activité et peut être bloqué.</li>
+</ul>
+<p>**A sa création une organisation *<em>n'accepte pas</em>* de comptes <em>autonomes</em>. </p>
+<ul>
+<li>Le Comptable peut lever cette interdiction et en autoriser la création,</li>
+<li>il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes <em>autonomes</em> existants et ne vaut que pour les créations ultérieures.</li>
+<li>il précise si le basculement de compte O à compte A est soumis à l'accord du compte.</li>
+</ul>
+<h2 id="notificationsetrestrictionsdusagedescomptes">Notifications et restrictions d'usage des comptes</h2>
+<p>Une <em>notification</em> est un message important dont la présence est signalée par une icône dans la barre d'entête de l'écran et parfois par un affichage lors de la connexion d'un compte, voire d'une <em>pop up</em> en cours de session quand elle est liée à une restriction d'accès du compte.</p>
+<p><strong>Une <em>notification</em> peut être porteuse d'une restriction d'accès</strong>: les actions du compte ne sont plus totalement libres, voire sévèrement limitées.</p>
+<h3 id="notificationdeladministrateurtechniqueaccs_figs_et_clos_">Notification de l'administrateur technique: accès <em>figés</em> et <em>clos</em></h3>
+<p>L'administrateur peut émettre une notification, le cas échéant déclarant un espace <em>figé</em> ou <em>clos</em>:</p>
+<ul>
+<li>le texte informatif est soit simplement informatif, soit explicite les raisons de la restriction:.</li>
+<li><strong>espace figé</strong> : l'espace est en lecture seule.</li>
+<li><strong>espace clos</strong> : il n'y a plus de données. Le texte indique à quelle URL / code d'organisation les comptes vont trouver l'espace transféré (s'il y en a un).</li>
+</ul>
+<p>L'administrateur technique a la capacité:</p>
+<ul>
+<li>de figer temporairement un espace, par exemple:</li>
+<li>pendant la durée technique nécessaire à son transfert sur un autre hébergeur,</li>
+<li>en le laissant en ligne et permettant aux comptes de consulter une image figée pendant que l'opération technique se poursuit.</li>
+<li>de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).</li>
+</ul>
+<h3 id="notificationpourlescomptesoaccs_lectureseule_et_minimal_">Notification pour les comptes O: accès <em>lecture seule</em> et <em>minimal</em></h3>
+<p>Ces notifications peuvent être émises par le Comptable et ses <em>délégués</em> de la tranche de quotas du compte. </p>
+<ul>
+<li><em>simple information</em> sans restriction,</li>
+<li><strong>restriction d'accès en <em>lecture seulement</em></strong> avec l'explication de sa raison d'être,</li>
+<li><strong>restriction d'accès <em>minimal</em></strong>, ni lecture ni mise à jour avec l'explication de sa raison d'être,</li>
+<li>en cas de restriction les comptes ont toujours accès aux chats d'urgence avec le Comptable et ses <em>délégués</em>.</li>
+</ul>
+<p>Ces notifications peuvent avoir deux portées:</p>
+<ul>
+<li><em>tous</em> les comptes O d'une tranche,</li>
+<li><em>un</em> compte O spécifique de cette tranche.</li>
+</ul>
+<h3 id="notificationdelasurveillanceautomatiquedelaconsommation">Notification de la surveillance automatique de la consommation</h3>
+<p><strong>Pour un compte A</strong></p>
+<ul>
+<li><em>Simple information</em>: quand, au rythme observé sur les derniers mois, le crédit serait consommé en moins de 30 jours.</li>
+<li><strong>Avec restriction d'accès <em>minimal</em></strong> : quand son solde est négatif, le total de ses crédits est inférieur aux coûts d'abonnement et de consommation.</li>
+</ul>
+<p>Solutions:</p>
+<ul>
+<li>générer un <em>ticket de crédit</em> et envoyer un paiement qui sera enregistré par le Comptable.</li>
+<li>bénéficier du don d'un autre compte.</li>
+</ul>
+<p><strong>Pour un compte O</strong>
+La consommation moyenne sur le mois en cours et le précédent ramenée sur 30 jours est comparée au <em>forfait</em> limite de consommation mensuelle fixée par le Comptable ou ses <em>délégués</em>:</p>
+<ul>
+<li><em>Simple information</em>: la consommation dépasse 90% du <em>forfait</em>,</li>
+<li><strong>Avec restriction d'accès <em>minimal</em></strong> : la consommation dépasse le <em>forfait</em>.</li>
+</ul>
+<p>Solutions:</p>
+<ul>
+<li>restreindre sa consommation,</li>
+<li>demander une augmentation de la limite de consommation mensuelle.</li>
+</ul>
+<h3 id="notificationdelasurveillanceautomatiquedesdpassementsdesvolumesmaximaux">Notification de la surveillance automatique des dépassements des volumes maximaux</h3>
+<p>Cette notification s'applique aux comptes O et A.</p>
+<ul>
+<li>Notification sans restriction d'accès quand les volumes maximaux sont <em>approchés</em>.</li>
+<li>Notification avec restriction aux opérations diminuant les volumes quand les maximum sont dépassés.</li>
+</ul>
+<blockquote>
+  <p>Lire plus de détails dans le document <strong>Couts-Hebergement</strong>.</p>
+</blockquote>
+<h1 id="annexeiles_espaces_">Annexe I: les <em>espaces</em></h1>
+<p>L'administrateur technique d'un site peut héberger techniquement sur le site jusqu'à 80 <strong>espaces</strong> numérotés de 10 à 89.</p>
+<p>Tout ce qui précède se rapporte à UN espace et les utilisateurs ne peuvent avoir aucune perception des autres espaces hébergés par le même serveur technique.</p>
+<ul>
+<li>dans la base de données, les informations sont partitionnées par les deux premiers chiffres (majeurs) des identifiants.</li>
+<li>dans l'espace de stockage des fichiers, des sous-espaces sont séparés par nom de l'organisation.</li>
+</ul>
+<p>L'administrateur technique a ainsi la possibilité d'ouvrir <em>instantanément</em> un nouvel espace pour une organisation en faisant la demande. Cette ouverture crée le compte Comptable de l'espace, qui comme les autres n'a aucune perception de l'existence d'autres espaces. C'est à cette occasion que la phrase secrète du Comptable (de l'organisation) est fixée.</p>
+<p>Le Comptable et l'administrateur technique se sont mis d'accord sur le volume utilisable et la participation aux frais d'hébergement.</p>
+<p>Toutefois si cet accord n'était pas respecté, l'administrateur technique peut,</p>
+<ul>
+<li>émettre une notification d'information visible de tous les comptes,</li>
+<li>bloquer l'espace de l'organisation en <em>lecture seule</em>,</li>
+<li>détruire les données par clôture de l'espace ne laissant pendant un certain temps qu'une seule information d'explication.</li>
+</ul>
+</body>
+</html>
