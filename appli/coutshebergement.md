@@ -247,7 +247,7 @@ L'administrateur technique a ainsi les moyens:
 - de clôturer un espace en laissant une explication, voire une solution, aux comptes (où l'espace a-t-il été transféré).
 
 ## Notifications pour les comptes "O": accès _lecture seule_ et _minimal_ 
-Ces notifications peuvent être émises par le Comptable ou ses _lélégués sur une tranche_. Ce peut être une simple information ponctuelle et ciblée plus ou moins large, ne soumettant pas les comptes à des restrictions d'accès, mais elle peut aussi être porteuse d'une _restriction_:
+Ces notifications peuvent être émises par le Comptable ou ses _délégués sur une tranche_. Ce peut être une simple information ponctuelle et ciblée plus ou moins large, ne soumettant pas les comptes à des restrictions d'accès, mais elle peut aussi être porteuse d'une _restriction_:
 - Restriction d'accès en _lecture seulement_,
 - Restriction d'accès _minimal_.
 
