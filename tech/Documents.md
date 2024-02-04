@@ -1329,7 +1329,7 @@ _data_ :
 - `start` : date-heure de lancement du dernier GC.
 - `duree` : durée de son exécution en ms.
 - `nbTaches` : nombre de taches terminées avec succès sur 6.
-- `log` : trace des exécutions des tâches: {}
+- `log` : array des traces des exécutions des tâches:
   - `nom` : nom.
   - `retry` : numéro de retry.
   - `start` : date-heure de lancement.
@@ -1372,8 +1372,8 @@ Dans l'ordre pour chaque `id`:
 **Une transaction pour chaque compte :**
 - son document `comptas` :
   - est lu pour récupérer `cletX it`;
-  - un document `gcvols` est inséré avec ces données : son `id` est celle du compte.
-  - les `gcvols` seront traités par la prochaine ouverture de session du comptable de l'espace ce qui supprimera l'entrée du compte dans tribu (et de facto libèrera des quotas).
+  - si c'est un compte O, un document `gcvols` est inséré avec ces données : son `id` est celle du compte.
+  - les `gcvols` seront traités par la prochaine ouverture de session du comptable de l'espace ce qui supprimera l'entrée du compte dans tribu (et de facto libérera des quotas).
   - le document `comptas` est purgé afin de ne pas récupérer le volume plus d'une fois.
 
 ### `GCFpu` : traitement des documents `fpurges`
@@ -1389,11 +1389,29 @@ Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
 Les documents `transferts` sont purgés.
 
 ### `GCDlv` : purge des versions / sponsorings obsolètes
-L'opération récupère tous les documents `versions` de `dlv` antérieures à jour j - 2 ans. Ces documents sont purgés: ils ont fini d'être utile pour synchronisation.
-
-L'opération récupère tous les documents `chats` et `notes` de `dlv` antérieures à jour j - 1 an. Ces documents sont purgés: ils ont fini d'être utile pour synchronisation.
+L'opération récupère tous les documents `versions` de `dlv` antérieures à jour j - 2 ans. Ces documents sont purgés: ils ont fini d'être utiles pour synchronisation.
 
 L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures ou égales à aujourd'hui. Ces documents sont purgés.
+
+### `GCstc` : création des statistiques mensuelles des `comptas` et des `tickets`
+La boucle s'effectue pour chaque espace:
+- `comptas`: traitement par l'opération `ComptaStat` pour récupérer les compteurs du mois M-1. 
+  - Le traitement n'est déclenché que si le mois à calculer M-1 n'a pas déjà été enregistré comme fait dans `comptas.moisStat` et que le compte existait déjà à M-1.
+- `tickets`: traitement par l'opération `TicketsStat` pour récupérer les tickets de M-3 et les purger.
+  - Le traitement n'est déclenché que le mois à calculer M-3 n'a pas déjà été enregistré comme fait dans `comptas.moisStatT` et que le compte existait déjà à M-3.
+  - une fois le fichier CSV écrit en _storage_, les tickets de M-3 et avant sont purgés.
+
+**Les fichiers CSV sont stockés en _storage_** après avoir été _crypter_ par `crypterRaw` qui:
+- génère une clé AES pour le fichier, l'IV associé étant les 16 premiers bytes de cette clé,
+- créé un item de 49 bytes: 32 pour la clé, 16 pour l'IV, 1 indiquant si le fichier est gzippé,
+- crypte cet item:
+  - c1: par la clé publique du Comptable de l'espace,
+  - c2: par la clé k d'administration du site.
+- retourne l'ensemble `c1 c2 fichier` (gzippé ou non) crypté, prêt à être écrit sur _storage_.
+
+La statistique des `comptas` est doublement accessible par le Comptable ET l'administrateur technique du site.
+
+La statistique des `tickets` est accessible seulement par le Comptable.
 
 ## Lancement global quotidien
 Le traitement enchaîne, en asynchronisme de la requête l'ayant lancé : 
