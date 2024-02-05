@@ -65,20 +65,26 @@ Ultérieurement le titulaire du compte peut créer des **avatars secondaires**, 
 
 # Contacts
 
-Un compte peut rester totalement isolé et n'avoir aucun contact avec les autres: à la création de son compte par _sponsoring_, le sponsor comme le sponsorisé peuvent déclarer vouloir ou non être _contacts mutuels_.
+Un contact est _un avatar_ que le compte connaît, en plus de son numéro, par son **nom** et **sa carte de visite** cryptée. 
 
-Il y a d'autres occasions d'établir pour un compte d'établir un _contact_:
-- directement en rencontrant le titulaire d'un compte dans n'importe quel contexte réel ou virtuel, l'un fournissant à l'autre une _phrase de contact_ convenue entre euw et connue d'eux seuls.
-- en étant membre d'un même _groupe_ (voir plus avant).
+Un contact est établi entre deux avatars par l'existence d'un au moins de ces types de liens:
+- **un chat a été établi** entre les deux avatars: le chat ne pouvant pas être supprimé, _ce lien est permanent_. La clé de la carte de visite a été échangée à l'ouverture du chat. Un chat peut être ouvert,
+  - à la création du compte entre sponsor et sponsorisé si tous deux en sont d'accord,
+  - avec le membre _actif_ d'un groupe pour lequel on a droit d'accès aux membres (voir plus loin),
+  - par contact direct avec une _phrase de contact_ (voir plus loin).
+- **les deux avatars sont membres d'un même groupe**: les clés de leur cartes de visites sont disponibles à tous les membres du groupe (ayant droit d'accès aux membres). Ce lien est temporaire, dure tant que les deux sont membres du groupe.
+  - si l'un des deux souhaite rendre ce contact permanent il ouvre un chat avec lui.
 
-Un contact est _un avatar_ affiché avec son nom (et son numéro): **sa carte de visite** est visible. 
+Un contact _disparaît_ quand l'avatar correspondant disparaît, par résiliation volontaire ou forcée (non utilisation du compte ou défaut de crédit).
 
-Un contact est réciproque, si Julie a Émilie dans ses contacts, Émilie a Julie dans ses contacts: chacun a échangé avec l'autre la clé de cryptage qui permet de lire sa carte de visite.
+> Un compte peut rester totalement isolé et n'avoir aucun contact avec les autres: à la création de son compte par _sponsoring_, le sponsor comme le sponsorisé peuvent déclarer vouloir ou non **ouvrir un chat** entre eux (ce qui les rend _contacts mutuels permanent_).
+
+> Un contact est réciproque, si Julie a Émilie dans ses contacts, Émilie a Julie dans ses contacts: chacun a échangé avec l'autre la clé de cryptage qui permet de lire sa carte de visite.
 
 ## Un compte peut attacher un commentaire personnel et ses propres mots clés à ses _contacts_ 
 Ceci facilite le filtrage dans le répertoire des _contacts_ selon des critères de son choix: le compte les déclarent pour lui et lui seul les voit.
 
-> Sauf disparition de l'avatar en contact, un contact ne peut pas être dissous. Les mots clés attribués par un compte lui permettent de le classer comme _indésirable_ ou _oubliette_ ou _amis_ et de s'en servir comme filtre pour le voir ou non dans son répertoire de contacts.
+> Les mots clés attribués par un compte à un contact lui permettent de le classer comme _indésirable_ ou _oubliette_ ou _amis_ et de s'en servir comme filtre pour le voir ou non dans son répertoire de contacts.
 
 # "Chats" entre contacts
 
@@ -93,10 +99,10 @@ Une fois créé un chat ne disparaît que quand les deux avatars qui le partage 
 ## Établissement d'un contact / chat par une _phrase de contact_
 Émilie peut déclarer une _phrase de contact_, unique dans l'application et pas trop semblable à une déjà déclarée. Par exemple : `les courgettes sont bleues au printemps`
 - Émilie peut la changer ou la supprimer à tout instant.
-- Émilie peut communiquer, par un moyen de son choix, cette phrase à Julie qui peut ainsi à la fois inscrire Émilie comme contact et ouvrir un chat avec elle. 
+- Émilie peut communiquer, par un moyen de son choix, cette phrase à Julie qui peut ainsi ouvrir un chat avec elle. 
 - Julie et Émilie devenues contacts l'une de l'autre pourront aussi inviter, ou faire inviter, l'autre aux groupes auxquels elles participent.
 
-> Une _phrase de contact_ doit être effacée rapidement afin d'éviter que des personnes non souhaitées mises au courant de la phrase de contact, n'ouvrent un chat: l'impact serait toutefois limité (on n'est pas obligé de le lire).
+> Une _phrase de contact_ doit être effacée rapidement si on souhaite éviter que des personnes non souhaitées, mises au courant de la phrase de contact, n'ouvrent un chat: l'impact serait toutefois limité (on n'est pas obligé de le lire).
 
 # Groupes
 

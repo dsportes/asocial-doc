@@ -834,7 +834,7 @@ _data_:
 - `mfas` : map des fichiers attachés.
 - `refs` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa  note _parent_.
 
-**_Remarque :_** une note peut être explicitement supprimée. Afin de synchroniser cette forme particulière de mise à jour pendant un an (le délai maximal entre deux login), le document est conservé _zombi_. Il sera purgé avec son avatar / groupe.
+**_Remarque :_** une note peut être explicitement supprimée. Afin de synchroniser cette forme particulière de mise à jour pendant un an (le délai maximal entre deux login), le document est conservé _zombi_ (sa _data_ est null). La note sera purgée avec son avatar / groupe.
 
 **Mots clés `mc`:**
 - Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
