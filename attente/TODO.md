@@ -1,6 +1,8 @@
 ## Dev
 Création d'un chat: il faut que le contact ne soit pas uniquement connu en tant que simple contact de groupes.
 
+GC : dlv dépassée sur membres. Si le membre est l'hébergeur, activer `dfh`. A vérifier.
+
 Vérifier les conditions de prise d'hébergement d'un groupe
 
 Suppression d'un avatar / groupe sur note-store.js: vérifier / tester
@@ -87,10 +89,14 @@ http-server D:\git\asocial-app\dist\pwa -p 8343 -C D:\git\asocial-test1\config\f
 # Dates limite de validité `dlv` des comptes
 Chaque compte a une date limite dans son `versions` de son avatar principal, arrondie à la fin du mois, répétée dans les `versions` de ses avatars secondaires et ses `membres`.
 
+**Maintien en vie d'un compte en l'absence de connexion**
+- pour un compte O:
+ - ressources mobilisées pour rien,
+ - avance de frais d'hébergement.
+- pour tous les comptes sur chaque appareil: synchronisation de bases locales très _anciennes_ obligeant à garder des versions _zombi_ très longtemps.
+
 ## Connexion d'un compte
 - 60 jours avant `dlv`: alerte
-- 30 jours avant `dlv`: session en restriction d'accès minimal
-  - chats d'urgence et gestion des crédits seulement.
 - après `dlv`: connexion impossible.
 
 ## dlv
@@ -100,7 +106,10 @@ Chaque compte a une date limite dans son `versions` de son avatar principal, arr
 
 **État _zombi_:** : `dlv < auj`. Le _data_ est null, le row ne change plus de version.
 
-## GC : purges sur dlv `1 < dlv < auj`
+## GC : purges sur dlv `20000101 < dlv < auj`
+- _Remarque_: les `dlv` inférieures au début du siècle ne sont plus des dates mais des valeurs symboliques: 
+  - `1` pour forcer la purge, 
+  - `aamm` pour une date de purge.
 - sur les `versions` des avatars (les `versions` des groupes vivants ont une `dlv` max): 
   - SI principal (il a un `comptas`).
     - pour un compte O, mise à jour de `tribus`, création d'un `gcvols`.
@@ -112,7 +121,9 @@ Chaque compte a une date limite dans son `versions` de son avatar principal, arr
   - Groupe restant vivant: maj du groupe (flags 0): maj `versions` du groupe
   - Groupe disparaissant: la `dlv` de `versions` du groupe est **mise à 1** (son _data_ devient null).
 
-**La durée de survie des versions en _zombi** est éternelle: le volume reste faible.
+**Groupes: dépassement de la `dfh`**. A la limite de vie sans hébergeur, le groupe est supprimé:
+- la `dlv` de sa `versions` (qui était max) passe à 1 et devient donc _zombi_.
+- dans l'étape suivante du GC, le sous-arbre du groupe sera purgée, et la dlv indiquera que la purge a eu lieu.
 
 **La suppression d'une note** lui met une `dlv` à auj (elle devient _zombi_) et reste ainsi jusqu'à purge de leur avatar / groupe.
 
@@ -124,8 +135,13 @@ Chaque compte a une date limite dans son `versions` de son avatar principal, arr
 
 ### Purge des sous-arbres avatars et groupes
 - filtre `versions` de `dlv == 1`
-- à la fin des purges: **la `dlv` passe à 0**. _data_ reste null, **la version ne change pas** elle reste immuable dans un état _zombi_.
-- le row `versions` reste _zombi_ mais ne sera plus sélectionnable pour purge.
+- à la fin des purges: **la `dlv` passe à `AAMM`** (année et mois de la date courante). _data_ reste null, **la version ne change pas** elle reste immuable dans un état _zombi_.
+- le row `versions` reste _zombi_ mais ne sera plus sélectionnable pour purge des sous-arbres.
+
+**La durée de survie des versions en _zombi_** est _très longue_: le volume reste faible.
+- ces rows ne servent plus qu'à resynchroniser la micro base locale d'un compte sur un poste, avec l'état courant après N jours sans synchronisation, c'est à dire sans connexion synchronisée.
+- un donnée de configuration donne le nombre `idbObs` de jours de validité d'une micro base locale sans resynchronisation. Elle devient obsolète (donc à supprimer avant connexion) `idbObs` jours après sa dernière synchronisation.
+- une étape (mensuelle) du GC purge les versions ayant une `dlv` obsolète.
 
 ## `dlv` des comptes A
 Elle est recalculée:
@@ -140,7 +156,7 @@ Elle est arrondie à la fin du mois et n'est restockée que si elle change de mo
 ## `dlv` des comptes O
 Deux préoccupations:
 - un compte O qui se ne connecte plus, désintéressé, décédé, immobilise des quotas qui pourraient être utiles à d'autres. 
-- l'administrateur technique gère une `dlvat` pour l'espace : date jusqu'à laquelle l'organisation a payé. Cette information est disponible dans l'état de la session pour les comptes O (les comptes A n'étant pas intéressés).
+- l'administrateur technique gère une `dlvat` pour l'espace : date à laquelle l'organisation l'administrateur technique détruira les comptes O. Cette information est disponible dans l'état de la session pour les comptes O (les comptes A n'étant pas intéressés).
   - l'administrateur ne peut pas (re)positionner une `dlvat` à moins de M+3 pour éviter les catastrophes de comptes qui deviendraient purgeables à prochaine connexion.
 
 A la connexion, la `dlv` d'un compte est recalculée à la date la plus proche,
