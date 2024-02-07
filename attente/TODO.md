@@ -96,10 +96,11 @@ Chaque compte a une date limite dans son `versions` de son avatar principal, arr
 - pour tous les comptes sur chaque appareil: synchronisation de bases locales très _anciennes_ obligeant à garder des versions _zombi_ très longtemps.
 
 ## Connexion d'un compte
-- 60 jours avant `dlv`: alerte
+- 40 jours avant `dlv`: alerte
 - après `dlv`: connexion impossible.
 
 ## dlv
+- sur `comptas`: mais n'est pas déclencheur pour le GC, c'est une commodité de gestion.
 - sur `versions` des groupes, `notes` : crées avec `max`
 - sur `versions` des avatars et `membres` avec celle calculée au login voire recalculée après (positive).
 - sur `sponsorings` : celle fonctionnelle.
