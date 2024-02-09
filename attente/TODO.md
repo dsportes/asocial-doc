@@ -1,14 +1,5 @@
 ## Dev
-Borner la dlv d'un compte A.
-
-Gérer dlvat et nbmi
-- modification de toutes les dlv égales à dlvat.
-
-GC : dlv dépassée sur membres. Si le membre est l'hébergeur, activer `dfh`. A vérifier.
-
-GC : la statistique T doit être accessible à l'administrateur technique.
-
-Réviser GC
+Changement de dlvat: mettre à jour toutes les dlv qui cite l'ancienne.
 
 Création d'un chat: il faut que le contact ne soit pas uniquement connu en tant que simple contact de groupes.
 

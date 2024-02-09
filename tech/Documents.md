@@ -214,9 +214,9 @@ Ces documents versions en état _zombi_ ont pour utilité majeure de permettre a
 
 Il faut donc que ces documents restent présents, bien qu'immuables et sans autre donnée / utilité que d'indiquer un avatar / groupe _disparu_ lors d'une resynchronisation.
 
-**La donnée de configuration `IDBOBS / IDBOBSGC` de `api.mjs`** donne le nombre de jours de validité d'une micro base locale IDB sans resynchronisation. Celle-ci devient **obsolète** (à supprimer avant connexion) `IDBOBS` jours après sa dernière synchronisation.
+**La constante `IDBOBS / IDBOBSGC` de `api.mjs`** donne le nombre de jours de validité d'une micro base locale IDB sans resynchronisation. Celle-ci devient **obsolète** (à supprimer avant connexion) `IDBOBS` jours après sa dernière synchronisation. Ceci s'applique à _tous_ les espaces avec la même valeur.
 
-En conséquence le GC peut ne plus conserver les versions ayant une dlv de la forme `aamm` si ce mois correspond à plus de `IDBOBSGC` jours par rapport au jour du GC.
+En conséquence le GC peut ne plus conserver les versions ayant une `dlv` de la forme `aamm` si ce mois correspond à plus de `IDBOBSGC` jours par rapport au jour du GC.
 
 > **Remarque**: changer `IDBOBS` pour une valeur supérieure est délicat. Ça se fait en deux temps:
 - augmentation de `IDBOBSGC`, la valeur prise en compte par le GC,
@@ -1347,43 +1347,48 @@ La dlv est recalculée et propagée à l'occasion de la nouvelle évaluation qui
 La dlv est recalculée en fonction des nouvelles conditions.
 
 ## Traitement par le GC
-_Remarque_: les `dlv` inférieures au début du siècle ne sont plus des dates mais des valeurs symboliques: 
-- `1` pour forcer la purge, 
-- `aamm` pour une date de purge.
+_Remarque_: les `dlv` des documents `versions` inférieures au début du siècle ne sont plus des dates mais des valeurs symboliques: 
+- `aamm` indique que les sous-arbres ont été purgés et qu'il ne reste plus que le document versions lui-même (_zombi_). 
+- Ceux-ci restent utiles pour synchronisation des bases locales afin de détecter les suppressions de groupes et d'avatars. Toutefois au bout de IDBOBS jours, on renonce à cette synchronisation incrémentale et la base locale IDB est purgée avant connexion.
+- les versions ayant une `dlv` aamm plus vieille de IDBOBS jours son purgés aussi.
 
-### Étape _avatars_: purges sur dlv `20000101 < dlv < auj`
-Elle filtre les documents `versions` des avatars. Remarque: les `versions` des groupes vivants ont une `dlv` max et échappent de facto à ce filtre: 
+### `GCHeb` - Étape _fin d'hébergement_
+Elle récupère les groupes dont la `dfh` est passée:
+- la `dlv` du document `versions` du groupe est mise à la veille, devient _zombi_ et déclenchera une purge du sous-arbre du groupe.
+
+### `GCGro` - Étape _groupes orphelins_: purges des `membres`
+Elle filtre les documents `membres` _disparus_ sur `20000101 <= dlv < auj`
+- purge du document `membres`.
+- si le groupe reste vivant (il y a encore un membre _actif_): 
+  - mise à jour du groupe: `flags[im]` à 0, `anag[im]` à 1,
+  - mise à jour de `v` dans le document `versions` du groupe.
+- si le groupe doit disparaître: la `dlv` de son document `versions` est **la veille du jour courant** (son _data_ devient null).
+
+### `GCPag` - Étape _purge des sous-arbres avatars et groupes_
+Elle filtre les documents `versions` des avatars et groupes par `20000101 <= dlv < auj`. 
+- rappel: les `versions` des groupes vivants ont une `dlv` max et échappent de facto à ce filtre. 
 - SI c'est un avatar principal (il a un document `comptas`).
   - pour un compte O, mise à jour de `tribus`, création d'un `gcvols`.
   - purge du document `comptas`
-- la `dlv` de son document `versions` est **mise à 1** (son _data_ devient null).
-
-### Étape _membres_: purges sur dlv `20000101 < dlv < auj`
-Elle filtre les documents `membres`:
-- purge du document `membres`.
-- si le groupe restant vivant (il y a encore un membre _actif_): 
-  - mise à jour du groupe: `flags[im]` à 0, `anag[im]` à 1,
-  - mise à jour de `v` dans le document `versions` du groupe.
-- si le groupe doit disparaître: la `dlv` de son document `versions` est **mise à 1** (son _data_ devient null).
-
-### Étape de purge des sous-arbres avatars et groupes
-Elle filtre les documents `versions` de `dlv = 1`
-- à la fin des purges: **la `dlv` passe à `AAMM`** (année et mois de la date courante). _data_ reste null, **la version `v` ne change pas** elle reste immuable dans un état _zombi_.
-- les documents `versions` restent _zombi_ mais ne seront plus sélectionnables pour purge des sous-arbres.
+- purge du sous-arbre (dont les fichiers):
+- la `dlv` de son document `versions` est **mise à aamm du jour courant** (son _data_ reste null).
+- les documents `versions` restent _zombi_ mais ne seront plus sélectionnables pour purge des sous-arbres, leur `dlv` étant inférieure à `AMJ.min` (20000101).
 
 ## Changement des données dans l'espace d'une organisation
 Il y a deux données: 
 - `dlvat`: date limite de vie des comptes O, fixée par l'administrateur technique en fonction des contributions effectives reçues de l'organisation pour héberger ses comptes O.
 - `nbmi`: nombre de mois d'inactivité acceptable fixé par le Comptable (3, 6, 9, 12, 18 ou 24). Ce changement n'a pas d'effet rétroactif.
 
+> **Remarque**: `nbmi` est fixé par configuration par le Comptable _pour chaque espace_. C'est une contrainte de délai maximum entre deux connexions à un compte, faute de quoi le compte est automatiquement supprimé. La constante `IDBOBS` fixe elle un délai maximum (2 ans par exemple), _pour un appareil et un compte_ pour bénéficier de la synchronisation incrémentale. Un compte peut se connecter toutes les semaines et avoir _un_ poste sur lequel il n'a pas ouvert une session synchronisée depuis 3 ans: bien que tout à fait vivant, si le compte se reconnecte en mode _synchronisé_ sur **ce** poste, il repartira depuis une base locale vierge, sans bénéficier d'un redémarrage incrémental.
+
 ### Changement de `dlvat`
 Si le financement de l'hébergement par accord entre l'administrateur technique et le Comptable d'un espace tarde à survenir, beaucoup de comptes O ont leur existence menacée par l'approche de cette date couperet. Un accord tardif doit en conséquence avoir des effets immédiats une fois la décision actée.
 
-Par convention une `dlvat` est fixée au **1 d'un mois**, jamais modifiée étant inférieure à M + 3 du jour de modification.
+Par convention une `dlvat` est fixée au **1 d'un mois** et ne peut pas être changée pour une date  inférieure à M + 3 du jour de modification.
 
-> Remarque: quand une `dlv` apparaît en `versions d'avatars / membres` au 1 d'un mois, c'est qu'elle est la limite de vie `dlvat` fixée dans l'espace par l'administrateur technique.
+> Remarque: quand une `dlv` apparaît en `versions d'avatars / membres` au _1 d'un mois_, c'est qu'elle est la limite de vie `dlvat` fixée pour l'espace par l'administrateur technique.
 
-L'administrateur technique qui remplace une `dlvat`, va remplacer en une transaction, toutes les `dlv` des `versions d'avatars / membres` égale à l'ancienne `dlvat` et fixe la nouvelle dans la même transaction. La valeur de remplacement est,
+L'administrateur technique qui remplace une `dlvat` le fait en **une** transaction pour toutes les `dlv` des `versions d'avatars / membres` égales à l'ancienne `dlvat`. La transaction fixe aussi la nouvelle `dlvat` dans la même transaction. La valeur de remplacement est,
 - la nouvelle `dlvat` (au 1 d'un mois) si elle est inférieure à `auj + nbmi mois`: c'est encore la `dlvat` qui borne la vie des comptes O (à une autre borne).
 - sinon la fixe à `auj + nbmi mois` (au dernier jour d'un mois), comme si les comptes s'étaient connectés aujourd'hui.
 
@@ -1405,36 +1410,30 @@ _data_ :
   - `stats` : {} compteurs d'objets traités (selon la tâche).
 
 ### Gestion des documents `versions` _zombi_
-Un document `versions` zombi a une `dlv` antérieure à aujourd'hui : il faut purger toutes les sous-collections correspondantes, plus le document `avatars` ou `groupes` correspondant.
-
-Afin d'éviter que le GC ne tente d'effectue à nouveau cette opération les jours suivants alors que ces documents ont déjà été purgés, la `dlv` du documents versions est reculée d'un an, sans changer de version: le nettoyage des sous-collections ne s'effectue donc que pour les versions ayant une `dlv` passée mais pas passée de plus d'un an.
-
-In fine les documents `versions` dont la `dlv` est passée de plus de 2 ans sont purgées.
 
 ### `GCHeb` : traitement des fins d'hébergement
-L'opération récupère toutes les ids des documents `groupes` où `dfh` est inférieure ou égale au jour courant.
+L'opération récupère toutes les ids des documents `groupes` où `dfh` est inférieure au jour courant.
 
 Une transaction par groupe :
-- dans le document `versions` du groupe, la `dlv` est positionnée à aujourd'hui (devient zombi).
+- dans le document `versions` du groupe, la `dlv` est positionnée à la veille (devient zombi).
 
 ### `GCGro` : Détection des groupes orphelins et suppression des membres
-L'opération récupère toutes les `id / ids` des documents `membres` dont la `dlv` est inférieure ou égale au jour courant.
+L'opération récupère toutes les `id / ids` des documents `membres` dont la `dlv` de la forme `aaaammjj` est inférieure au jour courant.
 
 Une transaction par document `groupes`:
 - mise à jour des statuts des membres perdus,
 - suppression de ses documents `membres`,
 - si le groupe n'a plus de membres actifs, suppression du groupe:
-  - la `dlv` de son document `versions` est mise à aujourd'hui (il est zombi).
+  - la `dlv` de son document `versions` est mise à la veille (il est zombi).
 
 ### `GCPag` : purge des avatars et des groupes
-L'opération récupère toutes les `id` des documents `versions` dont la `dlv` est postérieure auj - 365 et antérieure ou égale à auj.
-
+L'opération récupère toutes les `id` des documents `versions` dont la `dlv` est de la forme `aaaammjj` et antérieure à aujourd'hui.
 Dans l'ordre pour chaque `id`:
 - par compte, une transaction de récupération du volume (si `comptas` existe encore, sinon c'est que ça a déjà été fait),
 - purge de leurs sous-collections,
 - purge de leur avatar / groupe,
 - purge de leurs fichiers,
-- HORS TRANSACTION forçage de la `dlv` du document `versions` à aujourd'hui moins 2 ans.
+- HORS TRANSACTION forçage de la `dlv` du document `versions` à `aamm` d'aujourd'hui.
 
 **Une transaction pour chaque compte :**
 - son document `comptas` :
@@ -1456,9 +1455,9 @@ Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
 Les documents `transferts` sont purgés.
 
 ### `GCDlv` : purge des versions / sponsorings obsolètes
-L'opération récupère tous les documents `versions` de `dlv` antérieures à jour j - 2 ans. Ces documents sont purgés: ils ont fini d'être utiles pour synchronisation.
+L'opération récupère tous les documents `versions` de `dlv` de la forme aamm antérieures à aujourd'hui - IDBOBSGC jours, bref les _très vielles versions zombi_ devenues inutiles à la synchronisation des bases locales.
 
-L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures ou égales à aujourd'hui. Ces documents sont purgés.
+L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures à aujourd'hui. Ces documents sont purgés.
 
 ### `GCstc` : création des statistiques mensuelles des `comptas` et des `tickets`
 La boucle s'effectue pour chaque espace:
@@ -1476,13 +1475,11 @@ La boucle s'effectue pour chaque espace:
   - c2: par la clé k d'administration du site.
 - retourne l'ensemble `c1 c2 fichier` (gzippé ou non) crypté, prêt à être écrit sur _storage_.
 
-La statistique des `comptas` est doublement accessible par le Comptable ET l'administrateur technique du site.
-
-La statistique des `tickets` est accessible seulement par le Comptable.
+Les statistiques sont doublement accessibles par le Comptable ET l'administrateur technique du site.
 
 ## Lancement global quotidien
 Le traitement enchaîne, en asynchronisme de la requête l'ayant lancé : 
-- `GCHeb GCGro GCPag GCFpu GCTra GCDlv`
+- `GCHeb GCGro GCPag GCFpu GCTra GCDlv GCstc`
 
 En cas d'exception de l'un deux, une seule relance est faite après une attente d'une heure.
 
@@ -1681,13 +1678,13 @@ Un objet `ticket` est créé dans `comptas` avec:
 
 # Annexe I: Discordances temporelles des données
 
-### Discordances par détection tardives de disparitions
+## Discordances par détection tardive de disparitions
 Un chat I / E peut référencer un avatar E alors que celui-ci a été détecté disparu par le GC.
 - le GC ne peut pas connaître la liste des chats dans lesquels un avatar disparu est impliqué.
 - l'avatar I ne détectera la disparition de E que lorsqu'en session il ouvrira la liste des chats et plus précisément fera rafraîchir la liste des CV.
 
-Un avatar principal peut référencer dans la liste de ses participations aux groupes, un groupe détecté disparu par dispation / résiliation de son dernier membre actif.
-- le GC n'ayant pas connaissance de l'avatar principal du compte d'un memebre ne peut pas mettre à jour,
+Un avatar principal peut référencer dans la liste de ses participations aux groupes, un groupe détecté disparu par disparition / résiliation de son dernier membre actif.
+- le GC n'ayant pas connaissance de l'avatar principal du compte d'un membre ne peut pas mettre à jour,
   - ni la liste des participations aux groupes des membres,
   - leurs invitations en cours.
 - la disparition d'un groupe n'est détectée qu'à l'ouverture de la prochaine session (ou plus tôt par synchronisation, quand une session est active).
@@ -1697,10 +1694,10 @@ L'existence d'un chat décompté pour un compte est marqué,
 - par l'existence de rows chats attachés à un de ses avatars,
 - par le décompte `ng.nc` dans comptas du compte.
 
-Les deux informations sont mises à jour sous contrôle transactionnel: les données persistentes sont toujours cohérentes entre elle.
+Les deux informations sont mises à jour sous contrôle transactionnel: les données persistantes sont toujours cohérentes entre elle.
 
-En session, l'ordre dans lequel parvienent les mises à jour sont aléatoires: mise à jour chats avant mise à jour `comptas` ou l'inverse.
-- pendant un certain temps le nombre de chats décomptables en session peut différer de celui détenu dans comptas.
+En session, l'ordre dans lequel parviennent les mises à jour est aléatoire: mise à jour chats avant mise à jour `comptas` ou l'inverse.
+- pendant un certain temps le nombre de chats comptés en session peut différer de celui détenu dans `comptas`.
 - la situation se stabilise d'elle-même par synchronisation.
 - il est difficile d'arriver à mettre en évidence cette discordance temporaire de décompte, par ailleurs sans conséquences réelles.
 
@@ -1710,12 +1707,12 @@ Le nombre de participations aux groupes est de même détenu dans deux rows:
 
 La situation se stabilise d'elle-même, est difficile à observer et sans conséquences réelles.
 
-Le trosième cas similaire est celui de l'existence d'une note supprimée (_zombi_) encore temporairement décomptée dans `comptas.qv.nn`.
+Le troisième cas similaire est celui de l'existence d'une note supprimée (_zombi_) encore temporairement décomptée dans `comptas.qv.nn`.
 
 **Conclusions**
-- les décomptes dans `comptas.qv` et `avatars` ou `chats` ne seront pas réalignés: le décompte des coûts reste cohérent.
+- les décomptes dans `comptas.qv` et `avatars` ou `chats` ne sont pas réalignés: le décompte des coûts reste cohérent.
 - dans la logique de gestion on tient compte des rows `avatars` et `chats` sans se préoccuper d'une possible discordance passagère des décomptes avec `comptas.qv`.
-- la détection tardive éventuelles de disparitions est assumée:
+- la détection tardive éventuelle de disparitions est assumée:
   - avoir des groupes ou des chats décomptés à tort n'a pas d'impact de calcul des coûts puisque _l'abonnement_ se fait sur des quotas maximum, pas sur le nombre effectif de groupes et chats.
   - on assume que quelques chats _passifs_ de I ne soient pas supprimés alors que E a disparu parce que ceci ne peut être détecté qu'à l'ouverture de vue des chats. 
 
@@ -1789,4 +1786,6 @@ Il y a donc une stricte identité entre les documents extraits de SQL / Firestor
 
 _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
-- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`. Voir la documentation sur `ui-app.md`.
+- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
+
+@@ L'application UI [uiapp](./uiapp.md)
