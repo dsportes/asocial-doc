@@ -1,3 +1,5 @@
+@@Index général de la documentation [index](https://raw.githack.com/dsportes/asocial-doc/master/index.md)
+
 # Données persistantes sur le serveur
 
 Les données persistantes sont gérées selon deux implémentations :

@@ -1,5 +1,4 @@
 ## Dev
-Changement de dlvat: mettre à jour toutes les dlv qui cite l'ancienne.
 
 Création d'un chat: il faut que le contact ne soit pas uniquement connu en tant que simple contact de groupes.
 

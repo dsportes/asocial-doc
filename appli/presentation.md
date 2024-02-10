@@ -1,4 +1,5 @@
 @@Index général de la documentation [index](https://raw.githack.com/dsportes/asocial-doc/master/index.md)
+
 # Vue d'ensemble de l'application
 
 Une organisation, association, un groupe de quelques amis ... peut décider de disposer de son propre **espace a-social**, par exemple `monasso`, ayant des caractéristiques opposées à celles des réseaux dits _sociaux_, et a choisi un prestataire d'hébergement qui lui a créé un espace accessible par une URL comme `https://srv1.monhebergeur.net/` 
