@@ -1388,9 +1388,11 @@ Par convention une `dlvat` est fixée au **1 d'un mois** et ne peut pas être ch
 
 > Remarque: quand une `dlv` apparaît en `versions d'avatars / membres` au _1 d'un mois_, c'est qu'elle est la limite de vie `dlvat` fixée pour l'espace par l'administrateur technique.
 
-L'administrateur technique qui remplace une `dlvat` le fait en **une** transaction pour toutes les `dlv` des `versions d'avatars / membres` égales à l'ancienne `dlvat`. La transaction fixe aussi la nouvelle `dlvat` dans la même transaction. La valeur de remplacement est,
+L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transactions pour toutes les `dlv` des `versions d'avatars / membres` égales à l'ancienne `dlvat`. La transaction finale fixe aussi la nouvelle `dlvat`. La valeur de remplacement est,
 - la nouvelle `dlvat` (au 1 d'un mois) si elle est inférieure à `auj + nbmi mois`: c'est encore la `dlvat` qui borne la vie des comptes O (à une autre borne).
 - sinon la fixe à `auj + nbmi mois` (au dernier jour d'un mois), comme si les comptes s'étaient connectés aujourd'hui.
+
+_Remarque_: idéalement une transaction unique aurait été préférable puisque toutes les dlv relatives à un compte ne vont pas être changées dans la même transaction. Ceci ouvre la possibilité d'incohérences temporelles sur les dlv pour les comptes se connectant exactement au milieu de ce processus. Il a été supposé assez rapide pour que cet inconvénient relève du cas d'école sans impact opérationnel.
 
 # Opérations GC
 ### Singleton `checkpoint` (id 1)
