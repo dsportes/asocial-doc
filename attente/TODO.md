@@ -6,6 +6,17 @@ Vérifier les conditions de prise d'hébergement d'un groupe
 
 Suppression d'un avatar / groupe sur note-store.js: vérifier / tester
 
+### Meta-données sur le serveur
+Certaines opérations sur le serveur, voient passer des _meta-liens_ temporairement à l'occasion d'une opération: un serveur pirate _pourrait_ les tracer au fil de l'eau.
+
+Ça semble se limiter à l'enregistrement de dlv ou quelques opérations voit passer groupées des avatars et des membres.
+- AvGrSignatures
+- SetQuotas : ça change la dlv du compte A
+- MuterCompte
+- MajChat: quand il y a un don associé
+- AjoutSponsoring: quand le sponsor est un compte A (don)
+- MajCredits: le compte qui reçoit ses crédits à sa dlv qui change
+
 ## Doc
 UI
 

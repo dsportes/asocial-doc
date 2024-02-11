@@ -192,3 +192,18 @@ Cette clé a quelques usages restreints:
 La clé d'un site est spécifique à **un** site (du moins **un** administrateur). Quand un export de données a lieu entre un site-administrateur A et un B, ils se mettent d'accord sur la clé d'un site intermédiaire  T (export vers T et B exporte T vers lui-même).
 
 # La quasi totalité des _meta-liens_ entre documents sont cryptés
+Les _meta-liens_ sont ceux qui établissent des relations entre les entités:
+- liste des avatars d'un compte,
+- liste des groupes accédés par un avatar / compte,
+- liste des invitations aux groupes d'un avatar / compte,
+- liste des comptes sponsorisés par un compte A en attente de réponse,
+- liste des _contacts_ d'un avatar / compte,
+- liste des tickets de crédits d'un compte.
+
+Ces informations sont bien entendu présentes dans la base de données, mais il ne faut pas qu'elles soient lisibles par quiconque se serait procuré une copie de la base.
+
+Ce serait problématique que les relation entre un compte et ses avatars ou ses groupes puissent être connues par simple analyse de la base.
+
+Toutes ces _meta-données_ sont cryptés par les clés K des comptes: en d'autres termes elles ne sont connues que dans une session en cours d'un compte dans son browser.
+
+> La base de données n'a pas de _meta-données_ en clair.
