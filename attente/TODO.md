@@ -1,4 +1,9 @@
 ## Dev
+ChargerGMS : ne charge pas chatgrs. Oubli ? (sync)
+
+DisparitionMembre: nag pas mis à jour 0 / 1 ?
+
+NouveauGroupe : son chatgrs n'est pas créé (on attend la première insertion d'un item)
 
 Création d'un chat: il faut que le contact ne soit pas uniquement connu en tant que simple contact de groupes.
 
