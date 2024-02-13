@@ -96,6 +96,4 @@ choix-langue
 ### Build et Web server
 quasar build -m pwa
 
-Lancement du serveur npm http-server (en https avec les bons certificats)
-
-http-server D:\git\asocial-app\dist\pwa -p 8343 -C D:\git\asocial-test1\config\fullchain.pem -K D:\git\asocial-test1\config\privkey.pem -S -P https://test.sportes.fr:8343
+Lancement du serveur npm http-server (en https avec les bons certificats) : httpsrv.cmd
