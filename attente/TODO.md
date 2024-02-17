@@ -97,3 +97,53 @@ choix-langue
 quasar build -m pwa
 
 Lancement du serveur npm http-server (en https avec les bons certificats) : httpsrv.cmd
+
+# GCP Functions
+## Test local / debug
+Auto-Attach: With Flag
+
+Lancer en debug: npm run debug
+
+    "debug" : "node --inspect node_modules/.bin/functions-framework --port=8443 --target=asocialGCF"
+
+Lancer SANS debug: npm run start
+
+    "start": "functions-framework --port=8443 --target=asocialGCF --signature-type=http"
+
+.vscode/launch.json - Pas certain que ça serve, à revérifier
+
+    {
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "type": "node",
+          "request": "attach",
+          "name": "debug",
+          "address": "localhost",
+          "port": 9229
+        }
+      ]
+    }
+
+
+**Différence importante** pour le POST des opérations dans `cfgexpress.mjs` - `app.use('/op:operation ...)`
+- Mode SRV: req.rawBody n'existe pas. On le construit depuis req.on
+- Mode GCF: req.rawBody existe mais pas req.on
+
+## App UI
+quasar.config.js
+
+Section build
+
+    env: {
+      // Pour le mode SRV
+        OPSRV: 'https://test.sportes.fr:8443/op/',
+
+      // Pour le test local GCF
+        OPSRV: 'http://localhost:8443/op/',
+
+      // Ne sert pas si config.hasWS = false  
+        WSSRV: 'wss://test.sportes.fr:8443/ws/'
+    }
+
+Debug classique depuis `Run>>>Start Debugging`
