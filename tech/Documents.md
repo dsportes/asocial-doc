@@ -143,6 +143,13 @@ Ces documents ne sont jamais mis à jour une fois créés, ils ont supprimés,
 
 Ces documents ne sont jamais mis à jour une fois créés, ils ont supprimés par le prochain GC après qu'il ait purgé du _Storage_ tous les fichiers cités dans _data_.
 
+## Documents `dpurges`
+C'est un singleton par espace:
+- `id` : ns de l'espace.
+- `lids` : liste des id des avatars ou des groupes à purger.
+
+Au cours d'une opération, on évite une opération longue de suppression de tous les sous-documents: ceci est effectué en différé par le GC pour tous les documents cités dans `dpurges`. La liste `lids` est mise à jour au fur et à mesure. 
+
 # Table / documents d'un espace
 
 ## Entête d'un espace: `espaces syntheses`
@@ -461,9 +468,11 @@ On les trouvent en propriétés:
   - un groupe dont il est ou a été membre ou au moins invité,
   - un note, à lui ou d'un des groupes où il est actif et a accès aux notes.
 
+Les textes, sauf pour les hashtags, sont gzippés ou non avant cryptage: c'est automatique dès que le texte a une certaine longueur.
+
 > **Remarque:** Le serveur ne voit **jamais** aucun texte en clair, comme il ne voit **jamais** en clair une clé susceptible de crypter un texte, ni la clé K des comptes et les _phrase secrètes_ ou _phrases de contacts / sponsorings_.
 
-> Les textes sont cryptés / décryptés par une application UI. Si celle-ci est malicieuse / boguée, les textes sont illisibles mais finalement pas plus que ceux qu'un utilisateur écrirait en idéogrammes pour un public occidental ou qu'il remplacerait par des textes absurdes.
+> Les textes sont cryptés / décryptés par une application UI. Si celle-ci est malicieuse / boguée, les textes sont illisibles mais finalement pas plus que ceux qu'un utilisateur qui les écrirait en idéogrammes pour un public occidental ou qui inscrirait  des textes absurdes.
 
 # Sous-objet `notification`
 Un objet _notification_ est immuable car en cas de _mise à jour_ il est en fait remplacé par un autre.
@@ -498,6 +507,34 @@ Un _dépassement de quotas Q1 / Q2_ entraîne une restriction (5).
 Un _solde négatif (compte A)_ ou _une consommation excessive (compte O)_ entraîne une restriction (4). 
 
 > Le document `comptas` a une date-heure de lecture `dhvu` qui indique _quand_ le titulaire du compte a lu les notifications. Une icône peut ainsi signaler l'existence d'une _nouvelle_ notification, i.e. une notification qui n'a pas été lue.
+
+# Sous-objet carte de visite
+Une carte de visite a 3 propriétés `{ vcv, photo, texte }`:
+- `vcv`: version de la carte de visite, version du groupe ou de l'avatar au moment de sa dernière mise à jour.
+- `photo`: photo cryptée par la clé de l'avatar ou groupe propriétaire.
+- `texte`: texte (gzippé) crypté par la clé de l'avatar ou groupe propriétaire.
+
+`nom` : il correspond aux 16 premiers caractères de la première ligne du texte. Ce nom est affiché partout ou l'avatar / groupe apparaît, suivi des 4 derniers chiffres de son id.
+
+Les cartes de visite des avatars sont hébergés dans le document `avatars`, celles des groupes dans leurs documents `groupes`.
+
+Les cartes de visites des avatars sont dédoublées dans d'autres documents:
+- `membres` : chaque membre y dépose sa carte de visite.
+- `chats` : chaque interlocuteur dispose de la carte de visite de l'autre.
+
+## Mises à jour des cartes de visite des membres
+- la première inscription se fait à l'ajout de l'avatar comme _contact_ du groupe.
+- le rafraîchissement peut être demandé pour un groupe donné.
+  - pour chaque membre, l'opération compare la version détenue dans le membre et la version détenue dans l'avatar. Cette vérification ne fait intervenir que des filtres sur les index si la version dans membre est à jour.
+  - si la version de membre n'est pas à jour, elle est mise à jour. 
+- en session, lorsque la page listant les membres d'un groupe est ouverte, elle peut envoyer une requête de rafraîchissement des cartes de visite.
+
+### Mise à jour dans les chats
+- à la mise à jour d'un chat, les cartes de visites des deux côtés sont rafraîchies si nécessaire.
+- le rafraîchissement peut être demandé pour tous les chats d'un avatar donné.
+  - pour chaque chat, l'opération compare la version détenue dans le chat et la version détenue dans l'avatar. Cette vérification ne fait intervenir que des filtres sur les index si la version dans chat est à jour.
+  - si la version dans chat n'est pas à jour, elle est mise à jour. 
+- en session, lorsque la page listant les chats d'un avatar est ouverte, elle peut envoyer une requête de rafraîchissement des cartes de visite.
 
 # Documents `espaces`
 _data_ :
@@ -628,7 +665,6 @@ _data_ :
 - `id` : `rds` du document référencé.
 - `v` : 1..N, plus haute version attribuée au document et à sa ses sous-documents=s.
 - `suppr` : jour de suppression, ou 0 s'il est actif.
-- `{v1 q1 v2 q2}`: pour un groupe, volumes et quotas des notes.
 
 # Documents `avatars`
 _data_:
@@ -648,46 +684,30 @@ _data_:
     - `clegK` : clé du groupe cryptée par la clé K du compte.
     - `lp`: map des participations: 
       - _clé_: id court de l'avatar.
-      - _valeur_: indice du membre dans les tables flags / anag du groupe (ids du membre).
+      - _valeur_: indice du membre dans les tables `tmb` du groupe (ids du membre).
 
-- `apropos` : map à propos des contacts (avatars) et groupes connus du compte:
+- `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte:
   - _cle_: `id` de l'avatar ou du groupe,
-  - _valeur_ : `{ hashtags, memo }` crypté par la clé K du compte.
+  - _valeur_ : `{ hashtags, texte }` crypté par la clé K du compte.
     - `hashtags` : liste des hashtags attribués par le compte.
-    - `memo` : commentaire du compte écrit par le compte.
+    - `texte` : commentaire du compte écrit par le compte.
 
 **Données disponibles pour tous les avatars**
 - `rds` : 
 - `pub` : clé publique RSA.
 - `privk`: clé privée RSA cryptée par la clé K.
 - `cva` : carte de visite de l'avatar `{v, photo, texte}`.
-  - `photo` et `texte` sont chacun cryptés par la clé de l'avatar.
-
 - `pck` : PBKFD de la phrase de contact crypté par la clé K (s'il y en a une).
 - `clec` : `cle` de l'avatar cryptée par le PBKFD de la phrase de contact.
 
 - `invits`: map des invitations en cours de l'avatar:
   - _clé_: `idav/idg` ids de l'avatar invité et du groupe.
-  - _valeur_: `{nc, im, ivpar, dh}` 
-    - `nc` : couple `{ nomg, cleg }` crypté par la clé publique RSA de l'avatar.
-      - `nomg` : _nom_ inscrit sur la carte de visite au moment de l'invitation.
-      - `cleg`: clé du groupe,
-    - `im`: indice du membre dans la table `flags / anag` du groupe.
-    - `ivpar` : indice im de l'invitant.
+  - _valeur_: `{clegP, cvg, im, ivpar, dh}` 
+    - `clegP`: clé du groupe crypté par la clé publique RSA de l'avatar.
+    - `cvg` : carte de visite du groupe (photo et texte sont cryptés par la clé du groupe `cleg`)
+    - `im`: indice du membre dans la table `tmb` du groupe.
+    - `ivpar` : indice `im` de l'invitant.
     - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
-
-## Cartes de visites des avatars
-La création / mise à jour s'opère dans le document `avatars`.
-
-### Mises à jour des cartes de visite des membres
-- la première inscription se fait à l'ajout de l'avatar comme _contact_ du groupe.
-- en session, lorsque la page listant les membres d'un groupe est ouverte, elle envoie une requête au serveur donnant la liste des couples `[id, v]` des `ids` des membres et de leur version de carte de visite détenue dans le document `membres`.
-- pour chacune ayant une version postérieure, le serveur la met à jour dans `membres`.
-- ceci permet de voir en session des cartes de visite toujours à jour et d'éviter d'effectuer une opération longue à chaque mise à jour des cartes de visite par un avatar pour tous les groupes dont il est membre.
-
-### Mise à jour dans les chats
-- à la mise à jour d'un chat, les cartes de visites des deux côtés sont rafraîchies si nécessaire.
-- en session au début d'un processus de consultation des chats, la session fait rafraîchir incrémentalement les cartes de visite qui ne sont pas à jour dans les chats: un chat ayant `vcv` en index, la nécessité de mise à jour se détecte sur une lecture d'index sans lire le document correspondant.
 
 ## Auto-résiliation d'un compte
 Elle suppose une auto-résiliation préalable de ses avatars secondaires, puis de son avatar principal.
@@ -701,7 +721,7 @@ Dans la même transaction :
   - le document `versions` associé à la `rds` de son document `comptas`: a sa version incrémentée, sa suppr est mise à la dte du jour.
 - le document `versions` associé à la `rds` de l'avatar a sa `suppr` fixée au jour j.
 - le document `avatars` est purgé. 
-- un document `dpurge` est inséré avec l'id de l'avatar : ceci provoquera la purge par le GC des sous-documents de l'avatar `chats notes sponsorings`.
+- son id est ajouté dans `lids` du document `dpurges`: ceci provoquera la purge par le GC des sous-documents de l'avatar `chats notes sponsorings`.
 - pour tous les chats de l'avatar:
   - le chat E, de _l'autre_, est mis à jour: son `st` passe à _disparu_, sa `cva` passe à null.
 - pour tous les groupes dont l'avatar est membre:
@@ -710,8 +730,8 @@ Dans la même transaction :
   - si c'était l'hébergeur du groupe, mise à jour des données de fin d'hébergement.
   - dans le document `versions` du groupe, `v` est incrémenté.
   - si c'était le dernier membre _actif_ du groupe:
-    - les invitations en cours sont effacées des avatars correspondants.
-    - dans le document `versions` du groupe, `suppr` est fixé à aujourd'hui un document `dpurge` est inséré avec l'id du groupe: ceci provoquera la purge par le GC des sous-documents du groupe `notes membres`.
+    - les invitations en cours sont effacées des avatars correspondants (mise à jour de leurs documents `avatars`).
+    - dans le document `versions` du groupe, `suppr` est fixé à aujourd'hui. L'id du groupe est ajouté dans `lids` du document `dpurges`: ceci provoquera la purge par le GC des sous-documents du groupe `notes membres`.
 
 # Documents `tickets`
 Ce sont des sous-documents de `avatars` qui n'existent **que** pour l'avatar principal du Comptable.
@@ -795,7 +815,7 @@ Un code à 6 lettres majuscules en est extrait afin de le joindre comme référe
 
 Le Comptable sait ainsi dans quel _arrêté mensuel_ il doit chercher un ticket au delà de M+2 de sa date de génération à partir d'un code à 6 lettres désigné par un compte pour audit éventuel de l'enregistrement.
 
-> **Personne, pas même le Comptable,** ne peut savoir quel compte A a généré quel ticket. Cette information n'est accessible qu'au compte A lui-même et est cryptée par sa clé K.
+> **Personne, pas même le Comptable,** ne peut savoir quel compte "A" a généré quel ticket. Cette information n'est accessible qu'au compte lui-même et est cryptée par sa clé K.
 
 # Documents `chats`
 Un chat est une suite d'items de texte communs à deux avatars I et E:
@@ -813,43 +833,41 @@ Un chat est dédoublé avec un exemplaire I et un exemplaire E:
 - I (resp. E) **peut effacer tous les items** I comme E de son côté: ceci n'impacte pas l'existence de ceux de l'autre côté.
 - _de chaque côté_ la taille totale des textes de tous les items est limitée à 5000c. Les plus anciens items sont effacés afin de respecter cette limite.
 
-Pour ajouter un item sur un chat, I doit connaître le `[nom, cle]` de E : membre du même groupe, chat avec un autre avatar du compte, ou obtenu en ayant fourni la phrase de contact de E.
+Pour ajouter un item sur un chat, I doit connaître la clé de E : membre d'un même groupe, chat avec un autre avatar du compte, ou l'ayant obtenu depuis la phrase de contact de E.
 
 ## Clé d'un chat
-La clé du chat `cc` a été générée à la création du chat avec l'ajout du premier item:
+La clé du chat `cc` est générée à la création du chat et l'ajout du premier item:
 - côté I, cryptée par la clé K de I,
 - côté E, cryptée par la clé publique de E. Dans ce cas à la première écriture de E celle-ci sera ré-encryptée par la clé K de E.
 
 ## Décompte des nombres de chats par compte
-- un chat est compté pour 1 pour I quand la dernière opération qu'il a effectué est un ajout: si cette dernière opération est un _raz_, le chat est dit _passif_ et compte pour 0.
+- un chat est compté pour 1 pour I quand la dernière opération qu'il a effectuée est un ajout: si cette dernière opération est un _raz_, le chat est dit _passif_ et compte pour 0.
 - ce principe de gestion évite de pénaliser ceux qui reçoivent des chats non sollicités et qui les _effacent_.
 
 ## Auto-résiliation / disparition de E
-Quand son avatar E s'est auto-résilié, son document `versions` devient _zombi_. Son document `chats` a été détruit.
+Quand le GC détecte la disparition d'un compte par dépassement de sa date limite de validité, il _résilie_ tous ses avatars, puis le compte lui-me.
 
-S'étant adressé à E, I a récupéré que E était détruit. 
-- si le chat I était _passif_, le chat de I devient _zombi_ afin que cet état se propage aux autres sessions du compte et soit détecté en connexion (le _contact_ disparaît).
-- sinon, le statut `st E` passe à 2. I conserve le dernier état de l'échange, mais,
-  - il ne pourra plus le changer,
-  - il ne pourra qu'effectuer un _raz_, ce qui rendra le chat _zombi_: de facto E n'écrira plus dessus et ça ne sert à rien d'écrire à un _disparu_.
-
-Quand I a fait rafraîchir les cartes de visite dans sa session, ça lui retourne l'information de la disparition éventuelle de son _contact_.
+A la résiliation d'un avatar,
+- tous ses chats sont accédés et l'exemplaire de E l'est aussi:
+- s'il était _passif_, il devient _zombi_, n'a plus de _data_.
+- sinon, son statut `st` passe à 2. I conserve le dernier état de l'échange, mais,
+  - il ne pourra plus le changer, la carte de visite reste dans le dernier état connu,
+  - il ne pourra qu'effectuer un _raz_, ce qui rendra le chat _zombi_.
 
 ## _data_ d'un chat
 L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
 
 _data_ (de l'exemplaire I):
-- `id`: id de A,
-- `ids`: hash du cryptage de `idI_court/idE_court` par la clé de I.
+- `id`: id de I,
+- `ids`: id de E.
 - `v`: 1..N.
 - `vcv` : version de la carte de visite de E.
 
 - `st` : deux chiffres `I E`
   - I : 0:passif, 1:actif
   - E : 0:passif, 1:actif, 2:disparu
-- `cva` : `{v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat, cryptée par la clé de E.
-- `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par la clé publique de I (quand le chat vient d'être créé par E).
-- `nacc` : `[nom, cle]` de E crypté par la clé du chat.
+- `cva` : `{v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat.
+- `cc` : clé `cc` du chat cryptée par la clé K du compte de I ou par sa clé publique quand le chat vient d'être créé par E.
 - `items` : liste des items `[{a, dh, l t}]`
   - `a` : 0:écrit par I, 1: écrit par E
   - `dh` : date-heure d'écriture.
@@ -872,27 +890,22 @@ _data_ (de l'exemplaire I):
   - `st` de I vaut `01` et `st` de E vaut `10` ou `00`.
   - le chat est dit _passif_ du côté I et ne redeviendra _actif_ qu'au prochain ajout d'un item par I.
 
-> Un chat _passif_ pour un avatar est un chat _écouté_, les items écrits par E arrivent, mais sur lequel I n'écrit pas. Il redevient _actif_ pour I dès que I écrit un item et ne redevient _passif_ que quand il fait un _raz_.
+> Un chat _passif_ pour un avatar reste un chat _écouté_, les items écrits par E arrivent, mais sur lequel I n'écrit pas. Il redevient _actif_ pour I dès que I écrit un item et ne redevient _passif_ que quand il fait un _raz_.
 
 ## Établir un _contact direct_ entre A et B
-Supposons que B veuille ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas le nom / clé.
+Supposons que B veuille ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas la clé. S'il en connaît la _phrase de contact_, 
+- il calcule le hash de la phrase de contact réduite,
+- il demande par ce hash la clé de A cryptée par le PBKFD de cette phrase.
 
-A peut avoir communiqué à B sa _phrase de contact_ qui ne peut être enregistrée par A que si elle est, non seulement unique, mais aussi _pas trop proche_ d'une phrase de contact déjà déclarée.
-
-B peut écrire un chat à A à condition de fournir cette _phrase de contact_:
-- l'avatar A a mis à disposition son nom complet `[nom, cle]` crypté par le PBKFD de la phrase de contact.
-- muni de ces informations, B peut écrire un chat à A qui fait désormais partie de ses contacts (et réciproquement une fois le chat de B reçu par A).
-- le chat comportant le `[nom cle]` de B, A est en mesure d'écrire sur ce chat, même s'il ignorait auparavant le nom complet de B.
-
-## Comptes A : dons par chat
-Un compte A _donateur_ peut faire un don à un autre compte A _bénéficiaire_ en utilisant un chat:
+## Comptes "A" : dons par chat
+Un compte "A" _donateur_ peut faire un don à un autre compte "A" _bénéficiaire_ en utilisant un chat:
 - le montant du don est dans une liste préétablie.
 - le crédit total du donateur (dans sa `comptas`) doit être supérieur au montant du don.
-- sauf spécification contraire du donateur, le texte de l'item ajouté à cette occasion mentionne le montant du don.
+- sauf spécification contraire du donateur, le texte de l'item ajouté dans le chat à cette occasion mentionne le montant du don.
 - le donateur est immédiatement débité.
-- le bénéficiaire reçoit dans sa `comptas` un item avec le montant du don crypté par sa clé publique. En effet le `credits` est crypté par la clé K de son compte, la session du donateur ne peut pas intégrer ce don pour le bénéficiaire.
+- le bénéficiaire est immédiatement crédité.
 
-Quand le bénéficiaire se connecte, ou par synchronisation s'il a une session connectée, le montant du don est intégré à son `comptas.credits.total`.
+> Remarque: le chat avec don ne peut intervenir que si le chat est défini entre les deux avatars principaux des comptes.
 
 # Documents `sponsorings`
 P est le parrain-sponsor, F est le filleul-sponsorisé.
@@ -907,20 +920,18 @@ _data_:
 - `pspk` : texte de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `bpspk` : PBKFD de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `dh`: date-heure du dernier changement d'état.
-- `descr` : crypté par le PBKFD de la phrase de sponsoring:
-  - `na` : `[nom, cle]` de P.
-  - `cv` : `{ v, photo, info }` de P.
-  - `naf` : `[nom, cle]` attribué au filleul.
-  - `sp` : vrai si le filleul est lui-même _délégué_.
-  - `clet` : clé de sa tribu, si c'est un compte O
-  - `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
-    - pour un compte A `[0, 1, 1]`. Un compte A n'a pas de qc et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
-  - `don` : pour un compte autonome, montant du don.
-  - `dconf` : le sponsor a demandé à rester confidentiel. Si oui, aucun chat ne sera créé à l'acceptation du sponsoring.
-- `ardx` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring
+- `cle` : clé de P crypté par le PBKFD de la phrase de sponsoring
+- `cleP` : clé de sa partition (si c'est un compte O) cryptée par le PBKFD de la phrase de sponsoring
+- `cv` : `{ v, photo, info }` de P.
+- `delegue` : vrai si le filleul est lui-même _délégué_.
+- `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
+  - pour un compte A `[0, 1, 1]`. Un compte A n'a pas de qc et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
+- `don` : pour un compte autonome, montant du don.
+- `dconf` : le sponsor a demandé à rester confidentiel. Si oui, aucun chat ne sera créé à l'acceptation du sponsoring.
+- `ardx` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring.
 
 **Remarques**
-- la `dlv` d'un sponsoring peut être prolongée (jamais rapprochée). Le sponsoring est purgé par le GC quotidien à cette date, en session et sur le serveur, les documents ayant atteint cette limite sont supprimés et ne sont pas traités.
+- la `dlv` d'un sponsoring peut être modifiée tant que le statut est _en attente_.
 - Le sponsor peut annuler son `sponsoring` avant acceptation, en cas de remord son statut passe à 3.
 
 **Si le filleul refuse le sponsoring :** 
@@ -930,11 +941,13 @@ _data_:
 - `sponsorings` finit par être purgé par `dlv`.
 
 **Si le filleul accepte le sponsoring :** 
-- Le filleul crée son compte / avatar principal: `naf` donne l'id de son avatar et son nom. Pour un compte O, l'identifiant de la tribu pour le compte sont obtenu de `clet`.
+- Le filleul crée son compte / avatar principal et génère ses clé K et celle de son avatar principal, et donne a minima le texte de carte de visite.
+- pour un compte "O", l'identifiant de la partition à la quelle le compte est associé est obtenu de `cleP`.
 - la `comptas` du filleul est créée et créditée des quotas attribués par le parrain pour un compte O et du minimum pour un compte A.
-- pour un compte O la `tribus` est mise à jour (quotas attribués), le filleul est mis dans la liste des comptes `act` de `tribus`.
-- un mot de remerciement est écrit par le filleul au parrain sur `ardx` **ET** ceci est dédoublé dans un chat filleul / sponsor créé à ce moment et comportant l'item de réponse et l'item du sponsor.
-  - pour un compte sponsorisé autonome si le sponsor ou le sponsorisé ont requis la confidentialité, le chat n'est pas créé: rien ne reliera les deux comptes.
+- pour un compte O la `partitions` est mise à jour (quotas attribués), le filleul est mis dans la liste des comptes `act` de `partitions`.
+- un mot de remerciement est écrit par le filleul au parrain sur `ardx` **ET** ceci est dédoublé dans un chat filleul / sponsor créé à ce moment et comportant l'item de réponse,
+  - pour un compte sponsorisé "A" si le sponsor ou le sponsorisé ont requis la confidentialité, le chat n'est pas créé: rien ne reliera les deux comptes.
+  - sinon le chat est créé, le sponsor d'un compte "O" a toujours ses sponsorisés "O" dans ses contacts.
 - le statut du `sponsoring` est 2.
 
 # Documents `notes`
@@ -951,25 +964,23 @@ _data_:
 
 - `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
 - `v2` : volume total des fichiers attachés.
-- `mc` :
-  - note personnelle : vecteur des index de mots clés.
-  - note de groupe : map sérialisée,
-    - _clé_ : `hgc` du compte de l'auteur (1 pour les mots clés du groupe),
-    - _valeur_ : vecteur des index des mots clés attribués par le membre.
+- `ht` :
+  - note personnelle : liste des hashtags cryptée par la clé K du compte.
+  - note de groupe : liste des hashtags cryptée par la clé du groupe
+- `htm` : pour une note de groupe seulement, hashtags des membres. Map:
+    - _clé_ : `hgc` du compte de l'auteur,
+    - _valeur_ : liste des hashtags cryptée par la clé K du compte.
 - `l` : liste des _auteurs_ (leurs `im`) pour une note de groupe.
-- `txts` : crypté par la clé de la note.
-  - `d` : date-heure de dernière modification du texte.
-  - `t` : texte gzippé ou non.
+- `d` : date-heure de dernière modification du texte.
+- `texte` : texte (gzippé) crypté par la clé de la note.
 - `mfas` : map des fichiers attachés.
 - `refs` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa  note _parent_.
 
 **_Remarque :_** une note peut être explicitement supprimée. Afin de synchroniser cette forme particulière de mise à jour le document est conservé _zombi_ (sa _data_ est null). La note sera purgée avec son avatar / groupe.
 
-## Mots clés `mc`
-- Note personnelle : `mc` est un vecteur d'index de mots clés. Les index sont ceux du compte et de l'organisation.
-- Note de groupe : `mc` est une map :
-  - _clé_ : `hgc` du compte de l'auteur (1 pour les mots clés du groupe). `hgc` est le hash du cryptage de l'id du groupe par la clé K du compte. Ainsi tous ls avatars du même compte partagent les mêmes mots clés. 
-  - _valeur_ : vecteur d'index des mots clés. Les index sont ceux personnels du compte du membre, ceux du groupe, ceux de l'organisation.
+**`hgc` du compte de l'auteur**
+- un compte génère son `hgc` par le hash de son id crypté par sa clé K. 
+- de cette façon tous les avatars d'un compte bénéficient des mêmes hashtags mais les autres membres n'ont pas moyen de savoir à quel membre attribuer le `hgc` correspondant.
 
 ## Map des fichiers attachés
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id_court` du groupe / avatar, `idf`
@@ -1002,25 +1013,17 @@ Le rattachement d'une note à une autre permet de définir un arbre des notes.
 
 Les cycles (N1 rattachée à N2 rattachée à N3 rattachée à N1 par exemple) sont interdits et bloqués.
 
-# Documents `transferts`
-_data_:
-- `id` : id du groupe ou de l'avatar du note.
-- `ids` : `idf` du fichier en cours de chargement.
-- `dlv` : date-limite de validité pour nettoyer les uploads en échec sans les confondre avec ceux en cours.
-
 # Documents `groupes`
 Un groupe est caractérisé par :
 - son entête : un document `groupes`.
 - la liste de ses membres : des documents `membres` de sa sous-collection `membres`.
 
-## Membres d'un groupe: identifications [id, im] nag ni 
-- **`im / ids`**: un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution (sauf cas particulier). Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
-  - le statut de chaque membre d'index `im` est stocké dans `flags[im]`.
-- **`nag`** : numéro d'avatar dans le groupe. Hash du cryptage par la clé du groupe de la clé de l'avatar.
-  - un même avatar peut avoir plus d'une vie dans un groupe, y être actif, redevenir simple contact, y être à nouveau invité puis actif ... Afin qu'il conserve toujours le même indice au cours de ses _vies_ successives, on mémorise son `nag` dans la table `anag` du groupe.
-  - c'est aussi utile pour empêcher d'avoir à un instant donné deux membres avec deux indices différents pour le même avatar.
-- **`ni`** : numéro d'invitation. hash du cryptage par la clé du groupe de la clé _inversée_ de l'avatar invité. Ce numéro permet à un animateur d'annuler une invitation faite et pas encore acceptée ou refusée.
-- `npgk` : numéro de participation à un groupe: hash du cryptage par la clé K du compte de `idg / idav`. Ce numéro est la clé du membre dans la map `mpgk` de `comptas` du compte.
+## Membres d'un groupe: `im / ids`, la table tmb
+Un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution (sauf cas particulier). Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
+
+Les _flags_ et l'id de chaque membre d'index `im` sont stockés dans `tmb[im]` dont les éléments comportent 8 bytes:
+- _flags_ : les deux premiers donnent les _flags_ du membre.
+- _id_ : les 6 suivants donnent son id (courte).
 
 ## États _contact / actif / inconnu_
 ### Inconnu
@@ -1028,58 +1031,40 @@ Un membre _inconnu_ est un _ex membre_ qui a eu une existence et qui :
 - soit a _disparu_. Le GC a détecté son absence.
 - soit a fait l'objet d'une demande _d'oubli_ par le compte lui-même et dans certains cas par un animateur.
 - il a un indice `im` :
-  - `flags[im]` est à 0.
-  - `anag[im]` est par convention,
-    - à `1` s'il a été _actif_ : ceci prévient la réutilisation de l'indice im;
-    - à `0` s'il n'a jamais été actif ce qui permet de réutiliser l'indice.
-- il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar, ni son identifiant `nag` dans le groupe.
+  - s'il a été _actif_, `tmb[im]` vaut `true` par convention afin de prévenir prévient la réutilisation de l'indice im.
+  - s'il n'a pas été _actif_, `tmb[im]` est `null`.
+- il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar.
 
 ### Contact
 Quand um membre est un _contact_:
 - il a un indice `im` et des flags associés.
-- il a un document `membres` identifié par `[idg, im]` qui va donner son nom et la clé de sa carte de visite.
-- il est connu dans `groupes` par son `nag` dans la table `anag` à l'indice `im`.
-- **son compte ne le connaît pas**, il n'a pas le groupe dans sa liste de groupes `mpgk` (du moins au titre de cet avatar),
-- la `dlv` de son `membres` est `20991231` (non significative),
-- sa disparition n'est constatée incidemment que quand un membre actif fait rafraîchir les cartes de visites des membres du groupe et découvre à cette occasion qu'il a disparu.
-- un _contact_ peut avoir une _invitation_ en cours déclarée par un animateur (ou tous):
-  - son avatar connaît cette invitation qui est stockée dans la map `invits` du row `avatars`.
-  - une invitation n'a pas de date limite de validité.
-  - une invitation peut être annulée par un animateur ou l'avatar invité lui-même.
+- il a un document `membres` identifié par `[idg, im]` qui va donner sa clé et sa carte de visite.
+- il est connu dans `groupes` dans `tmb` à l'indice `im`.
+- **son compte ne le connaît pas**, il n'a pas le groupe dans sa liste de groupes.
+
+### Contact invité
+Un _contact_ peut avoir une _invitation_ en cours déclarée par un animateur (ou tous):
+- son avatar connaît cette invitation qui est stockée dans la map `invits` de son document `avatars`.
+- une invitation n'a pas de date limite de validité.
+- une invitation peut être annulée par un animateur ou l'avatar invité lui-même.
 
 ### Actif
 Quand un membre est _actif_:
-- son indice `im`, son document `membres` et son `nag` sont ceux qu'il avait quand il était _contact_.
-- **son compte le connaît**, son compte a le groupe dans sa liste de groupes `mpgk`,
+- son indice `im` et son document `membres` restent ceux qu'il avait quand il était _contact_.
+- **son compte le connaît**, son compte a le groupe dans sa liste de groupes `mpg`,
 - le compte peut décider de redevenir _contact_, voire d'être _oublié_ du groupe (et devenir _inconnu_).
 - un animateur peut supprimer tous les droits d'un membre _actif_ mais il reste _actif_ (bien que très _passif_ par la force des choses).
-- son document `membres` est signé à chaque connexion du compte de son avatar: sa `dlv` lui garantit d'être considéré comme vivant.
 
 > Remarques:
 > - Un membre ne devient _actif_ que quand son compte a explicitement **validé une invitation** déclarée par un animateur (ou tous).
 > - Un membre _actif_ ne redevient _contact_ que quand lui-même l'a décidé.
 
-### Table `anag` du groupe
-Par convention si `anag[im]` vaut 0, c'est que l'indice `im` est _libre_.
-
-Le `nag`, numéro d'avatar dans le groupe (hash du cryptage par la clé du groupe de la clé de l'avatar),
-- est inscrit à la première déclaration de l'avatar comme contact.
-- est effacé quand le membre est détecté disparu ou a été oublié.
-
-Pour un indice `im` cette table donne:
-- le `nag` du membre correspondant s'il est connu (_contact_ ou _actif_).
-- `1` si le membre est _inconnu_.
-
 ### `im` attribués ou libres
-La règle générale est de ne pas libérer un `im` pour un futur autre membre quand un membre disparaît ou est oublié. Cet indice peut apparaître,
-- dans la liste des auteurs d'une note, la ré-attribution pourrait porter à confusion sur l'auteur d'une note.
-- dans la liste des participations à un groupe d'un compte (`mpgk`).
+La règle générale est de ne pas libérer un `im` pour un futur autre membre quand un membre disparaît ou est oublié. Cet indice peut apparaître dans la liste des auteurs d'une note, la ré-attribution pourrait porter à confusion sur l'auteur d'une note.
 
-L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais été actif**: son `im` n'a pas pu être référencé ailleurs.
+L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes.
 
-### Table `flags`
-Chaque membre d'indice `im` a des flags dans le groupe `flags[im]`
-
+### Table `tmb` : _flags_
 Plusieurs _flags_ précisent le statut d'un membre:
 - [AC] **est _actif_**
 - [IN] **a une invitation en cours**
@@ -1099,31 +1084,22 @@ Plusieurs _flags_ précisent le statut d'un membre:
   - [HM] **avec accès aux membres**
   - [HE] **avec possibilité d'écrire une note**
 
+- _listes noires_
+  - [NG] **est en liste noire sur demande du groupe**
+  - [NC] **est en liste noire sur demande du compte**
+
+Certains avatars ne devront plus être invités / ré-invités, ils sont en liste noire. La mise en liste noire peut être demandée par un animateur du groupe ou par le membre lui-même lorsqu'il demande à être oublié.
+
 ### Un membre _peut_ avoir plusieurs périodes d'activité
 - il a été créé comme _contact_ puis a été invité et son invitation validée: il est _actif_.
 - il peut demander à redevenir _simple contact_ : il n'accède plus ni aux notes ni aux autres membres, n'est plus hébergeur et souhaite ne plus voir ce groupe _inutile_ apparaître dans sa liste des groupes.
 - en tant que _contact_ il peut être ré-invité, sauf s'il s'est inscrit dans la liste noire des avatars à ne pas ré-inviter. Puis il peut valider son invitation et commencer ainsi une nouvelle période d'activité.
 - les flags _historiques_ permettent ainsi de savoir, si le membre a un jour été actif et s'il a pu avoir accès à la liste des membres, a eu accès aux notes et a pu en écrire.
 
-### Disparition versus oubli
-Dans les deux cas ses `flags` sont à 0.
+#### Réapparition après _oubli_
+Après un _oubli_ si l'avatar est de nouveau inscrit comme _contact_, il récupère un nouvel indice #35 par exemple et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont initialisées. 
 
-**La _disparition_** correspond au fait que l'avatar du membre n'existe plus, soit à sa demande, soit par détection du GC. Par principe même l'avatar ne ré-apparaîtra plus dans le groupe:
-- son row `membres` est purgé.
-- son `nag` est mis à `1`, ou `0` si son `im` n'a jamais été _actif_.
-
-**Un _oubli_** est explicitement demandé:
-- soit par le membre lui-même quand il est actif,
-- soit par un animateur quand il est _contact_ et en particulier à l'occasion de l'annulation de son invitation.
-- son document `membres` est purgé.
-- son `nag` est mis à `1` ou `0` si son `im` n'a jamais été _actif_.
-
-Après un _oubli_ si l'avatar est de nouveau inscrit comme _contact_, il récupère un nouvel indice #35 par exemple et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont initialisées. C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours l'ancien `im` #12 que rien ne permet de corréler à #35.
-
-### Listes `lna / lnc`: _listes noires des avatars ne pas (ré) inviter_
-Elles listent les `nag` des avatars qui ne devront plus être invités / ré-invités. Elle est alimentée:
-- par un animateur dans `lna`.
-- par l'avatar lui-même dans `lnc`.
+C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours l'ancien `im` #12 que rien ne permet de corréler à #35.
 
 ## Modes d'invitation
 - _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par **UN** animateur (un seul suffit).
@@ -1132,20 +1108,18 @@ Elles listent les `nag` des avatars qui ne devront plus être invités / ré-inv
 - pour revenir au mode _simple_ depuis le mode _unanime_, il faut que **TOUS** les animateurs aient validé ce retour.
 
 Une invitation est enregistrée dans la map `invits` de l'avatar invité:
-- _clé_: `ni`, numéro d'invitation.
-- _valeur_: `{nomg, cleg, im}` cryptée par la clé publique RSA de l'avatar.
-  - `nomg`: nom du groupe,
-  - `cleg`: clé du groupe,
-  - `im`: indice du membre dans la table ast du groupe.
-
-Sauf en mode _avion_, le serveur peut délivrer une _fiche d'invitation_ donnant pour une invitation donnée,
-- la carte de visite du groupe,
-- les cartes de visite et noms du ou des animateurs ayant lancé l'invitation.
+- _clé_: `idav/idg` id de l'avatar invité et du groupe.
+- _valeur_: `{clegP, cvg, im, ivpar, dh}` 
+  - `clegP`: clé du groupe crypté par la clé publique RSA de l'avatar.
+  - `cvg` : carte de visite du groupe (photo et texte sont cryptés par la clé du groupe `cleg`)
+  - `im`: indice du membre dans la table `tmb` du groupe.
+  - `ivpar` : indice `im` de l'invitant.
+  - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
 ## Hébergement par un membre _actif_
 L'hébergement d'un groupe est noté par :
 - `imh`: indice membre de l'avatar hébergeur. 
-- `idhg` : id du **compte** hébergeur crypté par la clé du groupe.
+- `idhg` : id du **compte** de l'avatar hébergeur. Cette donnée est cachée aux sessions.
 - `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé. Les notes ne peuvent plus être mises à jour _en croissance_ quand `dfh` existe.
 
 ### Prise d'hébergement
@@ -1158,18 +1132,7 @@ L'hébergement d'un groupe est noté par :
 - `dfh` est mise la date du jour + 90 jours.
 - le nombre de notes et le volume V2 de `comptas` sont décrémentés de ceux du groupe.
 
-## Actions du GC à `dfh`, destruction du groupe
-- le groupe peut avoir des contacts et des actifs mais pas d'hébergeur.
-- il met le `versions` du groupe en _zombi_ (`dlv` à la veille de la date du jour).
-  - au fil des connexions et des synchronisations, ceci provoquera le retrait du groupe des maps `mpgk` des comptes qui le référencent (ce qui peut prendre jusqu'à un an).
-  - les invitations _pendantes_ tomberont lorsqu'elles seront acceptées ou refusées par l'avatar invité.
-- les documents `groupe notes membres` sont purgés par le GC.
-  
-## Fin d'hébergement suite à détection par le GC de la disparition de l'avatar hébergeur
-- c'est le fait que la `dlv` dans `membres` est dépassée qui signale que l'avatar a disparu. 
-- dans le document `groupes`:
-  - `dfh` est mise la date du jour + 90 jours.
-  - `imh idhg` sont mis à 0 / null
+Au dépassement de dfh, le GC détruit le groupe.
 
 ## Data
 _data_:
@@ -1177,39 +1140,32 @@ _data_:
 - `v` :  1..N, version du groupe de ses notes et membres.
 - `dfh` : date de fin d'hébergement.
 
-- `idhg` : id du compte hébergeur crypté par la clé du groupe.
+- `nn qn v2 q2`: nombres de notes actuel et maximum attribué par l'hébergeur, volume tortal des fichiers des notes actuel et maximum attribué par l'hébergeur.
+- `idhg` : id du compte hébergeur (pas transmise en session).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
-- `flags` : table des flags des membres (12 bits sur un entier).
-- `anag` : table des nag des membres.
-- `lna` : liste noire _animateurs_ des `nag` des avatars à ne pas inviter / ré-inviter.
-- `lnc` : liste noire _comptes_ des `nag` des avatars à ne pas inviter / ré-inviter.
-- `mcg` : liste des mots clés définis pour le groupe cryptée par la clé du groupe.
+- `tmb` : table des membres.
 - `cvg` : carte de visite du groupe cryptée par la clé du groupe `{v, photo, info}`.
 
 ## Décompte des participations à des groupes d'un compte
-- quand un avatar a accepté une invitation, il devient _actif_ et a une nouvelle entrée dans la liste des participations aux groupes (`mpgk`) dans l'avatar principal de son compte.
+- quand un avatar a accepté une invitation, il devient _actif_ et a une nouvelle entrée dans la liste des participations aux groupes (`mpg`) dans l'avatar principal de son compte.
 - quand l'avatar décide de tomber dans l'oubli ou de redevenir simple contact, cette entrée est supprimée.
-- le _nombre de participations aux groupes_ dans `compas.qv.ng` du compte est le nombre total de ces entrées dans `mpgk`.
-- la disparition d'un groupe détectée en session (synchro ou connexion) par son `versions` devenu _zombi_, provoque la disparition de son ou ses entrées dans `mpgk` et la décroissance correspondante de `qv.ng` (nombre de participations aux groupes).
+- le _nombre de participations aux groupes_ dans `comptas.qv.ng` du compte est le nombre total de ces entrées dans `mpg`.
 
 # Documents `membres`
-Un document `membres` est créé à la déclaration d'un avatar comme _contact_ avec une dlv de la fin du siècle. Le compte ne _signe_ pas à la connexion dans son document `membres` tant qu'il n'est pas _actif_, sa `dlv` reste non significative.
-- sa `dlv` reste ainsi en tant que contact ayant une invitation, le membre n'étant toujours pas _actif_.
+Un document `membres` est créé à la déclaration d'un avatar comme _contact_.
 
 Le document `membres` est détruit,
 - par une opération d'oubli.
 - par la destruction de son groupe lors de la résiliation du dernier membre actif.
-- par le GC détectant par la `dlv` que l'avatar a disparu.
 
 _data_:
 - `id` : id du groupe.
 - `ids`: identifiant, indice `im` de membre relatif à son groupe.
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
-- `dlv` : .
 
 - `ddi` : date de l'invitation la plus récente.
 - **dates de début de la première et fin de la dernière période...**
@@ -1218,23 +1174,25 @@ _data_:
   - `den fen` : d'accès en écriture aux notes.
   - `dam fam` : d'accès aux membres.
 - `flagsiv` : flags de l'invitation en cours.
-- `inv` : dernière invitation. Liste des indices des animateurs ayant validé l'invitation.
-- `nag` : `[nom, cle]` : nom et clé de l'avatar crypté par la clé du groupe.
-- `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé du membre.
+- `inv` : . Liste des indices des animateurs ayant validé la dernière invitation.
+- `cle` : clé de l'avatar membre crypté par la clé du groupe.
+- `cva` : carte de visite du membre `{v, photo, info}` cryptée par la clé de l'avatar membre.
 
 ## Opérations
 
 ### Inscription comme contact
-- si son `nag` est en `lna` ou `lnc`, refus.
-- recherche de l'indice `im` dans la table `anag` du groupe pour le `nag` de l'avatar.
+- recherche de l'indice `im` dans la table `tmb` du groupe pour l'id de l'avatar.
+- s'il est en liste noire, refus.
 - SI `im` n'existe pas,
   - c'est une première vie OU une nouvelle vie après oubli de la précédente.
   - un nouvel indice `im` lui est attribué en séquence s'il n'y en a pas de libre.
   - un row `membres` est créé.
-- SI `im` existait, _l'inscription en contact_ est en échec (existe déjà).
+- SI `im` existe,
+  - si son _flag_ indique qu'il est en liste noire, refus.
+  - sinon il était déjà _contact_.
 
 ### Invitation par un animateur
-- si son `nag` est en `lna` ou `lnc`, refus.
+- si son _flag_ indique qu'il est en liste noire, refus.
 - choix des _droits_ et inscription dans `invits` de l'avatar.
 - vote d'invitation (en mode _unanime_):
   - si tous les animateurs ont voté, inscription dans `invits` de l'avatar.
@@ -1242,7 +1200,7 @@ _data_:
 - `ddi` est remplie.
 
 ### Annulation d'invitation par un animateur
-- effacement de l'entrée `ni` dans `invits` de l'avatar.
+- effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
 
 ### Oubli par un animateur*
 - pour un contact, pas invité: son slot est récupérable.
@@ -1253,12 +1211,12 @@ _data_:
 - 3 options possibles:
   - rester en contact.
   - m'oublier,
-  - m'oublier et ne plus m'inviter.
+  - m'oublier et me mettre en liste noire.
 - son item dans `invits` de son avatar est effacé.
 
 ### Acceptation d'invitation par le compte
 - le groupe peut avoir disparu depuis le lancement de l'invitation.
-- dans l'avatar principal du compte un item est ajouté dans `mpgk`,
+- dans l'avatar principal du compte un item est ajouté dans `mpg`,
 - dans `comptas` le compteur `qv.ng` est incrémenté.
 - `dac fac ...` sont mises à jour.
 - son item dans `invits` de son avatar est effacé.
@@ -1273,10 +1231,10 @@ _data_:
 ## Demande d'oubli par un compte**
 - 3 options:
   - rester en _contact_
-  - m'oublier: Entrée dans `mpgk` du compte supprimée.
-  - m'oublier et ne pas me ré-inviter.
+  - m'oublier: Entrée dans `mpg` du compte supprimée.
+  - m'oublier et me mettre en liste noir.
 - si le membre était le dernier _actif_, le groupe disparaît.
-- la participation au groupe disparaît de `mpgk` du compte.
+- la participation au groupe disparaît de `mpg` du compte.
 
 # Documents `Chatgrs`
 A chaque groupe est associé **UN** document `Chatgrs` qui représente le chat des membres d'un groupe. Il est créé avec le groupe et disparaît avec lui.
@@ -1286,11 +1244,11 @@ _data_
 - `ids` : `1`
 - `v` : sa version.
 
-- `items` : liste ordonnée des items de chat `{im, dh, lg, textg}`
+- `items` : liste ordonnée des items de chat `{im, dh, lg, texte}`
   - `im` : indice membre de l'auteur,
   - `dh` : date-heure d'enregistrement de l'item,
   - `lg` : longueur du texte en clair de l'item. 0 correspond à un item effacé.
-  - `t` : texte crypté par la clé du groupe.
+  - `texte` : texte (gzippé) crypté par la clé du groupe.
 
 ## Opérations
 ### Ajout d'un item
@@ -1308,32 +1266,13 @@ _data_
 
 Un item ne peut pas être corrigé après écriture, juste effacé.
 
-Le chat d'un groupe garde les items dans l'ordre anté chronologique jusqu'à concurrence d'une taille totale de 5000 signes.
-
-# Mots clés, principes et gestion
-Les mots clés sont utilisés pour :
-- filtrer / caractériser à l'affichage les **chats** accédés par un compte.
-- filtrer / caractériser à l'affichage les **groupes (membres)** accédés par un compte.
-- filtrer / caractériser à l'affichage les **notes**, personnels ou partagés avec un groupe.
-
-La **définition** des mots-clés (avatar et groupe) est une map :
-- _clé_ : indice du mot-clé de 1 à 255,
-- _valeur_ : texte `catégorie/label du mot-clé`.
-
-Affectés à un membre ou note, c'est un array de nombres de 1 à 255 (Uin8Array).
-
-Les mots clés d'indice,
-- 1-99 : sont ceux d'un compte.
-- 100-199 : sont ceux d'un groupe.
-- 200-255 : sont ceux définis en configuration (généraux dans l'application).
+Le chat d'un groupe garde les items dans l'ordre ante-chronologique jusqu'à concurrence d'une taille totale de 5000 signes.
 
 # Gestion des disparitions: `dlv` des comptes
 
 Chaque compte a une **date limite de validité**:
 - toujours une _date de dernier jour du mois_ (sauf exception par convention décrite plus avant),
-- dans son `comptas`,
-- dans les documents `versions` de ses avatars,
-- dans les documents `membres` relatifs à un de ses avatars.
+- dans son `comptas`.
 
 L'objectif des dlv est de permettre au GC de libérer les ressources correspondantes (notes, chats, ...) lorsqu'un compte n'est plus utilisé:
 - **pour un compte A** la `dlv` représente la limite d'épuisement de son crédit mais bornée à `nnmi` mois du jour de son calcul.
@@ -1341,71 +1280,36 @@ L'objectif des dlv est de permettre au GC de libérer les ressources corresponda
   - un nombre de jours sans connexion (donnée par `nbmi` du document `espaces` de l'organisation),
   - la date `dlvat` jusqu'à laquelle l'organisation a payé ses coûts d'hébergement à l'administrateur technique (par défaut la fin du siècle). C'est la date `dlvat` qui figure dans le document `espaces` de l'organisation. Dans ce cas, par convention, c'est la **date du premier jour du mois suivant** pour pouvoir être reconnue.
 
-> Remarque: étant une date de fin de mois, de nombreux comptes ont une même date ce qui empêche de rapprocher un compte de ses avatars ou les groupes auxquels il participe. Ceci reste vrai si ces dates ne peuvent pas être très lointaines.
-
 > Remarque. En toute rigueur un compte A qui aurait un gros crédit pourrait ne pas être obligé de se connecter pour prolonger la vie de son compte _oublié / tombé en désuétude / décédé_. Mais il n'est pas souhaitable de conserver des comptes _morts_ en hébergement, même payé: ils encombrent pour rien l'espace.
 
-## Mise à jour de la `dlv` d'un compte
-Elle est _propagée_ pour tous les documents où elle figure, par une seule transaction. 
+## Calcul de la `dlv` d'un compte
+La `dlv` d'un compte est recalculée à plusieurs occasions.
 
 ### Acceptation du sponsoring du compte
 Première valeur calculée selon le type du compte.
 
 ### Connexion
 La connexion permet de refaire des calculs en particulier en prenant en compte de nouveaux tarifs.
-- pour un compte A c'est à cette occasion que sont intégrés les dons et les crédits récoltés par le Comptable.
-- pour un compte O le changement de dlvat est aussi prise en compte.
+- pour un compte "A" c'est à cette occasion que sont intégrés les crédits récoltés par le Comptable.
+- pour un compte "O" le changement de dlvat est aussi prise en compte.
 
 C'est l'occasion majeure de prolonger la vie d'un compte.
 
-### Création d'un nouveau membre
-La `dlv` n'est pas recalculée pour le nouveau membre mais recopiée de celle de sa comptas.
-
-### Don pour un compte A: ça passe par un chat
+### Don pour un compte "A": ça passe par un chat
 La dlv du _donneur_ est recalculée sur l'instant: si le don est important, la date peut être significativement rapprochée.
 
-Pour le récipiendaire,
-- s'il est connecté à cet instant dans une session, celle-ci recalcule et fait propager la dlv (et fait supprimer les dons en attente).
-- sinon ceci s'effectue à la prochaine connexion du compte.
+Pour le récipiendaire celle-ci est recalculée et prolonge cette date.
 
 ### Enregistrement d'un crédit par le Comptable
 Pour le destinataire du crédit:
-- s'il est connecté à cet instant dans une session, il peut appuyer sur un bouton pour rafraîchir les lignes de crédits, intégrer les dons en attente et faire propager la dlv qui en résulte (et supprimer les dons en attente).
+- s'il est connecté à cet instant dans une session, il peut appuyer sur un bouton pour rafraîchir les lignes de crédits et intégrer les nouveaux crédits.
 - sinon ceci s'effectuera automatiquement à la prochaine connexion du compte.
 
 ### Modification de l'abonnement d'un compte A
-La dlv est recalculée et propagée à l'occasion de la nouvelle évaluation qui en résulte.
+La `dlv` est recalculée à l'occasion de la nouvelle évaluation qui en résulte.
 
-### Mutation d'un compte O en A et d'un compte A en O
-La dlv est recalculée en fonction des nouvelles conditions.
-
-## Traitement par le GC
-_Remarque_: les `dlv` des documents `versions` inférieures au début du siècle ne sont plus des dates mais des valeurs symboliques: 
-- `aamm` indique que les sous-arbres ont été purgés et qu'il ne reste plus que le document versions lui-même (_zombi_). 
-- Ceux-ci restent utiles pour synchronisation des bases locales afin de détecter les suppressions de groupes et d'avatars. Toutefois au bout de IDBOBS jours, on renonce à cette synchronisation incrémentale et la base locale IDB est purgée avant connexion.
-- les versions ayant une `dlv` aamm plus vieille de IDBOBS jours son purgés aussi.
-
-### `GCHeb` - Étape _fin d'hébergement_
-Elle récupère les groupes dont la `dfh` est passée:
-- la `dlv` du document `versions` du groupe est mise à la veille, devient _zombi_ et déclenchera une purge du sous-arbre du groupe.
-
-### `GCGro` - Étape _groupes orphelins_: purges des `membres`
-Elle filtre les documents `membres` _disparus_ sur `20000101 <= dlv < auj`
-- purge du document `membres`.
-- si le groupe reste vivant (il y a encore un membre _actif_): 
-  - mise à jour du groupe: `flags[im]` à 0, `anag[im]` à 1,
-  - mise à jour de `v` dans le document `versions` du groupe.
-- si le groupe doit disparaître: la `dlv` de son document `versions` est **la veille du jour courant** (son _data_ devient null).
-
-### `GCPag` - Étape _purge des sous-arbres avatars et groupes_
-Elle filtre les documents `versions` des avatars et groupes par `20000101 <= dlv < auj`. 
-- rappel: les `versions` des groupes vivants ont une `dlv` max et échappent de facto à ce filtre. 
-- SI c'est un avatar principal (il a un document `comptas`).
-  - pour un compte O, mise à jour de `tribus`, création d'un `gcvols`.
-  - purge du document `comptas`
-- purge du sous-arbre (dont les fichiers):
-- la `dlv` de son document `versions` est **mise à aamm du jour courant** (son _data_ reste null).
-- les documents `versions` restent _zombi_ mais ne seront plus sélectionnables pour purge des sous-arbres, leur `dlv` étant inférieure à `AMJ.min` (20000101).
+### Mutation d'un compte "O" en "A" et d'un compte "A" en "O"
+La `dlv` est recalculée en fonction des nouvelles conditions.
 
 ## Changement des données dans l'espace d'une organisation
 Il y a deux données: 
@@ -1428,23 +1332,12 @@ L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transac
 _Remarque_: idéalement une transaction unique aurait été préférable puisque toutes les dlv relatives à un compte ne vont pas être changées dans la même transaction. Ceci ouvre la possibilité d'incohérences temporelles sur les dlv pour les comptes se connectant exactement au milieu de ce processus. Il a été supposé assez rapide pour que cet inconvénient relève du cas d'école sans impact opérationnel.
 
 # Opérations GC
-### Singleton `checkpoint` (id 1)
-_data_ :
-- `id` : 1
-- `v` : date-time de sa dernière mise à jour ou 0 s'il n'a jamais été écrit.
 
-- `start` : date-heure de lancement du dernier GC.
-- `duree` : durée de son exécution en ms.
-- `nbTaches` : nombre de taches terminées avec succès sur 6.
-- `log` : array des traces des exécutions des tâches:
-  - `nom` : nom.
-  - `retry` : numéro de retry.
-  - `start` : date-heure de lancement.
-  - `duree` : durée en ms.
-  - `err` : si sortie en exception, son libellé.
-  - `stats` : {} compteurs d'objets traités (selon la tâche).
+## `GCHeb` - Étape _fin d'hébergement_ et _fin de vie_ des comptes
+Elle récupère les groupes dont la `dfh` OU la `dlv` est passée et les supprime (voir plus avant).
 
-### Gestion des documents `versions` _zombi_
+## `GCfvc` - Étape _fin de vie des comptes_
+Suppression de tous les comptes 
 
 ### `GCHeb` : traitement des fins d'hébergement
 L'opération récupère toutes les ids des documents `groupes` où `dfh` est inférieure au jour courant.
@@ -1460,6 +1353,11 @@ Une transaction par document `groupes`:
 - suppression de ses documents `membres`,
 - si le groupe n'a plus de membres actifs, suppression du groupe:
   - la `dlv` de son document `versions` est mise à la veille (il est zombi).
+
+### `GCPag` - Étape _purge des sous-arbres avatars et groupes_
+La liste des sous-arbres à purger est donnée dans dpurges. 
+
+Chaque id est traitée et retiré de la liste dans dpurges.
 
 ### `GCPag` : purge des avatars et des groupes
 L'opération récupère toutes les `id` des documents `versions` dont la `dlv` est de la forme `aaaammjj` et antérieure à aujourd'hui.
