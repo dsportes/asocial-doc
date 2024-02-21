@@ -223,7 +223,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 
 ### P : clé d'une partition
 - attribuée à la création de la partition par le Comptable et à la création de l'espace pour le partition primitive.
-- crypte les notifications de niveau partition et les clés A des comptes délégués de la partition.
+- crypte les notifications d'une partition et les clés A des comptes délégués de la partition.
 
 ### D : clé de délégation d'une partition
 - attribuée à la création de la partition par le Comptable et à la création de l'espace pour le partition primitive.
@@ -231,7 +231,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 
 ## Documents stockant les clés, phrases et hash de phrases
 ### `espaces`
-- cleES : clé E cryptée par la clé S.
+- `cleES` : clé E cryptée par la clé S.
 
 ### `comptes`
 - `hXC hXR`
@@ -345,7 +345,7 @@ Ce sont les documents cible d'un esynchronisation entre sessions UI et base: `pa
 Tous les documents, ont une propriété `_data_` qui porte toutes les informations sérialisées du document.
 
 `_data_` est crypté:
-- en base _centrale_ par la clé du site qui a été générée par l'administrateur technique et qu'il conserve en lieu protégé comme quelques autres données sensibles (_token_ d'autorisation d'API, identifiants d'accès aux comptes d'hébegement ...).
+- en base _centrale_ par la clé du site qui a été générée par l'administrateur technique et qu'il conserve en lieu protégé comme quelques autres données sensibles (_token_ d'autorisation d'API, identifiants d'accès aux comptes d'hébergement ...).
 - en base _locale_ par la clé K du compte.
 - le contenu _décrypté_ est le même dans les deux bases et est la sérialisation d'un objet de classe correspondante.
 
@@ -594,6 +594,7 @@ _data_ :
 - `org` : code de l'organisation propriétaire.
 
 - `rds` :
+- `cleES` : clé E cryptée par la clé S.
 - `opt`:
   - 0: 'Pas de comptes "autonomes"',
   - 1: 'Le Comptable peut rendre un compte "autonome" sans son accord',
@@ -624,32 +625,32 @@ _data_:
 - `v` : 1..N
 
 - `rds` :
-- `clepX` : clé de la partition cryptée par la clé K du comptable.
 - `qc q1 q2` : quotas totaux de la tribu.
 - `stn` : restriction d'accès de la notification _partition_: _0:aucune 1:lecture seule 2:minimal_
-- `notifP`: notification de niveau _partition_ dont le texte est crypté par la clé de la partition.
-- `tc` : table des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
-  - `idP` : id court du compte crypté par la clé de la partition.
-  - `cledP` : si _délégué_, `cle` du compte délégué crypté par la cle de la partition.
+- `notifP`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
+- `tcles` : table des clés des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
+  - `cleAD` : clé A du compte crypté par la clé de délégation de la partition. Les cartes de visite des _NON délégués_ sont accessibles aux seuls comptes de la partition.
+  - `cleAP` : si _délégué_, clé A du compte crypté par la clé de la partition. Les cartes de visite des _délégués_ sont accessibles à tous les comptes de la partition.
+- `tcpt` : table des compteurs des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
   - `notifP`: notification de niveau compte dont le texte est crypté par la clé de la partition (`null` s'il n'y en a pas).
   - `stn` : restriction d'accès de la notification _compte_: _0:aucune 1:lecture seule 2:minimal_
   - `qc q1 q2` : quotas attribués.
   - `cj v1 v2` : consommation journalière, v1, v2: obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `partitions / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
 
-Un délégué (ou le Comptable) peut accéder à la liste des comptes de sa partition : pour un compte non délégué il n'a pas accès à leur carte de visite (sauf si l'avatar lui est connu par ailleurs).
-
-Tout compte "O" a accès à sa partition: il n'a accès aux cartes de visite que des délégués.
+Visibilité en session de `tcle` et `tcpt`
+- `tcle` est visible par tous les comptes.
+- `tcpt` est visible,
+  - **en totalité** pour les comptes délégués,
+  - **seulement l'élément de son `it`** pour un compte non délégué.
 
 L'ajout / retrait de la qualité de _délégué_ n'est effectué que par le Comptable au delà du choix initial établi au sponsoring par un _délégué_ ou le Comptable.
 
 ## Gestion des quotas totaux par _partitions_
 La déclaration d'une partition par le Comptable d'un espace consiste à définir :
-- une clé de cryptage `clep` générée aléatoirement à la création de la partition :
+- générer les clés P et D aléatoirement :
   - **les 2 premiers bytes donnent l'id de la partition**, son numéro d'ordre de création par le Comptable partant de de 1,
 - un `code` signifiant pour le Comptable (dans son `comptas`).
 - les sous-quotas `qc q1 q2` attribués.
-
-`clep` est immuable, `code qc q1 q2` peuvent être mis à jour par le comptable.
 
 # Documents `syntheses`
 La mise à jour d'une partition est peu fréquente : une _synthèse_ est recalculée à chaque mise à jour de `stn, q1, q2` ou d'un item de `act`.
@@ -673,22 +674,52 @@ _data_:
 
 `ap[0]` est la somme des `ap[1..N]` calculé en session, pas stocké.
 
+# Documents `comptes`
+_data_ :
+- `id` : numéro du compte = id de son avatar principal.
+- `v` : 1..N.
+- `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète (`hps1`).
+- `dlv` : dernier jour de validité du compte.
+
+- `rds` : 
+- `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
+- `cleKXR` : clé K cryptée par XR.
+- `clePA` : comptes O seulement. Clé de la partition cryptée par la clé A de son avatar principal.
+- `cleDA` : comptes O délégués seulement. Clé de délégation de la partition cryptée par la clé A de son avatar principal.
+- `it` : comptes O seulement. Index du compte dans les tables `tcles tcpt` de sa partition.
+
+- `mav` : map des avatars du compte. 
+  - _clé_ : id court de l'avatar.
+  - _valeur_ : `cleAK` clé A de l'avatar crypté par la clé K du compte.
+
+- `mpg` : map des participations aux groupes:
+  - _clé_ : id du groupe
+  - _valeur_: `{ clegK, lp }`
+    - `cleGK` : clé G du groupe cryptée par la clé K du compte.
+    - `lp`: map des participations: 
+      - _clé_: id court de l'avatar.
+      - _valeur_: indice `im` du membre dans la table `tmb` du groupe (`ids` du membre).
+
+**Comptable seulement:**
+- `cleEK` : Comptable seulement. Clé E cryptée par sa clé K.
+- `tp` : table des partitions : `{cik, qc, q1, q2}`.
+  - `cik` : `{ cleP, cleD, code }` crypté par la clé K du comptable
+    - `cleP` : clé de la partition.
+    - `cleD` : clé de délégation.
+    - `code` : texte très court pour le seul usage du comptable.
+  - `qc, q1, q2]` : quotas globaux de la partition.
+  - `stn` : restriction d'accès. ???????????
+
+La première partition d'`id` 1 est celle du Comptable et est indestructible.
+
 # Documents `comptas`
 _data_ :
 - `id` : numéro du compte, id de son avatar principal.
 - `v` : 1..N.
-- `hps1` : `ns` + hash du PBKFD d'un extrait de la phrase secrète (`hps1`).
-- `dlv` : dernier jour de validité du compte.
 
 - `rds` : 
-- `hpsc`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
-- `kx` : clé K du compte, cryptée par le PBKFD de la phrase secrète complète.
 - `dhvu` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
-- `delegue` : 1: est _délégué_ de sa tribu.
-- `clepK` : clé de la partition cryptée par la clé K du compte. Dans le cas de changement de partition forcé par le comptable, cette clé a une longueur de 256, elle est cryptée par la _clé publique RSA_ du compte.
-- `it` : index du compte dans la table `ac` de sa partition. **0 si c'est un compte autonome**.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
-
 - `total`: pour un compte "A" seulement , total est le résultat, 
   - du cumul des crédits reçus depuis le début de la vie du compte (ou de son dernier passage en compte A), 
   - plus les dons reçus des autres,
@@ -696,21 +727,6 @@ _data_ :
 - `tickets`: pour un compte "A" seulement, liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
   - juste après une conversion de compte "O" en "A", `credits` est vide.
 - `compteurs` sérialisation non cryptée des quotas, volumes et coûts.
-
-**Pour le Comptable seulement**
-- `tp` : table des partitions : `{cik, qc, q1, q2}`.
-  - `cik` : `{ clep, code }` crypté par la clé K du comptable
-    - `clep` : clé de la partition.
-    - `code` : texte très court pour le seul usage du comptable.
-  - `q` : `[qc, q1, q2]` : quotas globaux de la partition.
-  - `stn` : restriction d'accès.
-
-La première partition d'`id` 1 est celle du Comptable et est indestructible.
-
-**Remarques :**  
-- Le document est mis à jour à minima à chaque mise à jour d'une note (`qv` et `compteurs`).
-- La version `v` de `versions` associée à `comptas` lui est spécifique, ce n'est **PAS** la version de l'avatar principal du compte.
-- Le fait d'accéder à `tp` permet d'obtenir la _liste des partitions existantes_ de l'espace. Le serveur peut ainsi recalculer la statistique de l'espace (agrégation des compteurs des partitions) en scannant ces partitions.
 
 # Documents `versions`
 _data_ :
@@ -726,17 +742,7 @@ _data_:
 - `hpc` : `ns` + hash du PBKFD d'un extrait de la phrase de contact.
 
 **Données n'existant que pour un avatar principal**
-- `mav` : map des avatars du compte. 
-  - _clé_ : id court de l'avatar.
-  - _valeur_ : `clé` de l'avatar crypté par la clé K du compte.
 
-- `mpg` : map des participations aux groupes:
-  - _clé_ : id du groupe
-  - _valeur_: `{ clegK, lp }`
-    - `clegK` : clé du groupe cryptée par la clé K du compte.
-    - `lp`: map des participations: 
-      - _clé_: id court de l'avatar.
-      - _valeur_: indice `im` du membre dans la table `tmb` du groupe (`ids` du membre).
 
 - `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte:
   - _cle_: `id` court de l'avatar ou du groupe,
