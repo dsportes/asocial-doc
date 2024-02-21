@@ -143,13 +143,6 @@ Ces documents ne sont jamais mis à jour une fois créés, ils ont supprimés,
 
 Ces documents ne sont jamais mis à jour une fois créés, ils ont supprimés par le prochain GC après qu'il ait purgé du _Storage_ tous les fichiers cités dans _data_.
 
-## Documents `dpurges`
-C'est un singleton par espace:
-- `id` : ns de l'espace.
-- `lids` : liste des id des avatars ou des groupes à purger.
-
-Au cours d'une opération, on évite une opération longue de suppression de tous les sous-documents: ceci est effectué en différé par le GC pour tous les documents cités dans `dpurges`. La liste `lids` est mise à jour au fur et à mesure. 
-
 # Table / documents d'un espace
 
 ## Entête d'un espace: `espaces syntheses`
@@ -193,6 +186,72 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 - `chatgrs`: un seul document par groupe. `id` est celui du groupe et `ids` vaut toujours `1`.
 - `tickets`: un document par ticket de crédit généré par un compte A. `ids` est un nombre aléatoire tel qu'il puisse s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
 
+# Clés de cryptage
+## Phrases
+### Phrase secrète d'accès à un compte
+- XC : PBKFD de la phrase complète - hXC son hash.
+- XR : PBKFD de la phrase réduite - hXR son hash.
+
+### Phrase de sponsoring
+- YC : PBKFD de la phrase complète - hYC son hash
+- YR : PBKFD de la phrase réduite - hYR son hash.
+
+### Phrase de contact d'un avatar
+- ZC : PBKFD de la phrase complète - hZC son hash.
+- ZR : PBKFD de la phrase réduite - hZR son hash.
+
+## Clés
+### S : clé du site
+
+### E : clé d'un espace
+- attribuée à la création de l'espace par l'administrateur.
+- clé partagée entre l'administrateur et le Comptable de l'espace.
+- crypte les rapports générés par le GC pour l'administrateur et le Comptable.
+
+### K : clé principale d'un compte.
+- attribuée à la création du compte par AccepterSponsoring ou CreerEspace pour le Comptable.
+- propriété exclusive du compte.
+- crypte ses notes.
+
+### A : clé d'un avatar
+- attribuée à la création de l'avatar ou du compte pour l'avatar principal.
+- crypte sa carte de visite.
+
+### G : clé d'un groupe
+- attribuée à la création du groupe.
+- crypte sa carte de visite et ses notes.
+
+### P : clé d'une partition
+- attribuée à la création de la partition par le Comptable et à la création de l'espace pour le partition primitive.
+- crypte les notifications de niveau partition et les clés A des comptes délégués de la partition.
+
+### D : clé de délégation d'une partition
+- attribuée à la création de la partition par le Comptable et à la création de l'espace pour le partition primitive.
+- crypte les clés A des comptes délégués.
+
+## Documents stockant les clés, phrases et hash de phrases
+### `espaces`
+- cleES : clé E cryptée par la clé S.
+
+### `comptes`
+- `hXC hXR`
+- `cleKXR` : clé K cryptée par XR.
+- `clePA` : comptes O seulement. Clé de la partition cryptée par la clé A de son avatar principal.
+- `cleDA` : comptes O délégués seulement. Clé de délégation de la partition cryptée par la clé A de son avatar principal.
+- `cleEK` : Comptable seulement. Clé E cryptée par sa clé K.
+- `cleAK` : pour chaque avatar du compte:  clé de l'avatar cryptée par la clé K du compte.
+- `cleGK` : pour chaque groupe où un avatar est actif: clé du groupe cryptée par la clé K du compte. 
+
+### `avatars`
+- `cleAZC` : clé A cryptée par ZC.
+- `cleGA` : pour chaque groupe où l'avatar est invité.
+- `pcK` : phrase de contact cryptée par la clé K du compte.
+- `hZR`
+
+### `sponsorings`
+- `psK` : phrase de sponsorings cryptée par la clé K du compte
+- `hYR`
+
 # Périmètre d'un compte _Data Sync_
 Le périmètre d'un compte délimite un certain nombre de documents:
 - un compte n'a la visibilité en session UI que des documents de son périmètre.
@@ -201,6 +260,7 @@ Le périmètre d'un compte délimite un certain nombre de documents:
 Le _périmètre_ d'un compte ayant une id donnée est le suivant:
 - le document `espaces` portant comme ns celui de l'id du compte.
 - le document `synthèses` portant comme ns celui de l'id du compte.
+- le document `comptes`  portant comme ns celui de l'id du compte.
 - le document `comptas` portant cette id.
 - les documents `avatars` des avatars principaux et secondaires du compte,
 - les sous-documents `notes sponsorings chats tickets` de ces avatars.
@@ -208,15 +268,15 @@ Le _périmètre_ d'un compte ayant une id donnée est le suivant:
 - les sous-documents `notes membres chatgrs` de ces groupes.
 
 Exceptions pour le Comptable:
-- le Comptable peut voir tous les documents espaces synthèses et pas seulement ceux de _son_ espace.
+- le Comptable peut voir tous les documents `espaces synthèses` et pas seulement ceux de _son_ espace.
 - En plus de _son_ espace, le Comptable a accès à un instant donné à UN autre espace _courant_ (mais qui peut changer).
 
 ## Data Sync
 Chaque session UI d'un compte dispose en mémoire de **tous** les documents de son périmètre.
 
-Une session _synchronisée ou avion_ dispose de tous les documents de ce périmètre **sauf** son document syntheses.
+Une session _synchronisée ou avion_ dispose de tous les documents de ce périmètre **sauf** son document `syntheses`.
 
-Le mécanisme de Data Sync permet à la mémoire d'une session (et à sa base locale le cas échéant) de refléter au plus tôt l'état des documents du périmètre tel qu'il existe en base, **sauf** le document synthèses qui est chargé à la demande (pas en avion donc).
+Le mécanisme de Data Sync permet à la mémoire d'une session (et à sa base locale le cas échéant) de refléter au plus tôt l'état des documents du périmètre tel qu'il existe en base, **sauf** le document `synthèses` qui est chargé à la demande (pas en avion donc).
 
 > Cet état en mémoire est en conséquence sujet à des évolutions constantes suite aux effets des opérations soumises au serveur, soit par la session elle-même, soit par n'importe quelle autre, du même compte ou de n'importe quel autre, et marginalement du GC.
 
@@ -229,8 +289,9 @@ Les documents `versions` sont chargés de ce tracking. Propriétés:
 - `id` : _référence data sync_ d'un document `espaces comptas avatars groupes`.
 - `v` : version, incrémentée de 1 à chaque mise à jour, soit du document maître, soit de ses sous-documents `notes sponsorings chats tickets membres chatgrs`
 - `suppr` : jour de suppression.
+- `stamp` : timestamp de la transaction de mise à jour.
 
-La _référence data sync_ `rds` est une id aléatoire sur 16 chiffres avec les deux premiers correspondant au `ns`. **Elle est générée aléatoirement à la création d'un document** `espaces comptas avatars groupes` et y est stockée.
+La _référence data sync_ `rds` est une id aléatoire sur 16 chiffres avec les deux premiers correspondant au `ns`. **Elle est générée aléatoirement à la création d'un document** `espaces comptes comptas avatars groupes` et y est stockée.
 
 > **Remarque:** un serveur ne lit pas les documents `versions`, mais les créé et les met à jour. Seul le GC lit les `versions` mais uniquement celles supprimées depuis plus de N mois, pour les purger (en SQL ce n'est donc même pas une lecture, mais un simple `DELETE` avec une clause `WHERE` sur `suppr`).
 
