@@ -19,7 +19,7 @@ Trois implémentations ont été développées:
 ## _Base_
 La base peut avoir plusieurs implémentations : un _provider_ est la classe logicielle qui gère l'accès à sa base selon sa technologie.
 
-On distingue deux classe d'organisation techniques: **SQL** et **NOSQL+Data Sync**.
+On distingue deux classes d'organisation techniques: **SQL** et **NOSQL+Data Sync**.
 
 ### SQL
 Les données sont distribuées dans des **tables** `espaces avatars versions notes ...`
@@ -34,13 +34,13 @@ Les données sont distribuées dans des **tables** `espaces avatars versions not
 ### NOSQL-Data Sync
 Chaque table SQL correspond à une **collection de documents**, chaque document correspondant à un **row** de la table SQL de même nom que la collection.
 - la base implémente un mécanisme de **Data Sync** par lequel une session peut directement demander à la base de lui notifier les mises à jour des documents qui l'intéresse, sans passer par un _serveur_ intermédiaire pour ce service.
-- il faut a minima une _Cloud Function_ pour gérer les transactions de lecture / mises à jour:
+- il faut a minima une _Cloud Function_ pour gérer les transactions de lecture / mises à jour de type REST:
   - le service correspondant peut être _up_ juste le temps d'une transaction et repasser _down_ en l'absence de sollicitation.
-  - il peut être assuré dans un serveur qui reste _up_ en continu (du moins sur une longue durée).
-- les sessions clientes sont insensibles à la tombée _down_ de la Cloud Function (ou du serveur). Les les abonnements ne sont gérés que par les sessions clientes et d'ailleurs la Function n'a pas de concept de _session cliente_. 
+  - il peut aussi de fait être assuré par un serveur qui reste _up_ en continu (du moins sur une longue durée).
+- les sessions clientes sont insensibles à la tombée _down_ de la Cloud Function (ou du serveur). Les les abonnements ne sont gérés que par les sessions clientes et d'ailleurs la _Function_ ne gère pas de _sessions clientes_. 
 - la première implémentation correspond à une base Firestore et à une Google Cloud Function. 
 
-> **Remarque:** entre une implémentation GCP Function et AWS Lambda, il n'y a apriori qu'une poignée de lignes de code de différence dans la configuration de l'amorce du service et bien entendu une procédure de déploiement spécifique.
+> **Remarque:** entre une implémentation GCP Function et AWS Lambda, il n'y a a priori qu'une poignée de lignes de code de différence dans la configuration de l'amorce du service et bien entendu une procédure de déploiement spécifique.
 
 ## Équivalence SQL et NOSQL
 Les _colonnes_ d'une table SQL correspondent aux _attributs / propriétés_ d'un document.
@@ -61,16 +61,16 @@ Ces quelques documents sont _purement techniques_:
 - ils n'ont d'intérêt que d'audit par l'administrateur technique,
 - ils sont _à la racine_ de la base, ne dépendent d'aucun espace,
 - ils ne sont pas exportés,
-- ils sont écrits, écrasés, jamais reluis ni détruits.
+- ils sont écrits, écrasés, jamais relus ni détruits.
 - ils sont facultatifs: la base est opérationnelle sans leur présence et c'est effectivement le cas pour une base _neuve_.
 
 La collection `singletons` a un nombre fixe de documents représentant les derniers _rapports de GC_:
 - `id` :
   - `1` : rapport du dernier _ping_ effectué sur la base.
   - `10-19` : rapports des phases du GC,
-  - `20-29` : rapport de la dernière génération de rapports par le GC.
+  - `20-29` : rapports de la dernière génération de rapports par le GC.
 - `v` : estampille d'écriture en ms.
-- `_data_` : sérialisation non cryptée des données traçant l'exécution d'une phase du dernier traitement journalier de GC (garbage collector), ou trace du _ping_.
+- `_data_` : sérialisation non cryptée des données traçant l'exécution d'une phase du dernier traitement journalier de GC ou trace du _ping_.
 
 Par exemple le _path_ en Firestore du dernier _ping_ est `singletons/1`.
 
@@ -79,7 +79,7 @@ Tous les autres documents comportent une colonne / attribut `id` dont la valeur 
 
 Un espace est identifié par `ns`, **un entier de 10 à 89**. Chaque espace à ses données réparties dans les collections / tables suivantes:
 - `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL) a pour valeur le `ns` de l'espace. Path Firestore pour le `ns` 24 par exemple : `espaces/24` `syntheses/24`.
-- tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le `ns` de leur espace. Les propriétés des documents peuvent citer l'id d'autres documents mais sous la forme d'une _id courte_ dont les deux premiers chiffres ont été enlevés.
+- tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le `ns` de leur espace. Les propriétés des documents peuvent citer l'id _courte_ d'autres documents, sans les deux premiers chiffres.
 
 ## Code organisation attaché à un espace
 A la déclaration d'un espace sur un serveur, l'administrateur technique déclare un **code organisation**:
@@ -109,12 +109,14 @@ Pour un espace, `24` par exemple, il existe un compte d'id `2410000000000000` qu
 Le Comptable dispose des quotas globaux de l'espace attribués par l'administrateur technique. Il définit un certain nombre de **partitions de quotas** et confie la gestion de chacune à des comptes _délégués_ qui peuvent les distribuer aux comptes "O" affecté à leur partition.
 
 Le rôle principal d'un _Comptable_ est,
-- de partitionner les quotas attribués aux comptes "O"  de quotas et d'en ajuster les quotas,
-- de déclarer les _délégués_ de chaque partition, le cas échéant de retirer ou d'ajouter la qualité de _délégué_ a un compte "O".
+- de partitionner les quotas attribués aux comptes "O" de quotas et d'en ajuster les quotas,
+- de désigner les _délégués_ de chaque partition, le cas échéant de retirer ou d'ajouter la qualité de _délégué_ a un compte "O" de la partition.
+- de changer un compte "O" de partition.
 - de gérer des _notifications / blocages_ s'appliquant à des comptes "O" spécifiques ou à tous les comptes d'une partition.
 - d'enregistrer les paiements des comptes A.
+- de sponsoriser directement la création de nouveaux comptes.
 
-Le Comptable :
+Le Comptable est un compte "O" qui:
 - ne peut pas se résilier lui-même,
 - ne peut pas changer de partition de quotas, il est rattaché à la partition 1 de son espace qui ne peut pas être supprimée.
 - ne peut pas supprimer son propre attribut _délégué_,
@@ -152,15 +154,16 @@ Pour un espace donné, ce sont des singletons:
 - `syntheses` : `id` est le `ns` de l'espace. Le document contenant des données statistiques sur la distribution des quotas aux comptes "O" (par _partition_) et l'utilisation de ceux-ci.
   - Clé primaire : `id`. Path : `syntheses/24`
 
-# Tables / collections _majeures_ : `partitions comptas avatars groupes`
+# Tables / collections _majeures_ : `partitions comptes comptas avatars groupes`
 Chaque collection a un document par `id` (clé primaire en SQL, second terme du path en Firestore).
 - `partitions` : un document par _partition de quotas_ décrivant la distribution des quotas entre les comptes "O" attachés à cette partition.
   - `id` (sans le `ns`) est un numéro séquentiel `1..N`.
   - Clé primaire : `id`. Path : `partitions/0...x`
-- `comptas` : un document par compte donnant les informations d'entête d'un compte (dont l'`id` est celui de son avatar principal). L'`id` courte sur 14 chiffres est le numéro du compte :
+- `comptes` : un document par compte donnant les clés majeures du compte, la liste de ses avatars et des groupes auxquels un de ses avatars participe. L'`id` courte sur 14 chiffres est le numéro du compte :
   - `10...0` : pour le Comptable.
   - `2x...y` : pour les autres comptes, `x...y` est un nombre aléatoire sur 13 chiffres.
   - Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
+- `comptas` : un document par compte donnant les compteurs de consommation et les quotas.
 - `avatars` : un document par avatar donnant les informations d'entête d'un avatar. L'`id` courte sur 14 chiffres est le numéro d'un avatar du compte :
   - `10...0` : pour l'avatar principal (et unique) du Comptable.
   - `2x...y` : pour les avatars principaux ou secondaires des autres comptes. `x...y` est un nombre aléatoire sur 13 chiffres.
@@ -175,13 +178,13 @@ Chaque collection a un document par `id` (clé primaire en SQL, second terme du 
 
 Dans chaque sous-collection, `ids` est un identifiant relatif à `id`. 
 - en SQL les clés primaires sont `id,ids`
-- en Firestore les paths sont (par exemple pour la sous-collection note) : `sdocs/2.../notes/z...t`, `id` est le second terme du path, `ids` le quatrième.
+- en Firestore les paths sont (par exemple pour la sous-collection note) : `versions/2.../notes/z...t`, `id` est le second terme du path, `ids` le quatrième.
 
 - `notes` : un document représente une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire.
-- `sponsorings` : un document représente un sponsoring d'un avatar. Son identifiant relatif est _ns +  hash de la phrase_ de reconnaissance entre le sponsor et son sponsorisé.
+- `sponsorings` : un document représente un sponsoring d'un avatar. Son identifiant relatif est _ns +  hash de la phrase_ de sponsoring entre le sponsor et son sponsorisé.
 - `chats` : un chat entre 2 avatars A et B se traduit en deux documents : 
-  - l'un sous-document de A a pour identifiant secondaire `ids` un hash des clés de B et A.
-  - l'autre sous-document de B a pour identifiant secondaire `ids` un hash des clés de A et B.
+  - l'un sous-document de A a pour identifiant secondaire `ids` un hash de l'id courte de B.
+  - l'autre sous-document de B a pour identifiant secondaire `ids` un hash de l'id courte de A.
 - `membres` : un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
 - `chatgrs`: un seul document par groupe. `id` est celui du groupe et `ids` vaut toujours `1`.
 - `tickets`: un document par ticket de crédit généré par un compte A. `ids` est un nombre aléatoire tel qu'il puisse s'éditer sous forme d'un code à 6 lettres majuscules (de 1 à 308,915,776).
@@ -202,6 +205,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 
 ## Clés
 ### S : clé du site
+Fixée dans la configuration de déploiement du serveur par l'administrateur technique. 
 
 ### E : clé d'un espace
 - attribuée à la création de l'espace par l'administrateur.
@@ -209,7 +213,7 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 - crypte les rapports générés par le GC pour l'administrateur et le Comptable.
 
 ### K : clé principale d'un compte.
-- attribuée à la création du compte par AccepterSponsoring ou CreerEspace pour le Comptable.
+- attribuée à la création du compte par `AccepterSponsoring` ou `CreerEspace` pour le Comptable.
 - propriété exclusive du compte.
 - crypte ses notes.
 
@@ -241,23 +245,24 @@ Dans chaque sous-collection, `ids` est un identifiant relatif à `id`.
 - `cleES` : clé E cryptée par la clé S.
 
 ### `comptes`
-- `hXC hXR`
+- `hXC`: hash du PBKFD de la phrase secrète complète.
+- `hXR`: hash du PBKFD de la phrase secrète réduite.
 - `cleKXR` : clé K cryptée par XR.
-- `clePA` : comptes O seulement. Clé de la partition cryptée par la clé A de son avatar principal.
-- `cleDA` : comptes O délégués seulement. Clé de délégation de la partition cryptée par la clé A de son avatar principal.
+- `clePA` : comptes O seulement. Clé P de sa partition cryptée par la clé A de son avatar principal.
+- `cleDA` : comptes O délégués seulement. Clé D de délégation de la partition cryptée par la clé A de son avatar principal.
 - `cleEK` : Comptable seulement. Clé E cryptée par sa clé K.
-- `cleAK` : pour chaque avatar du compte:  clé de l'avatar cryptée par la clé K du compte.
-- `cleGK` : pour chaque groupe où un avatar est actif: clé du groupe cryptée par la clé K du compte. 
+- `cleAK` : _pour chaque avatar du compte_:  clé A de l'avatar cryptée par la clé K du compte.
+- `cleGK` : _pour chaque groupe_ où un avatar est actif: clé G du groupe cryptée par la clé K du compte. 
 
 ### `avatars`
 - `cleAZC` : clé A cryptée par ZC.
-- `cleGA` : pour chaque groupe où l'avatar est invité.
+- `cleGA` : _pour chaque groupe_ où l'avatar est invité.
 - `pcK` : phrase de contact cryptée par la clé K du compte.
-- `hZR`
+- `hZR` : hash du PBKFD de la phrase de contact réduite.
 
 ### `sponsorings`
-- `psK` : phrase de sponsorings cryptée par la clé K du compte
-- `hYR`
+- `psK` : phrase de sponsorings cryptée par la clé K du compte.
+- `hYR`: : hash du PBKFD de la phrase secrète réduite.
 
 # Périmètre d'un compte _Data Sync_
 Le périmètre d'un compte délimite un certain nombre de documents:
@@ -265,14 +270,14 @@ Le périmètre d'un compte délimite un certain nombre de documents:
 - il ne peut s'abonner qu'à ceux-ci, si c'est sa session qui gère les abonnements. Si c'est le _serveur_ il n'abonne une session donnée d'un compte qu'aux documents du périmètre du compte.
 
 Le _périmètre_ d'un compte ayant une id donnée est le suivant:
-- le document `espaces` portant comme ns celui de l'id du compte.
-- le document `synthèses` portant comme ns celui de l'id du compte.
-- le document `comptes`  portant comme ns celui de l'id du compte.
+- le document `espaces` portant comme `ns` celui de l'id du compte.
+- le document `synthèses` portant comme `ns` celui de l'id du compte.
+- le document `comptes`  portant cette id.
 - le document `comptas` portant cette id.
 - les documents `avatars` des avatars principaux et secondaires du compte,
-- les sous-documents `notes sponsorings chats tickets` de ces avatars.
+  - les sous-documents `notes sponsorings chats tickets` de ces avatars.
 - les documents `groupes` dont un des avatars du compte est membre actif.
-- les sous-documents `notes membres chatgrs` de ces groupes.
+  - les sous-documents `notes membres chatgrs` de ces groupes.
 
 Exceptions pour le Comptable:
 - le Comptable peut voir tous les documents `espaces synthèses` et pas seulement ceux de _son_ espace.
@@ -281,46 +286,25 @@ Exceptions pour le Comptable:
 ## Data Sync
 Chaque session UI d'un compte dispose en mémoire de **tous** les documents de son périmètre.
 
-Une session _synchronisée ou avion_ dispose de tous les documents de ce périmètre **sauf** son document `syntheses`.
+Une session _synchronisée ou avion_ dispose dans sa base locale de tous les documents de ce périmètre **sauf** son document `syntheses`.
 
 Le mécanisme de Data Sync permet à la mémoire d'une session (et à sa base locale le cas échéant) de refléter au plus tôt l'état des documents du périmètre tel qu'il existe en base, **sauf** le document `synthèses` qui est chargé à la demande (pas en avion donc).
+
+Voir l'annexe Data Sync.
 
 > Cet état en mémoire est en conséquence sujet à des évolutions constantes suite aux effets des opérations soumises au serveur, soit par la session elle-même, soit par n'importe quelle autre, du même compte ou de n'importe quel autre, et marginalement du GC.
 
 ## Tracking des créations et mises à jour
 **Remarque:** il n'y a pas à proprement parlé de _suppressions_:
-- un document sponsorings a une date limite de validité: le document est logiquement supprimé que cette date est dépassée.
-- un document notes peut être _vide_, n'a plus de contenu, n'apparaît plus dans les vues, mais son document existe toujours.
+- un document `sponsorings` a une date limite de validité: le document est logiquement supprimé que cette date est dépassée.
+- un document `notes` peut être _vide_, n'a plus de contenu, n'apparaît plus dans les vues, mais son document existe toujours.
 
-Les documents `versions` sont chargés de ce tracking. Propriétés:
-- `id` : _référence data sync_ d'un document `espaces comptas avatars groupes`.
+Les documents `versions` sont chargés de ce tracking pour les sous-documents de `avatars` et de `groupes`. Propriétés:
+- `id` : id d'un avatar ou d'un groupe.
 - `v` : version, incrémentée de 1 à chaque mise à jour, soit du document maître, soit de ses sous-documents `notes sponsorings chats tickets membres chatgrs`
 - `suppr` : jour de suppression.
-- `stamp` : timestamp de la transaction de mise à jour.
 
-La _référence data sync_ `rds` est une id aléatoire sur 16 chiffres avec les deux premiers correspondant au `ns`. **Elle est générée aléatoirement à la création d'un document** `espaces comptes comptas avatars groupes` et y est stockée.
-
-> **Remarque:** un serveur ne lit pas les documents `versions`, mais les créé et les met à jour. Seul le GC lit les `versions` mais uniquement celles supprimées depuis plus de N mois, pour les purger (en SQL ce n'est donc même pas une lecture, mais un simple `DELETE` avec une clause `WHERE` sur `suppr`).
-
-**A l'ouverture d'une session UI**, dès qu'on dispose du périmètre des avatars et des groupes de son compte, on peut acquérir leurs `versions` et s'y abonner:
-- ainsi muni pour chacun de `v`, on peut mettre à jour sa mémoire et sa base locale incrémentalement en ne demandant que les (sous) documents mis à jour postérieurement.
-- quand il y a une marque `suppr`, une session peut supprimer l'avatar ou le groupe correspondant. Toutefois au bout de plus de N mois sans connexion sur ce poste (N de 6 à 24 mois), on considère qu'il n'est plus acceptable de procéder par mise à jour incrémentale et la base locale est remise à 0.
-  - le GC purge les documents versions ayant une marque de suppression plus vieille de 6 à 24 mois (selon le paramètre configuré dans api.mjs ces données étant devenues inutiles.
-
-**En cours de session UI après la phase de _connexion_,** on a connaissance de tous les documents de son propre périmètre et en conséquence de leur `rds`.
-- une session peut s'abonner aux mises à jour des documents `versions` correspondant aux `rds` des documents de son périmètre.
-- une session ne peut pas faute de connaître leur `rds`, s'abonner aux mises à jour des documents hors de son périmètre. Certes elle ne pourrait pas les lire mais si elle pouvait s'abonner à ceux-ci elle obtiendrait des informations sur l'activité des autres comptes, ce qu'on ne veut pas.
-
-Les documents `sous-collections` d'un avatar (resp. d'un groupe) ont une version `v` qui est enregistrée en séquence croissante continue dans son `versions`. 
-- Le `v` de `versions` est la plus haute version de tous les sous-documents de l'avatar (resp. du groupe) et de l'avatar (resp. du groupe) lui-même.
-
-En cas de _suppression_ d'un avatar (resp. d'un groupe),
-- la version `v` s'incrémente,
-- `suppr` porte le jour de suppression: ceci permet aux sessions de se resynchroniser incrémentalement, (du moins pendant N mois) et de détecter le rétrécissement du périmètre du compte.
-
-Les sessions recevant cette information peuvent,
-- supprimer de leur mémoire (et base locale) le document et ses sous-documents correspondant,
-- supprimer leur abonnement, qui ne recevrait d'ailleurs plus rien, la version n'évoluant plus.
+> **Remarque:** Le GC lit les `versions` supprimées depuis plus de N mois pour les purger.
 
 **La constante `IDBOBS / IDBOBSGC` de `api.mjs`** donne le nombre de jours de validité d'une micro base locale IDB sans resynchronisation. Celle-ci devient **obsolète** (à supprimer avant connexion) `IDBOBS` jours après sa dernière synchronisation. Ceci s'applique à _tous_ les espaces avec la même valeur.
 
@@ -340,13 +324,12 @@ Les comptes "0" _délégués_ d'une partition peuvent:
 ## Comptes "A"
 Un compte "A" est créé par _sponsoring_,
 - soit d'un compte "A" existant qui à cette occasion fait _cadeau_ au compte sponsorisé d'un montant de son choix prélevé sur le solde monétaire du compte sponsor.
-- soit par un compte "O" _délégué_ ou par le Comptable:
-  - un cadeau de bienvenue de 2c est affecté au compte "A" sponsorisé (prélevé chez personne).
+- soit par un compte "O" _délégué_ ou par le Comptable: un cadeau de bienvenue de 2c est affecté au compte "A" sponsorisé (prélevé chez personne).
 
 Un compta "A" définit lui-même ses quotas `q1` et `q2` (il les paye en tant _qu'abonnement_) et n'a pas de quotas `qc` (il paye sa _consommation_).
 
 # Détail des tables / collections _majeures_ et leurs _sous-collections_
-Ce sont les documents cible d'un esynchronisation entre sessions UI et base: `partitions comptas avatars groupes notes sponsorings chats tickets membres chatgrs`
+Ce sont les documents cible d'un synchronisation entre sessions UI et base: `partitions comptes comptas avatars groupes notes sponsorings chats tickets membres chatgrs versions`
 
 ## _data_
 Tous les documents, ont une propriété `_data_` qui porte toutes les informations sérialisées du document.
@@ -378,18 +361,15 @@ La `dlv` **d'un compte** désigne le dernier jour de validité du compte:
 - c'est le **dernier jour d'un mois**.
 - _**cas particulier**_: quand c'est le premier jour d'un mois, la `dlv` réelle est le dernier jour du mois précédent. Dans ce cas elle représente la date de fin de validité fixée par l'administrateur pour l'ensemble des comptes "O". En gros il a un financement des frais d'hébergement pour les comptes de l'organisation jusqu'à cette date (par défaut la fin du siècle).
 
-La `dlv` d'un compte est inscrite dans la `comptas` du compte:
-- la propriété est externalisée afin de permettre au GC de récupérer tous les comptes obsolètes à détruire.
+La `dlv` d'un compte est inscrite dans le document `comptes` du compte: elle est externalisée pour que le GC puisse récupérer tous les comptes obsolètes à détruire.
 
 ## `dlv` d'un `sponsorings` 
-- jour au-delà duquel le sponsoring n'est plus applicable ni pertinent à conserver. Les sessions suppriment automatiquement à la connexion les sponsorings ayant dépassé leur `dlv` (idem pour les synchronisations).
-- il y a des sponsorings avec une `dlv` dans le futur.
+- jour au-delà duquel le sponsoring n'est plus applicable ni pertinent à conserver. Les sessions suppriment automatiquement à la connexion les sponsorings ayant dépassé leur `dlv`.
 - dès dépassement du jour de `dlv`, un sponsorings est purgé (du moins peut l'être).
-
-**Les `dlv` sont des propriétés indexées** afin de permettre au GC de les purger. En Firestore l'index est `collection_group` afin de s'appliquer aux sponsorings de tous les avatars.
+- elles sont indexées pour que le GC puisse purger les sponsorings. En Firestore l'index est `collection_group` afin de s'appliquer aux sponsorings de tous les avatars.
 
 ### `vcv` : version de la carte de visite. `avatars chats membres`
-Cette propriété est la version `v` du document au moment de la dernière mise à jour de la carte de visite. `vcv` est définie pour `avatars chats membres` seulement et elle est indexée.
+Cette propriété est la version `v` du document au moment de la dernière mise à jour de la carte de visite: elle est indexée.
 
 ### `dfh` : date de fin d'hébergement. `groupes`
 La **date de fin d'hébergement** sur un groupe permet de détecter le jour où le groupe sera considéré comme disparu. A dépassement de la `dfh` d'un groupe, le GC fait disparaître le groupe inscrivant une `suppr` du jour dans son document `versions` et une version v à 999999 dans le document `groupes`.
@@ -397,8 +377,8 @@ La **date de fin d'hébergement** sur un groupe permet de détecter le jour où 
 ### `hZR` : hash de la phrase de contact. `avatars`
 Cette propriété de `avatars` est indexée de manière à pouvoir accéder à un avatar en connaissant sa phrase de contact.
 
-### `hXC` : hash d'un extrait de la phrase secrète. `comptes`
-Cette propriété de `comptas` est indexée de manière à pouvoir accéder à un compte en connaissant le `hps1` issu de sa phrase secrète.
+### `hXR` : hash d'un extrait de la phrase secrète. `comptes`
+Cette propriété de `comptes` est indexée de manière à pouvoir accéder à un compte en connaissant le `hXR` issu de sa phrase secrète.
 
 ### Propriétés techniques composites `id_v id_vcv`
 **En Firestore** les documents des collections _majeures_ `partitions comptes comptas avatars groupes versions` ont un ou deux attributs _techniques composites_ calculés et NON présents en _data_:
@@ -410,11 +390,11 @@ Elle permet au GC de détecter les transferts en échec et de nettoyer le _stora
 - en Firestore l'index est `collection_group` afin de s'appliquer aux fichiers des notes de tous les avatars et groupe.
 
 # Cache locale des `espaces partitions comptes comptas avatars groupes versions` dans un serveur
-Un _serveur_ ou une _Cloud Function_ qui ne se différencient que par leur durée de vie _up_. 
-- les `comptes` sont utilisés pour vérifier si les listes des avatars et groupes du compte ont changé.
-- les `comptas` sont utilisées à chaque changement de volume ou du nombre de notes / chats / participations aux groupes.
-- les `versions` sont utilisées pour gérer le Data Sync..
-- les `avatars groupes partitions` sont également souvent accédés.
+Un _serveur_ ou une _Cloud Function_ qui ne se différencient que par leur durée de vie _up_ ont une mémoire cache des documents:
+- `comptes` accédés pour vérifier si les listes des avatars et groupes du compte ont changé.
+- `comptas` accédés à chaque changement de volume ou du nombre de notes / chats / participations aux groupes.
+- `versions` accédés pour gérer le Data Sync..
+- `avatars groupes partitions` également fréquemment accédés.
 
 **Les conserver en cache** par leur `id` est une solution naturelle: mais il peut y avoir plusieurs instances s'exécutant en parallèle. 
 - Il faut en conséquence interroger la base pour savoir s'il y a une version postérieure et ne pas la charger si ce n'est pas le cas en utilisant un filtrage par `v`. 
@@ -444,16 +424,9 @@ Les date-heures sont exprimées en millisecondes depuis le 1/1/1970, un entier i
 
 Les dates sont exprimées en `aaaammjj` sur un entier (géré par la class `AMJ`). En base ce sont des dates UTC, elles peuvent s'afficher en date _locale_.
 
-## Clé RSA d'un avatar
-La clé de cryptage (publique) et celle de décryptage (privée) sont de longueurs différentes. 
-
-Le résultat d'un cryptage a une longueur fixe de 256 bytes. Deux cryptages RSA avec la même clé d'un même texte donnent deux valeurs cryptées différentes.
-
 ## Clé d'un avatar ou d'un groupe
 Ces 32 bytes aléatoires sont la clé de cryptage de leur carte de visite:
-- Le premier byte donne le _type_ de l'id, qu'on retrouve comme troisième chiffre de l'id :
-  - 4 : avatar.
-  - 5 : groupe,
+- Le premier byte donne le _type_ de l'id, qu'on retrouve comme troisième chiffre de l'id : 1, 2, 3.
 - Les autres bytes sont aléatoires.
 
 ## Clé d'une partition
@@ -466,20 +439,6 @@ Elle a 32 bytes:
 
 > Une id **courte** est une id SANS les deux premiers chiffres de l'espace, donc relative à son espace.
 
-## `rds` : _référence data sync_
-C'est un id sur 16 chiffres:
-- les deux premiers sont le `ns`,
-- le troisième indique si c'est une référence,
-  - 1 d'un `espaces`
-  - 2 d'une `partitions`
-  - 3 d'un `comptes`
-  - 4 d'un `comptas`
-  - 5 d'un `avatars`
-  - 6 d'un `groupes`.
-- les 13 derniers chiffres sont aléatoires.
-
-> Remarque: on trouve une propriété `rds`, **jamais indexée** donc toujours cryptée dans un _data_ dans les documents: `espaces partitions comptes comptas avatars groupes`.
-
 # Authentification
 
 ## L'administrateur technique
@@ -487,9 +446,10 @@ Il a une phrase de connexion dont le SHA de son PBKFD (`shax`) est enregistré d
 - Il n'a pas d'id, ce n'est PAS un compte.
 - Une opération de l'administrateur est repérée parce que son _token_ contient son `shax`.
 
-**Les opérations liées aux créations de compte ne sont pas authentifiées**, elles vont justement enregistrer leur authentification.  
-- Les opérations de GC et celles de type _ping_ ne le sont pas non plus.  
-- Toutes les autres opérations le sont.
+**Quelques opérations ne sont pas authentifiées**: 
+- L'opération de création d'un compte `AccepterSponsorings`: par principe le compte n'est pas encore enregistré.
+- Les opérations du GC,
+- des opérations de nature _ping_ tests d'écho, tests d'erreur fonctionnelle.
 
 ## `sessionId`: dans le cas d'un serveur gérant le Data Sync par WebSocket 
 `sessionId` est tirée au sort par la session juste avant tentative de connexion: elle est supprimée à la déconnexion. Elle est un identifiant des _sessions_ gérées par WebSocket.
@@ -506,8 +466,7 @@ Toute opération ayant à identifier son émetteur porte un `token` sérialisati
   - `hXR` : hash (sur 14 chiffres) du PBKFD d'un extrait de la phrase secrète.
   - `hXC` : hash (sur 14 chiffres) du PBKFD de la phrase secrète complète.
 
-Le serveur recherche l'`id` du compte par `ns + hps1` (index de `comptes`)
-- vérifie que `ns + hps1` est bien celui enregistré (indexé) dans `comptes` en `hXR`. Le `ns` sur les deux chiffres de tête permet de maintenir un partitionnement stricte entre espaces.
+Le serveur recherche le document `comptes` par `ns + hXR` (index de `comptes`). Le `ns` est connu par le code `org` figurant dans le token.
 - vérifie que `hXC` est bien celui enregistré dans `comptes`.
 - s'il y a une `sessionId` le notifie au gestionnaire de WebSocket à titre de _heartbeat_ indiquant que la session est active.
 
@@ -535,34 +494,33 @@ Les textes sont gzippés ou non avant cryptage: c'est automatique dès que le te
 > Les textes sont cryptés / décryptés par une application UI. Si celle-ci est malicieuse / boguée, les textes sont illisibles mais finalement pas plus que ceux qu'un utilisateur qui les écrirait en idéogrammes pour un public occidental ou qui inscrirait  des textes absurdes.
 
 # Sous-objet `notification`
-Un objet _notification_ est immuable car en cas de _mise à jour_ il est en fait remplacé par un autre.
+Un objet _notification_ est immuable car en cas de _mise à jour_ il est remplacé par un nouveau.
 
 Type des notifications:
 - E : de l'espace
 - P : d'une partition (comptes O)
 - C : d'un compte (comptes O)
-- Q : dépassement de quotas
-- A : alerte de solde / consommation
+- Q : de dépassement de quotas
+- X : d'excès de consommation (dépassement du solde pour un compte "A"). 
 
 Une notification a les propriétés suivantes:
 - `nr`: restriction d'accès: 
-  - 0 : aucune restriction
-  - 1 : restriction réduite
+  - 0 : **aucune restriction**. La notification est informative mais peut annoncer une restriction imminente.
+  - 1 : **restriction réduite**
     - E : espace figé
     - P : accès en lecture seule
     - C : accès en lecture seule
     - Q : actions accroissant le volume interdites
-  - 2 : restriction forte
+  - 2 : **restriction forte**
     - E : espace clos
     - P : accès minimal
     - C : accès minimal
     - A : accès minimal
 - `dh` : date-heure de création.
-- `texte`: 
-  - le texte est en clair pour le type 0.
-  - le texte de la notification est crypté pour les types 2 et 3 par la clé de la partition.
-  - il n'y a pas de texte (juste un code en clair à la place) pour les types 3 et 4.
-
+- `texte`: il est crypté par: 
+  - type E: la clé A du Comptable (que tous les comptes de l'espace ont).
+  - types P et C par la clé P de la partition.
+  - types Q et X: pas de texte, juste un code.
 - `idSource`: id du délégué ayant créé cette notification pour un type P ou C.
 
 **Remarque:** une notification `{ dh: ... }` correspond à la suppression de la notification antérieure (ni restriction, ni texte).
@@ -604,24 +562,25 @@ _data_ :
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
 
-- `rds` :
 - `cleES` : clé E cryptée par la clé S.
-- `notif` : notification de l'administrateur. Texte crypté par la clé A du Comptable.
+- `notif` : notification de l'administrateur. Texte crypté par la clé A du Comptable (une constante bien connue depuis le `ns`).
+- `dlvat` : `dlv` de l'administrateur technique.
+- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
+
+**Mis à jour par le Comptable:**
 - `opt`:
   - 0: 'Pas de comptes "autonomes"',
   - 1: 'Le Comptable peut rendre un compte "autonome" sans son accord',
   - 2: 'Le Comptable NE peut PAS rendre un compte "autonome" sans son accord',
-- `dlvat` : `dlv` de l'administrateur technique.
 - `nbmi`: nombre de mois d'inactivité acceptable pour un compte O fixé par le comptable. Ce changement n'a pas d'effet rétroactif.
-- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
 
 L'administrateur technique gère une `dlvat` pour l'espace : 
 - c'est la date à laquelle l'organisation l'administrateur technique détruira les comptes "O". Cette information est disponible dans l'état de la session pour les comptes "O" (les comptes "A" n'étant pas intéressés).
 - l'administrateur ne peut pas (re)positionner une `dlvat` à moins de `nbmi` mois du jour courant afin d'éviter les catastrophes de comptes supprimés sans que leur titulaire n'ait eu le temps de se reconnecter.
 - par défaut, à l'initialisation elle vaut la fin du siècle.
 
-L'opération de mise à jour d'une `dlvat` est une opération longue du fait du repositionnement des `dlv` des comptas égales à la `dlvat` remplacée:
-- cette mise à jour porte sur le document `comptes` (et son document `versions` associé).
+L'opération de mise à jour d'une `dlvat` est une opération longue du fait du repositionnement des `dlv` des comptes égales à la `dlvat` remplacée:
+- cette mise à jour porte sur le document `comptes`.
 - elle s'effectue en N opérations enchaînées. Au pire en cas d'incident en cours, une partie des comptes auront leur `dlv` mises à jour et pas d'autres: l'administrateur technique doit manuellement relancer l'opération en surveillant sa bonne exécution complète.
 
 **Le maintien en vie d'un compte "O" en l'absence de connexion** a le double inconvénient, 
@@ -644,7 +603,6 @@ _data_:
 - `id` : numéro d'ordre de création de la tribu par le Comptable.
 - `v` : 1..N
 
-- `rds` :
 - `qc q1 q2` : quotas totaux de la tribu.
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
 
@@ -657,8 +615,8 @@ _data_:
   - `qc q1 q2` : quotas attribués.
   - `cj v1 v2` : consommation journalière, v1, v2: obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `partitions / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
 
-Visibilité en session de `tcle` et `tcpt`
-- `tcle` est visible par tous les comptes.
+Visibilité en session de `tcles` et `tcpt`
+- `tcles` est visible par tous les comptes.
 - `tcpt` est visible,
   - **en totalité** pour les comptes délégués,
   - **seulement l'élément de son `it`** pour un compte non délégué.
@@ -696,7 +654,7 @@ _data_:
   - `nco1` : nombres de comptes ayant une notification avec restriction d'accès _lecture seule_.
   - `nco2` : nombres de comptes ayant une notification avec restriction d'accès _minimal_.
 
-`ap[0]` est la somme des `ap[1..N]` calculé en session, pas stocké.
+`tp[0]` est la somme des `tp[1..N]` calculé en session, pas stocké.
 
 # Documents `comptes`
 - Phrase secrète, clés K P D, rattachement à une partition
@@ -709,7 +667,6 @@ _data_ :
 - `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète (`hps1`).
 - `dlv` : dernier jour de validité du compte.
 
-- `rds` : 
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXR` : clé K cryptée par XR.
 - `clePA` : comptes O seulement. Clé P de la partition cryptée par la clé A de son avatar principal.
@@ -735,7 +692,7 @@ _data_ :
     - `cleP` : clé P de la partition.
     - `cleD` : clé D de délégation.
     - `code` : texte très court pour le seul usage du comptable.
-  - `qc, q1, q2]` : quotas globaux de la partition.
+  - `qc, q1, q2` : quotas globaux de la partition.
 
 La première partition d'`id` 1 est celle du Comptable et est indestructible.
 
@@ -749,23 +706,32 @@ _data_ :
 - `id` : numéro du compte = id de son avatar principal.
 - `v` : 1..N.
 
-- `rds` : 
 - `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `compteurs` sérialisation des quotas, volumes et coûts.
 
-- `total`: pour un compte "A" seulement , total est le résultat, 
+- `solde`: pour un compte "A" seulement, c'est le résultat, 
   - du cumul des crédits reçus depuis le début de la vie du compte (ou de son dernier passage en compte A), 
   - plus les dons reçus des autres,
   - moins les dons faits aux autres.
-- `tickets`: pour un compte "A" seulement, liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
-  - juste après une conversion de compte "O" en "A", `credits` est vide.
+- `ticketsK`: pour un compte "A" seulement, liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
+  - juste après une conversion de compte "O" en "A", `ticketsK` est vide.
 
-- `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte cryptée par la clé K du compte.
+- `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte, cryptée par la clé K du compte.
   - _cle_: `id` court de l'avatar ou du groupe,
   - _valeur_ : `{ hashtags, texte }`
     - `hashtags` : liste des hashtags attribués par le compte.
     - `texte` : commentaire écrit par le compte.
+
+# Documents `versions`
+Donne la plus haute version d'un document avatar ou groupe et de leurs sous-documents.
+
+_data_ :
+- `id` : `rds` du document référencé.
+- `v` : 1..N, plus haute version attribuée au document et à ses sous-documents.
+- `suppr` : jour de suppression, ou 0 s'il est actif.
+
+Voir le chapitre **Connexion et synchronisation**.
 
 # Documents `avatars`
 - Phrase de contact.
@@ -776,11 +742,10 @@ _data_:
 - `id` : id de l'avatar.
 - `v` : 1..N. Par convention, une version à 999999 désigne un **avatar logiquement détruit** mais dont les données sont encore présentes. L'avatar est _en cours de suppression_.
 - `vcv` : version de la carte de visite afin qu'une opération puisse détecter (sans lire le document) si la carte de visite est plus récente que celle qu'il connaît.
-- `hZR` : `ns` + hash du PBKFD d'un extrait de la phrase de contact.
+- `hZR` : `ns` + hash du PBKFD de la phrase de contact réduite.
 
-- `rds` : 
-- `cleAZC` : clé A cryptée par ZC.
-- `pcK` : phrase de contact cryptée par la clé K du compte.
+- `cleAZC` : clé A cryptée par ZC (PBKFD de la phrase de contact complète).
+- `pcK` : phrase de contact complète cryptée par la clé K du compte.
 
 - `cvA` : carte de visite de l'avatar `{v, photo, texte}`. photo et texte cryptés par la clé A de l'avatar.
 
@@ -796,7 +761,7 @@ _data_:
 ## Résiliation d'un avatar
 Elle est effectuée en deux phases:
 - **une transaction courte immédiate:**
-  - marque du document `versions` d'id `rds` de l'avatar à _supprimé_ (`suppr` porte la date du jour).
+  - marque du document `versions` de l'avatar à _supprimé_ (`suppr` porte la date du jour).
   - marque la version `v` de l'avatar à 999999.
   - purge de ses documents `sponsorings`.
   - dès lors l'avatar est logiquement supprimé.
@@ -806,9 +771,9 @@ Elle est effectuée en deux phases:
     - mise à jour de la table `tmb`.
     - purge du document `membres`.
     - si le groupe n'a plus de membres actifs, le groupe est _logiquement détruit_:
-      - marque du document `versions` d'id `rds` du groupe à _supprimé_ (`suppr` porte la date du jour).
+      - marque du document `versions` du groupe à _supprimé_ (`suppr` porte la date du jour).
       - marque la version `v` du groupe à 999999.
-  - quand toutes ses transactions sont terminées, purge du document avatars.
+  - quand toutes ses transactions sont terminées, purge du document `avatars`.
 
 La reprise de la chaîne des transactions différées est assurée par le GC, du moins bien entendu pour celles qui ne sont pas allés jusqu'au bout.
 
@@ -816,11 +781,11 @@ La reprise de la chaîne des transactions différées est assurée par le GC, du
 Elle intervient quand le groupe n'a plus de membres _actifs_.
 
 C'est une chaîne de transactions différées:
-- une pour chaque invitation en cours: mise à jour de l'avatar correspondant.
+- une pour chaque invitation en cours: mise à jour du documents `avatars` correspondant.
 - purge des documents `membres notes chatgrs`.
-- enfin une finale purgeant le document `groupes` lui-même.
+- transaction finale purgeant le document `groupes` lui-même.
 
-La reprise de la chaîne des transactions différées est assurée par le GC, du moins bien entendu pour celles qui ne sont pas allés jusqu'au bout.
+La reprise de la chaîne des transactions différées qui ne sont pas allés jusqu'au bout est assurée par le GC.
 
 ## Résiliation d'un compte
 En une transaction la résiliation immédiate des avatars du compte est effectuée, ce qui lance une chaîne longue de transactions différées.
@@ -871,7 +836,7 @@ En cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ 
 #### Incorporation du crédit dans le solde du compte A
 - l'opération est automatique à la prochaine connexion du compte A postérieure à une _réception de paiement_. En cours de session, un bouton permet d'activer cette incorporation sans attendre la prochaine connexion.
 - elle consiste à intégrer au solde du compte le montant d'un ticket _réceptionné_ (mais pas encore _incorporé au solde_)
-- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.credits`. En cas de différence de montants, une alerte s'affiche.
+- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.ticketsK`. En cas de différence de montants, une alerte s'affiche.
 - la date d'incorporation `di` est mise à jour dans l'exemplaire du compte mais PAS par dans `tickets` du Comptable (qui donc ignore la propriété `di`).
 
 **Remarques:**
@@ -888,8 +853,8 @@ Le Comptable dispose en session de la liste des tickets détenus dans tickets. C
 
 #### Arrêtés mensuels
 Le GC effectue des arrêtés mensuels consultables par le Comptable et l'administrateur technique. Chaque arrêté mensuel,
-- récupère tous les tickets générés à M-3 et les efface de la liste `tickets`,
-- les stocke dans un _fichier_ **CSV** crypté dans le fichier `T_202407` du Comptable. Ces fichiers sont cryptés par la clé E de l'espace connue de l'administrateur et du Comptable.
+- récupère tous les tickets générés à M-3 (par exemple `202407`) et les efface de la liste `tickets`,
+- les stocke dans un _fichier_ **CSV** `T_202407` du Comptable. Ces fichiers sont cryptés par la clé E de l'espace connue de l'administrateur et du Comptable.
 
 Pour rechercher un ticket particulier, par exemple pour traiter un _litige_ ou vérifier s'il a bien été réceptionné, le Comptable,
 - dispose de l'information en ligne pour tout ticket de M M-1 M-2,
@@ -928,9 +893,9 @@ Un chat est dédoublé avec un exemplaire I et un exemplaire E:
 Pour ajouter un item sur un chat, I doit connaître la clé de E : membre d'un même groupe, chat avec un autre avatar du compte, ou l'ayant obtenu depuis la phrase de contact de E.
 
 ## Clé d'un chat
-La clé du chat `cc` est générée à la création du chat et l'ajout du premier item:
+La clé C du chat est générée à la création du chat et l'ajout du premier item:
 - côté I, cryptée par la clé K de I,
-- côté E, cryptée par la clé publique de E. Dans ce cas à la première écriture de E celle-ci sera ré-encryptée par la clé K de E.
+- côté E, cryptée par la clé A de E. Dans ce cas à la première écriture de E celle-ci sera ré-encryptée par la clé K de E.
 
 ## Décompte des nombres de chats par compte
 - un chat est compté pour 1 pour I quand la dernière opération qu'il a effectuée est un ajout: si cette dernière opération est un _raz_, le chat est dit _passif_ et compte pour 0.
@@ -988,15 +953,15 @@ _data_ (de l'exemplaire I):
 ## Établir un _contact direct_ entre A et B
 Si B veut ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas la clé. S'il en connaît la _phrase de contact_, 
 - il calcule le hash de la phrase de contact réduite,
-- il demande par ce hash la clé de A cryptée par le PBKFD de cette phrase.
+- il demande par ce hash la clé A de A cryptée par le PBKFD de cette phrase.
 
 ## Comptes "A" : dons par chat
 Un compte "A" _donateur_ peut faire un don à un autre compte "A" _bénéficiaire_ en utilisant un chat:
 - le montant du don est dans une liste préétablie.
-- le crédit total du donateur (dans sa `comptas`) doit être supérieur au montant du don.
+- le solde du donateur (dans sa `comptas`) doit être supérieur au montant du don.
 - sauf spécification contraire du donateur, le texte de l'item ajouté dans le chat à cette occasion mentionne le montant du don.
 - le donateur est immédiatement débité.
-- le bénéficiaire est immédiatement crédité dans sa `comptas`.
+- le bénéficiaire est immédiatement crédité dans `solde` de sa `comptas`.
 
 > Remarque: le chat avec don ne peut intervenir que si le chat est défini entre les deux avatars **principaux** des comptes.
 
@@ -1013,32 +978,35 @@ _data_:
 - `psK` : texte de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `YCK` : PBKFD de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `dh`: date-heure du dernier changement d'état.
-- `cleAYC` : clé A du sponsor crypté par le PBKFD de la phrase de sponsoring.
-- `clePYC` : clé P de sa partition (si c'est un compte "O") cryptée par le PBKFD de la phrase de sponsoring (donne le numéro de partition).
-- `cleDYC` : clé D de délégation de sa partition (si c'est un compte "O" délégué) cryptée par le PBKFD de la phrase de sponsoring.
+- `cleAYC` : clé A du sponsor crypté par le PBKFD de la phrase complète de sponsoring.
+- `clePYC` : clé P de sa partition (si c'est un compte "O") cryptée par le PBKFD de la phrase complète de sponsoring (donne le numéro de partition).
+- `cleDYC` : clé D de délégation de sa partition (si c'est un compte "O" délégué) cryptée par le PBKFD de la phrase complète de sponsoring.
 - `cvA` : `{ v, photo, info }` du sponsor, textes cryptés par sa cle A.
 - `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
   - pour un compte "A" `[0, 1, 1]`. Un tel compte n'a pas de `qc` et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
 - `don` : pour un compte autonome, montant du don.
 - `dconf` : le sponsor a demandé à rester confidentiel. Si oui, aucun chat ne sera créé à l'acceptation du sponsoring.
-- `ardYC` : ardoise de bienvenue du sponsor / réponse du filleul cryptée par le PBKFD de la phrase de sponsoring.
+- `ardYC` : ardoise de bienvenue du sponsor / réponse du sponsorisé cryptée par le PBKFD de la phrase de sponsoring.
 
 **Remarques**
 - la `dlv` d'un sponsoring peut être modifiée tant que le statut est _en attente_.
 - Le sponsor peut annuler son `sponsoring` avant acceptation, en cas de remord son statut passe à 3.
 
-**Si le filleul refuse le sponsoring :** 
+**Si le sponsorisé refuse le sponsoring :** 
 - Il écrit dans `ardYC` la raison de son refus et met le statut du `sponsorings` à 1.
 
-**Si le filleul ne fait rien à temps :** 
+**Si le sponsorisé ne fait rien à temps :** 
 - `sponsorings` finit par être purgé par `dlv`.
 
-**Si le filleul accepte le sponsoring :** 
-- Le filleul crée son compte / avatar principal et génère ses clé K et celle de son avatar principal, et le texte de carte de visite.
-- pour un compte "O", l'identifiant de la partition à la quelle le compte est associé est obtenu de `clep`.
-- la `comptas` du filleul est créée et créditée des quotas attribués par le sponsor pour un compte "O" et d'un `total` minimum pour un compte "A".
-- pour un compte "O" le document `partitions` est mis à jour (quotas attribués), le filleul est mis dans la liste des comptes `tc` de `partitions`.
-- un mot de remerciement est écrit par le filleul au parrain sur `ardYC` **ET** ceci est dédoublé dans un chat filleul / sponsor créé à ce moment et comportant l'item de réponse. Si le sponsor ou le sponsorisé ont requis la confidentialité, le chat n'est pas créé.
+**Si le sponsorisé accepte le sponsoring :** 
+- Le sponsorisé crée son compte:
+  - donne les hXR et hXC issus de sa phrase secrète,
+  - génère ses clés K et celle de son avatar principal,
+  - donne le texte de carte de visite.
+- pour un compte "O", l'identifiant de la partition à la quelle le compte est associé est obtenu de `clePYC`.
+- la `comptas` du sponsorisé est créée et créditée des quotas attribués par le sponsor pour un compte "O" et d'un `solde` minimum pour un compte "A".
+- pour un compte "O" le document `partitions` est mis à jour (quotas attribués), le sponsorisé est mis dans la liste des comptes `tcles / tcpt` de `partitions`.
+- un mot de remerciement est écrit par le sponsorisé au sponsor sur `ardYC` **ET** ceci est dédoublé dans un chat sponsorisé / sponsor créé à ce moment et comportant l'item de réponse. Si le sponsor ou le sponsorisé ont requis la confidentialité, le chat n'est pas créé.
 - le statut du `sponsoring` est 2.
 
 # Documents `notes`
@@ -1120,14 +1088,21 @@ Les _flags_ et l'id de chaque membre d'index `im` sont stockés dans `tmb[im]` d
 - _id_ : les 6 suivants donnent son id (courte).
 
 ## États _contact / actif / inconnu_
-### Inconnu
-Un membre _inconnu_ est un _ex membre_ qui a eu une existence et qui :
-- soit a _disparu_. Le GC a détecté son absence ou il s'est auto-résilié.
-- soit a fait l'objet d'une demande _d'oubli_ par le compte lui-même et dans certains cas par un animateur.
-- il a un indice `im` :
-  - s'il a été _actif_, `tmb[im]` vaut `true` par convention afin de prévenir prévient la réutilisation de l'indice im.
-  - s'il n'a pas été _actif_, `tmb[im]` est `null`.
+### Disparu
+C'est un _ex membre_ qui a eu une existence et qui s'est auto-résilié ou dont le GC a détecté son absence.
+- il avait un indice `im`: 
+  - s'il n'a pas jamais eu _accès aux notes_, `tmb[im]` est `null`, l'indice `im` est réutilisable.
+  - sinon il faut prévenir la réutilisation de l'indice: `tmb[im]` vaut `true` par convention.
 - il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar.
+- son id ne figure plus dans les listes noires.
+
+### Oublié
+C'est un _ex membre_ qui a eu une existence et qui a fait l'objet d'une demande _d'oubli_ par le compte lui-même et dans certains cas par un animateur.
+- il avait un indice `im`: 
+  - s'il n'a pas jamais eu _accès aux notes_ et n'est pas en _liste noire_, `tmb[im]` est `null`, l'indice `im` est réutilisable.
+  - sinon il faut prévenir la réutilisation de l'indice: `tmb[im]` vaut `true` par convention.
+- il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar.
+- **son id peut encore figurer dans les listes noires.**
 
 ### Contact
 Quand um membre est un _contact_:
@@ -1153,17 +1128,24 @@ Quand un membre est _actif_:
 > - Un membre ne devient _actif_ que quand son compte a explicitement **validé une invitation** déclarée par un animateur (ou tous).
 > - Un membre _actif_ ne redevient _contact_ que quand lui-même l'a décidé.
 
+### En listes noires
+Certains avatars ne devront plus être invités / ré-invités, ils sont en liste noire. La mise en liste noire peut être demandée par un animateur du groupe ou par le membre lui-même lorsqu'il demande à être oublié.
+
+Le membre est en liste noire si son id apparaît dans une des deux listes:
+- `lng` : liste noire sur demande du groupe.
+- `lnc` : liste noire sur demande du compte.
+
 ### `im` attribués ou libres
 La règle générale est de ne pas libérer un `im` pour un futur autre membre quand un membre disparaît ou est oublié. Cet indice peut apparaître dans la liste des auteurs d'une note, la ré-attribution pourrait porter à confusion sur l'auteur d'une note.
 
-L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes.
+L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes. `tmb[im]` est `null`.
 
 ### Table `tmb` : _flags_
-Plusieurs _flags_ précisent le statut d'un membre:
-- [AC] **est _actif_**
-- [IN] **a une invitation en cours**
-- [AN] **a accès aux notes**: un membre _actif_ décide s'il souhaite ou non accéder aux notes (il faut qu'il en ait le _droit_): un non accès allège sa session.
-- [AM] **a accès aux membres**: un membre _actif_ décide s'il souhaite ou non accéder aux autres membres (il faut qu'il en ait le _droit_): un non accès allège sa session.
+- _statut_ :
+  - [AC] **est _actif_**
+  - [IN] **a une invitation en cours**
+  - [AN] **a accès aux notes**: un membre _actif_ décide s'il souhaite ou non accéder aux notes (il faut qu'il en ait le _droit_): un non accès allège sa session.
+  - [AM] **a accès aux membres**: un membre _actif_ décide s'il souhaite ou non accéder aux autres membres (il faut qu'il en ait le _droit_): un non accès allège sa session.
 
 - _droits_ : initialement positionnés (ou non) à l'occasion de la première invitation, ces flags n'ont d'effet que quand le membre est actif. Un animateur peut les changer.
   - [DM] **d'accès à la liste des membres**.
@@ -1178,20 +1160,14 @@ Plusieurs _flags_ précisent le statut d'un membre:
   - [HM] **avec accès aux membres**
   - [HE] **avec possibilité d'écrire une note**
 
-- _listes noires_
-  - [NG] **est en liste noire sur demande du groupe**
-  - [NC] **est en liste noire sur demande du compte**
-
-Certains avatars ne devront plus être invités / ré-invités, ils sont en liste noire. La mise en liste noire peut être demandée par un animateur du groupe ou par le membre lui-même lorsqu'il demande à être oublié.
-
-### Un membre _peut_ avoir plusieurs périodes d'activité
+### Un membre _peut_ avoir plusieurs _périodes d'activité_
 - il a été créé comme _contact_ puis a été invité et son invitation validée: il est _actif_.
 - il peut demander à redevenir _simple contact_ : il n'accède plus ni aux notes ni aux autres membres, n'est plus hébergeur et souhaite ne plus voir ce groupe _inutile_ apparaître dans sa liste des groupes.
 - en tant que _contact_ il peut être ré-invité, sauf s'il s'est inscrit dans la liste noire des avatars à ne pas ré-inviter. Puis il peut valider son invitation et commencer ainsi une nouvelle période d'activité.
 - les flags _historiques_ permettent ainsi de savoir, si le membre a un jour été actif et s'il a pu avoir accès à la liste des membres, a eu accès aux notes et a pu en écrire.
 
 #### Réapparition après _oubli_
-Après un _oubli_ si l'avatar est de nouveau inscrit comme _contact_, il récupère un nouvel indice #35 par exemple et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont initialisées. 
+Après un _oubli_ si l'avatar, non inscrit en liste noire, est de nouveau inscrit comme _contact_, il récupère un nouvel indice #35 par exemple et un nouveau document `membres`, son historique de dates d'invitation, début et fin d'activité sont initialisées. 
 
 C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieure mentionnent toujours l'ancien `im` #12 que rien ne permet de corréler à #35.
 
@@ -1213,7 +1189,7 @@ Une invitation est enregistrée dans la map `invits` de l'avatar invité:
 ## Hébergement par un membre _actif_
 L'hébergement d'un groupe est noté par :
 - `imh`: indice membre de l'avatar hébergeur. 
-- `idhg` : id du **compte** de l'avatar hébergeur. Cette donnée est cachée aux sessions.
+- `idh` : id du **compte** de l'avatar hébergeur. **Cette donnée est cachée aux sessions**.
 - `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé. Les notes ne peuvent plus être mises à jour _en croissance_ quand `dfh` existe.
 
 ### Prise d'hébergement
@@ -1226,7 +1202,7 @@ L'hébergement d'un groupe est noté par :
 - `dfh` est mise la date du jour + 90 jours.
 - le nombre de notes et le volume V2 de `comptas` sont décrémentés de ceux du groupe.
 
-Au dépassement de dfh, le GC détruit le groupe.
+Au dépassement de `dfh`, le GC détruit le groupe.
 
 ## Data
 _data_:
@@ -1235,7 +1211,7 @@ _data_:
 - `dfh` : date de fin d'hébergement.
 
 - `nn qn v2 q2`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
-- `idh` : id du compte hébergeur (pas transmise en session).
+- `idh` : id du compte hébergeur (pas transmise aux sessions).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
@@ -1275,15 +1251,13 @@ _data_:
 ## Opérations
 
 ### Inscription comme contact
-- recherche de l'indice `im` dans la table `tmb` du groupe pour l'id de l'avatar.
 - s'il est en liste noire, refus.
+- recherche de l'indice `im` dans la table `tmb` du groupe pour l'id de l'avatar.
 - SI `im` n'existe pas,
   - c'est une première vie OU une nouvelle vie après oubli de la précédente.
   - un nouvel indice `im` lui est attribué en séquence s'il n'y en a pas de libre.
   - un row `membres` est créé.
-- SI `im` existe,
-  - si son _flag_ indique qu'il est en liste noire, refus.
-  - sinon il était déjà _contact_.
+- SI `im` existe, c'est qu'il était déjà un _contact_.
 
 ### Invitation par un animateur
 - si son _flag_ indique qu'il est en liste noire, refus.
@@ -1296,20 +1270,21 @@ _data_:
 ### Annulation d'invitation par un animateur
 - effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
 
-### Oubli par un animateur*
-- pour un contact, pas invité: son slot est récupérable.
+### Oubli par un animateur (avec ou sans liste noire)
+- inscription éventuelle en liste noire `lng`.
+- s'il est _actif_ ou _invité_, refus.
 - le document `membres` est détruit.
-  
+- s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+
 ### Refus d'invitation par le compte
-- le groupe peut avoir disparu depuis le lancement de l'invitation.
-- 3 options possibles:
-  - rester en contact.
-  - m'oublier,
-  - m'oublier et me mettre en liste noire.
+- Options possibles:
+  - **rester en contact**. les _flags_ sont mis à jour.
+  - **m'oublier** et me mettre en liste noire `lnc` ou non.
+    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+    - le document `membres` est détruit.
 - son item dans `invits` de son avatar est effacé.
 
 ### Acceptation d'invitation par le compte
-- le groupe peut avoir disparu depuis le lancement de l'invitation.
 - dans l'avatar principal du compte un item est ajouté dans `mpg`,
 - dans `comptas` le compteur `qv.ng` est incrémenté.
 - `dac fac ...` sont mises à jour.
@@ -1322,16 +1297,17 @@ _data_:
 ### Modification des accès membres / notes par le compte
 - flags `AN AM`: accès aux notes, accès aux autres membres.
 
-## Demande d'oubli par un compte**
-- 3 options:
-  - rester en _contact_
-  - m'oublier: Entrée dans `mpg` du compte supprimée.
-  - m'oublier et me mettre en liste noir.
+## Fin d'activité dans le groupe demandée par le compte**
+- Options possibles:
+  - **rester en contact**. les _flags_ sont mis à jour.
+  - **m'oublier** et me mettre en liste noire `lnc` ou non.
+    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+    - le document `membres` est détruit.
 - si le membre était le dernier _actif_, le groupe disparaît.
 - la participation au groupe disparaît de `mpg` du compte.
 
 # Documents `Chatgrs`
-A chaque groupe est associé **UN** document `Chatgrs` qui représente le chat des membres d'un groupe. Il est créé avec le groupe et disparaît avec lui.
+A chaque groupe est associé **UN** document `chatgrs` qui représente le chat des membres d'un groupe. Il est créé avec le groupe et disparaît avec lui.
 
 _data_
 - `id` : id du groupe
@@ -1362,45 +1338,18 @@ Un item ne peut pas être corrigé après écriture, juste effacé.
 
 Le chat d'un groupe garde les items dans l'ordre ante-chronologique jusqu'à concurrence d'une taille totale de 5000 signes.
 
-# Data Sync : documents `versions`
-Les documents `versions` sont chargés du tracking des changements sur les documents :
-- `espaces`
-- `partitions`
-- `comptes`
-- `comptas`
-- `avatars` et leurs sous-documents `notes sponsorings chats tickets`
-- `groupes` et leurs sous-documents `notes membres chatgrs`
+# Data Sync
+La mise à jour des documents `espaces partitions comptes comptas` est traquée directement par leur id:
+- **en SQL/WebSocket:** 
+  - l'objet de session du compte identifié par son `sessionId` détient les id de `espaces` (`ns`), `partitions` (si c'est un compte "O") et de `comptes`.
+  - chaque mise à jour envoie le row sur le WebSocket `{_nom, id, v, _data_ }`.
+- **en NOSQL:** la session cliente a 4 requêtes `onSnapshot` d'attente d'une mise à jour et reçoit en cas de mise à jour un row `{_nom, id, v, _data_ }` identique à celui reçu sur WebSocket.
 
-_data_
-- `id` : _référence data sync_ d'un des documents majeurs ci-dessus.
-- `v` : version, incrémentée de 1 à chaque mise à jour, soit du document maître, soit de leurs sous-documents.
-- `suppr` : jour de suppression.
+**La mise à jour des sous-arbres d'un avatar ou d'un groupe** est traquée par leur `id` sur mise à jour de leur row `versions`. Le processus est identique à celui ci-dessus avec les différences suivantes:
+- le row retourné ne porte quasiment rien comme information: `{ _nom ('versions'), id, v, suppr }`
+- **en NOSQL** la session cliente a un nombre de requêtes `onSnapshot` variable: plusieurs id peuvent être spécifiées dans une liste mais celle-ci est limitée, nécessitant le cas échéant plusieurs requêtes.
 
-## Synchronisations simples
-L'arrivée d'un document versions relatifs à espaces partitions comptas donne lieu simplement à l'obtention du document correspondant depuis le serveur, pour autant qu'il ne soit pas déjà à jour en session.
-
-Ces documents n'ont pas d'impacts sur les autres.
-
-## Synchronisation de comptes
-Du fait que comptes détient la liste des avatars et des groupes, sa synchronisation entraîne en session:
-- la suppression des sous-arbres avatars qui existaient avant et n'existent plus.
-- l'obligation d'une synchronisation immédiate des avatars qui n'existaient pas avant et existent maintenant.
-- idem pour les groupes.
-
-## Synchronisation de avatars (resp. groupes)
-Elle est couplée avec une synchronisation éventuelle de comptes afin que si l'avatar à synchroniser avait disparu, il ne soit plus synchronisé.
-
-De ce fait cette synchronisation demande au serveur,
-- le document comptes de version postérieure à celle détenue en session,
-- les sous-documents de l'avatar de versions postérieures à celle détenue, à condition que cet avatar existe toujours dans l'éventuel nouveau document comptes.
-
-> Remarque: du fait de ces principes, il peut arriver des avis de changements de versions qui ont déjà été traités avant.
-
-L'état mémoire d'une session, et son état en base locale en mode synchronisé, sont mis à jour ensemble. L'image globale n'est pas forcément totalement cohérente à tout instant, mais elle l'est par sous-arbres.
-- Si la synchronisation se poursuit, l'état global finira par être cohérent avec celui central.
-- Si la synchronisation est interrompue et qu'une session se relance en mode avion, elle peut avoir,
-  - des avatars cités dans comptes dont le sous-arbre est absent OU est retardé.
-  - des groupes cités dans comptes dont le sous-arbre est absent OU est retardé.
+Voir le chapitre **Connexion et Synchronisation**.
 
 # Gestion des disparitions: `dlv` des comptes
 
@@ -1408,7 +1357,7 @@ Chaque compte a une **date limite de validité**:
 - toujours une _date de dernier jour du mois_ (sauf exception par convention décrite plus avant),
 - dans son `comptas`.
 
-L'objectif des dlv est de permettre au GC de libérer les ressources correspondantes (notes, chats, ...) lorsqu'un compte n'est plus utilisé:
+L'objectif des `dlv` est de permettre au GC de libérer les ressources correspondantes (notes, chats, ...) lorsqu'un compte n'est plus utilisé:
 - **pour un compte A** la `dlv` représente la limite d'épuisement de son crédit mais bornée à `nnmi` mois du jour de son calcul.
 - **pour un compte O**, la `dlv` représente la plus proche de ces deux limites,
   - un nombre de jours sans connexion (donnée par `nbmi` du document `espaces` de l'organisation),
@@ -1447,7 +1396,7 @@ La `dlv` est recalculée en fonction des nouvelles conditions.
 
 ## Changement des données dans l'espace d'une organisation
 Il y a deux données: 
-- `dlvat`: date limite de vie des comptes O, fixée par l'administrateur technique en fonction des contributions effectives reçues de l'organisation pour héberger ses comptes O.
+- `dlvat`: date limite de vie des comptes "O", fixée par l'administrateur technique en fonction des contributions effectives reçues de l'organisation pour héberger ses comptes "O".
 - `nbmi`: nombre de mois d'inactivité acceptable fixé par le Comptable (3, 6, 9, 12, 18 ou 24). Ce changement n'a pas d'effet rétroactif.
 
 > **Remarque**: `nbmi` est fixé par configuration par le Comptable _pour chaque espace_. C'est une contrainte de délai maximum entre deux connexions à un compte, faute de quoi le compte est automatiquement supprimé. La constante `IDBOBS` fixe elle un délai maximum (2 ans par exemple), _pour un appareil et un compte_ pour bénéficier de la synchronisation incrémentale. Un compte peut se connecter toutes les semaines et avoir _un_ poste sur lequel il n'a pas ouvert une session synchronisée depuis 3 ans: bien que tout à fait vivant, si le compte se reconnecte en mode _synchronisé_ sur **ce** poste, il repartira depuis une base locale vierge, sans bénéficier d'un redémarrage incrémental.
@@ -1455,61 +1404,30 @@ Il y a deux données:
 ### Changement de `dlvat`
 Si le financement de l'hébergement par accord entre l'administrateur technique et le Comptable d'un espace tarde à survenir, beaucoup de comptes O ont leur existence menacée par l'approche de cette date couperet. Un accord tardif doit en conséquence avoir des effets immédiats une fois la décision actée.
 
-Par convention une `dlvat` est fixée au **1 d'un mois** et ne peut pas être changée pour une date  inférieure à M + 3 du jour de modification.
+Par convention une `dlvat` est fixée au **1 d'un mois** et ne peut pas être changée pour une date inférieure à M + 3 (nbmi ?) du jour de modification.
 
-> Remarque: quand une `dlv` apparaît en `versions d'avatars / membres` au _1 d'un mois_, c'est qu'elle est la limite de vie `dlvat` fixée pour l'espace par l'administrateur technique.
-
-L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transactions pour toutes les `dlv` des `versions d'avatars / membres` égales à l'ancienne `dlvat`. La transaction finale fixe aussi la nouvelle `dlvat`. La valeur de remplacement est,
+L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transactions pour toutes les `dlv` des `comptes` égales à l'ancienne `dlvat`. La transaction finale fixe aussi la nouvelle `dlvat`. La valeur de remplacement est,
 - la nouvelle `dlvat` (au 1 d'un mois) si elle est inférieure à `auj + nbmi mois`: c'est encore la `dlvat` qui borne la vie des comptes O (à une autre borne).
 - sinon la fixe à `auj + nbmi mois` (au dernier jour d'un mois), comme si les comptes s'étaient connectés aujourd'hui.
 
-_Remarque_: idéalement une transaction unique aurait été préférable puisque toutes les dlv relatives à un compte ne vont pas être changées dans la même transaction. Ceci ouvre la possibilité d'incohérences temporelles sur les dlv pour les comptes se connectant exactement au milieu de ce processus. Il a été supposé assez rapide pour que cet inconvénient relève du cas d'école sans impact opérationnel.
-
-# Documents `versions`
-_data_ :
-- `id` : `rds` du document référencé.
-- `v` : 1..N, plus haute version attribuée au document et à ses sous-documents.
-- `suppr` : jour de suppression, ou 0 s'il est actif.
+_Remarque_: idéalement une transaction unique aurait été préférable mais elle pourrait être longue et entraînerait des blocages.
 
 # Opérations GC
-
-## `GCHeb` - Étape _fin d'hébergement_ et _fin de vie_ des comptes
-Elle récupère les groupes dont la `dfh` OU la `dlv` est passée et les supprime (voir plus avant).
-
 ## `GCfvc` - Étape _fin de vie des comptes_
 Suppression de tous les comptes dont la `dlv` est inférieure à la date du jour.
 
+La suppression d'un compte est en partie différée:
+- ses avatars ont une version v à 999999,
+- les groupes dont le nombre de membres actifs devient 0, ont leur version à 999999.
 
-### `GCGro` : Détection des groupes orphelins et suppression des membres
-L'opération récupère toutes les `id / ids` des documents `membres` dont la `dlv` de la forme `aaaammjj` est inférieure au jour courant.
+## `GCpav` - Étape _purge des avatars logiquement supprimés_
+Pour chaque avatar dont la version est 999999, gestion des chats et purge des sous-documents `chats sponsoring notes avatars` et finalement du document `avatars` lui-même.
 
-Une transaction par document `groupes`:
-- mise à jour des statuts des membres perdus,
-- suppression de ses documents `membres`,
-- si le groupe n'a plus de membres actifs, suppression du groupe:
-  - la `dlv` de son document `versions` est mise à la veille (il est zombi).
-  - la version du document `groupes` est 999999.
+## `GCHeb` - Étape _fin d'hébergement_ et _fin de vie_ des comptes
+Récupération des groupes dont la `dfh` est passée et suppression logique (version à 999999).
 
-### `GCPag` - Étape _purge des sous-arbres avatars et groupes_
-La liste des sous-arbres à purger est donnée dans dpurges. 
-
-Chaque id est traitée et retiré de la liste dans dpurges.
-
-### `GCPag` : purge des avatars et des groupes
-L'opération récupère toutes les `id` des documents `versions` dont la `dlv` est de la forme `aaaammjj` et antérieure à aujourd'hui.
-Dans l'ordre pour chaque `id`:
-- par compte, une transaction de récupération du volume (si `comptas` existe encore, sinon c'est que ça a déjà été fait),
-- purge de leurs sous-collections,
-- purge de leur avatar / groupe,
-- purge de leurs fichiers,
-- HORS TRANSACTION forçage de la `dlv` du document `versions` à `aamm` d'aujourd'hui.
-
-**Une transaction pour chaque compte :**
-- son document `comptas` :
-  - est lu pour récupérer `cletX it`;
-  - si c'est un compte O, un document `gcvols` est inséré avec ces données : son `id` est celle du compte.
-  - les `gcvols` seront traités par la prochaine ouverture de session du comptable de l'espace ce qui supprimera l'entrée du compte dans tribu (et de facto libérera des quotas).
-  - le document `comptas` est purgé afin de ne pas récupérer le volume plus d'une fois.
+## `GCpgr` - Étape _purge des groupes logiquement supprimés_
+Pour chaque groupe dont la version est 999999, gestion des invitations et participations puis purge des sous-documents **notes membres chatgrs** et finalement du document `groupes` lui-même
 
 ### `GCFpu` : traitement des documents `fpurges`
 L'opération récupère tous les items d'`id` de fichiers depuis `fpurges` et déclenche une purge sur le Storage.
@@ -1523,9 +1441,7 @@ Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
 
 Les documents `transferts` sont purgés.
 
-### `GCDlv` : purge des versions / sponsorings obsolètes
-L'opération récupère tous les documents `versions` de `dlv` de la forme aamm antérieures à aujourd'hui - IDBOBSGC jours, bref les _très vielles versions zombi_ devenues inutiles à la synchronisation des bases locales.
-
+### `GCDlv` : purge des sponsorings obsolètes
 L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures à aujourd'hui. Ces documents sont purgés.
 
 ### `GCstc` : création des statistiques mensuelles des `comptas` et des `tickets`
@@ -1536,21 +1452,14 @@ La boucle s'effectue pour chaque espace:
   - Le traitement n'est déclenché que le mois à calculer M-3 n'a pas déjà été enregistré comme fait dans `comptas.moisStatT` et que le compte existait déjà à M-3.
   - une fois le fichier CSV écrit en _storage_, les tickets de M-3 et avant sont purgés.
 
-**Les fichiers CSV sont stockés en _storage_** après avoir été _crypter_ par `crypterRaw` qui:
-- génère une clé AES pour le fichier, l'IV associé étant les 16 premiers bytes de cette clé,
-- créé un item de 49 bytes: 32 pour la clé, 16 pour l'IV, 1 indiquant si le fichier est gzippé,
-- crypte cet item:
-  - c1: par la clé publique du Comptable de l'espace,
-  - c2: par la clé k d'administration du site.
-- retourne l'ensemble `c1 c2 fichier` (gzippé ou non) crypté, prêt à être écrit sur _storage_.
+**Les fichiers CSV sont stockés en _storage_** après avoir été cryptés par la clé E de l'espace.
 
 Les statistiques sont doublement accessibles par le Comptable ET l'administrateur technique du site.
 
 ## Lancement global quotidien
-Le traitement enchaîne, en asynchronisme de la requête l'ayant lancé : 
-- `GCHeb GCGro GCPag GCFpu GCTra GCDlv GCstc`
+Le traitement enchaîne les étapes ci-dessus, en asynchronisme de la requête l'ayant lancé.
 
-En cas d'exception de l'un deux, une seule relance est faite après une attente d'une heure.
+En cas d'exception dans une étape, une relance est faite après un certain délai afin de surmonter un éventuel incident sporadique.
 
 > Remarque : le traitement du lendemain est en lui-même une reprise.
 
@@ -1560,12 +1469,12 @@ En cas d'exception de l'un deux, une seule relance est faite après une attente 
 
 > **Remarque**: en l'absence d'activité d'une session la _consommation_ est nulle, alors que le _coût d'abonnement_ augmente à chaque seconde même sans activité.
 
-On compte **en session** les downloads / uploads soumis au Storage.
+On compte **en session** les downloads / uploads soumis au _Storage_.
 
 On compte **sur le serveur** le nombre de lectures et d'écritures effectués dans chaque opération et **c'est remonté à la session** où:
 - on décompte les 4 compteurs depuis le début de la session (ou son reset volontaire après enregistrement au serveur du delta par rapport à l'enregistrement précédent).
-- pn envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` toutes les PINGTO2 (dans `api.mjs`) minutes.
-  - pas d'envoi s'il n'y a pas de consommation à enregistrer mais envoi quand même au bout d'une demi-heure (pour activer un ping de survie).
+- on envoie les incréments des 4 compteurs de consommation par l'opération `EnregConso` toutes les PINGTO2 (dans `api.mjs`) minutes.
+  - pas d'envoi s'il n'y a pas de consommation à enregistrer mais en mode _serveur_ (SQL) envoi quand même au bout d'une demi-heure à titre de _heartbeat_.
 
 Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
 
@@ -1691,14 +1600,8 @@ A la connexion d'un compte O, trois compteurs statistiques sont remontés de `co
 
 Les compteurs ne sont remontés que si l'un des trois s'écarte de plus de 10% de la valeur connue dans sa `tribus`.
 
-### Classe `Credits`
-La propriété `credits` n'existe dans `comptas` que pour un compte A:
-- elle est cryptée par la clé K du compte qui est seul à y accéder.
-- toutefois elle est cryptée par la clé publique du compte juste après l'opération de passage d'un compte O à A.
-
-**Propriétés:**
-- `total` : total des crédits encaissés, plus les dons reçus, moins les dons effectués.
-- `tickets`: liste des tickets générés par le compte.
+### Propriété `ticketsK`
+Cettea propriété n'existe dans `comptas` que pour un compte A: elle est cryptée par la clé K du compte qui est seul à y accéder et est la liste des tickets générés par le compte.
 
 ### Documents `tickets`
 Voir ci-avant la section correspondante.
@@ -1734,58 +1637,17 @@ L'opération de mutation:
   - `total` vaut un pécule de 2c, le temps de générer un ticket et de l'encaisser.
   - une liste `tickets` vide.
 
-### Sponsoring d'un compte O
+### Sponsoring d'un compte "O"
 Rien de particulier : `compteurs` est initialisé. Sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
 
-### Sponsoring d'un compte A
+### Sponsoring d'un compte "A"
 `compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _total_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
 
-Un objet `ticket` est créé dans `comptas` avec:
-- un `total` de 2 centimes.
-- une liste `tickets` vide.
-- l'objet est crypté par la clé K du compte à l'acceptation du sponsoring.
+Dans `comptas` on trouve:
+- un `solde` de 2 centimes.
+- une liste `ticketsK` vide.
 
-# Annexe I: Discordances temporelles des données
-
-## Discordances par détection tardive de disparitions
-Un chat I / E peut référencer un avatar E alors que celui-ci a été détecté disparu par le GC.
-- le GC ne peut pas connaître la liste des chats dans lesquels un avatar disparu est impliqué.
-- l'avatar I ne détectera la disparition de E que lorsqu'en session il ouvrira la liste des chats et plus précisément fera rafraîchir la liste des CV.
-
-Un avatar principal peut référencer dans la liste de ses participations aux groupes, un groupe détecté disparu par disparition / résiliation de son dernier membre actif.
-- le GC n'ayant pas connaissance de l'avatar principal du compte d'un membre ne peut pas mettre à jour,
-  - ni la liste des participations aux groupes des membres,
-  - leurs invitations en cours.
-- la disparition d'un groupe n'est détectée qu'à l'ouverture de la prochaine session (ou plus tôt par synchronisation, quand une session est active).
-
-### Discordances temporaires en session sur les décomptes de chats et groupes
-L'existence d'un chat décompté pour un compte est marqué,
-- par l'existence de rows chats attachés à un de ses avatars,
-- par le décompte `ng.nc` dans comptas du compte.
-
-Les deux informations sont mises à jour sous contrôle transactionnel: les données persistantes sont toujours cohérentes entre elle.
-
-En session, l'ordre dans lequel parviennent les mises à jour est aléatoire: mise à jour chats avant mise à jour `comptas` ou l'inverse.
-- pendant un certain temps le nombre de chats comptés en session peut différer de celui détenu dans `comptas`.
-- la situation se stabilise d'elle-même par synchronisation.
-- il est difficile d'arriver à mettre en évidence cette discordance temporaire de décompte, par ailleurs sans conséquences réelles.
-
-Le nombre de participations aux groupes est de même détenu dans deux rows: 
-- `avatars` principal du compte: dans la map `mpg`,
-- `comptas` du compte: propriété `qv.ng`.
-
-La situation se stabilise d'elle-même, est difficile à observer et sans conséquences réelles.
-
-Le troisième cas similaire est celui de l'existence d'une note supprimée (_zombi_) encore temporairement décomptée dans `comptas.qv.nn`.
-
-**Conclusions**
-- les décomptes dans `comptas.qv` et `avatars` ou `chats` ne sont pas réalignés: le décompte des coûts reste cohérent.
-- dans la logique de gestion on tient compte des rows `avatars` et `chats` sans se préoccuper d'une possible discordance passagère des décomptes avec `comptas.qv`.
-- la détection tardive éventuelle de disparitions est assumée:
-  - avoir des groupes ou des chats décomptés à tort n'a pas d'impact de calcul des coûts puisque _l'abonnement_ se fait sur des quotas maximum, pas sur le nombre effectif de groupes et chats.
-  - on assume que quelques chats _passifs_ de I ne soient pas supprimés alors que E a disparu parce que ceci ne peut être détecté qu'à l'ouverture de vue des chats. 
-
-# Annexe II: déclaration des index
+# Annexe I: déclaration des index
 
 ## SQL
 `sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
@@ -1826,7 +1688,7 @@ Autres index:
 - `hpc` sur `avatars`: accès direct par la phrase de contact.
 - `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
 
-# Annexe III: IndexedDB dans les session UI
+# Annexe II: IndexedDB dans les session UI
 
 Un certain nombre de documents sont stockés en session UI dans la base locale IndexedDB et utilisés en modes _avion_ et _synchronisé_.
 - `compte`: singleton d'`id` vaut '1'.
@@ -1856,5 +1718,60 @@ Il y a donc une stricte identité entre les documents extraits de SQL / Firestor
 _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
+
+# Annexe III : Connexion et Synchronisation
+
+
+**A l'ouverture d'une session UI**, dès qu'on dispose du périmètre des avatars et des groupes de son compte, on peut acquérir leurs `versions` et s'y abonner:
+- ainsi muni pour chacun de `v`, on peut mettre à jour sa mémoire et sa base locale incrémentalement en ne demandant que les (sous) documents mis à jour postérieurement.
+- quand il y a une marque `suppr`, une session peut supprimer l'avatar ou le groupe correspondant. Toutefois au bout de plus de N mois sans connexion sur ce poste (N de 6 à 24 mois), on considère qu'il n'est plus acceptable de procéder par mise à jour incrémentale et la base locale est remise à 0.
+  - le GC purge les documents versions ayant une marque de suppression plus vieille de 6 à 24 mois (selon le paramètre configuré dans api.mjs ces données étant devenues inutiles.
+
+**En cours de session UI après la phase de _connexion_,** on a connaissance de tous les documents de son propre périmètre et en conséquence de leur `rds`.
+- une session peut s'abonner aux mises à jour des documents `versions` correspondant aux `rds` des documents de son périmètre.
+- une session ne peut pas faute de connaître leur `rds`, s'abonner aux mises à jour des documents hors de son périmètre. Certes elle ne pourrait pas les lire mais si elle pouvait s'abonner à ceux-ci elle obtiendrait des informations sur l'activité des autres comptes, ce qu'on ne veut pas.
+
+Les documents `sous-collections` d'un avatar (resp. d'un groupe) ont une version `v` qui est enregistrée en séquence croissante continue dans son `versions`. 
+- Le `v` de `versions` est la plus haute version de tous les sous-documents de l'avatar (resp. du groupe) et de l'avatar (resp. du groupe) lui-même.
+
+En cas de _suppression_ d'un avatar (resp. d'un groupe),
+- la version `v` s'incrémente,
+- `suppr` porte le jour de suppression: ceci permet aux sessions de se resynchroniser incrémentalement, (du moins pendant N mois) et de détecter le rétrécissement du périmètre du compte.
+
+Les sessions recevant cette information peuvent,
+- supprimer de leur mémoire (et base locale) le document et ses sous-documents correspondant,
+- supprimer leur abonnement, qui ne recevrait d'ailleurs plus rien, la version n'évoluant plus.
+
+## Synchronisations simples
+L'arrivée d'un document versions relatifs à espaces partitions comptas donne lieu simplement à l'obtention du document correspondant depuis le serveur, pour autant qu'il ne soit pas déjà à jour en session.
+
+Ces documents n'ont pas d'impacts sur les autres.
+
+## Synchronisation de comptes
+Du fait que comptes détient la liste des avatars et des groupes, sa synchronisation entraîne en session:
+- la suppression des sous-arbres avatars qui existaient avant et n'existent plus.
+- l'obligation d'une synchronisation immédiate des avatars qui n'existaient pas avant et existent maintenant.
+- idem pour les groupes.
+
+## Synchronisation de avatars (resp. groupes)
+Elle est couplée avec une synchronisation éventuelle de comptes afin que si l'avatar à synchroniser avait disparu, il ne soit plus synchronisé.
+
+De ce fait cette synchronisation demande au serveur,
+- le document comptes de version postérieure à celle détenue en session,
+- les sous-documents de l'avatar de versions postérieures à celle détenue, à condition que cet avatar existe toujours dans l'éventuel nouveau document comptes.
+
+> Remarque: du fait de ces principes, il peut arriver des avis de changements de versions qui ont déjà été traités avant.
+
+L'état mémoire d'une session, et son état en base locale en mode synchronisé, sont mis à jour ensemble. L'image globale n'est pas forcément totalement cohérente à tout instant, mais elle l'est par sous-arbres.
+- Si la synchronisation se poursuit, l'état global finira par être cohérent avec celui central.
+- Si la synchronisation est interrompue et qu'une session se relance en mode avion, elle peut avoir,
+  - des avatars cités dans comptes dont le sous-arbre est absent OU est retardé.
+  - des groupes cités dans comptes dont le sous-arbre est absent OU est retardé.
+
+# Purgatoire
+## Clé RSA d'un avatar
+La clé de cryptage (publique) et celle de décryptage (privée) sont de longueurs différentes. 
+
+Le résultat d'un cryptage a une longueur fixe de 256 bytes. Deux cryptages RSA avec la même clé d'un même texte donnent deux valeurs cryptées différentes.
 
 @@ L'application UI [uiapp](./uiapp.md)
