@@ -589,7 +589,7 @@ L'opération de mise à jour d'une `dlvat` est une opération longue du fait du 
 
 Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois) compatible avec ses contraintes mais évitant de contraindre les comptes à des connexion inutiles rien que pour maintenir le compte en vie, et surtout à éviter qu'ils n'oublient de le faire et voir leurs comptes automatiquement résiliés après un délai trop bref de non utilisation.
 
-# Documents `partitions`
+# Documents `delegations`
 Niveau partition: 
 - quotas, 
 - notification et restriction d'accès.
@@ -603,33 +603,31 @@ _data_:
 - `id` : numéro d'ordre de création de la tribu par le Comptable.
 - `v` : 1..N
 
-- `qc q1 q2` : quotas totaux de la tribu.
+- `qc q1 q2` : quotas totaux de la partition.
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
 
-- `tcles` : table des clés des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
-  - `cleAD` : clé A du compte crypté par la clé de délégation de la partition. Les cartes de visite des _NON délégués_ sont accessibles aux seuls comptes de la partition.
-  - `cleAP` : si _délégué_, clé A du compte crypté par la clé de la partition. Les cartes de visite des _délégués_ sont accessibles à tous les comptes de la partition.
-
-- `tcpt` : table des compteurs des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du `comptas` correspondant :
+- `tcpt` : table des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du document `comptes` correspondant :
   - `notif`: notification de niveau compte dont le texte est crypté par la clé P de la partition (`null` s'il n'y en a pas).
-  - `qc q1 q2` : quotas attribués.
-  - `cj v1 v2` : consommation journalière, v1, v2: obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. **Ce n'est donc pas un suivi en temps réel** qui imposerait une charge importante de mise à jour de `partitions / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
-
-Visibilité en session de `tcles` et `tcpt`
-- `tcles` est visible par tous les comptes.
-- `tcpt` est visible,
-  - **en totalité** pour les comptes délégués,
-  - **seulement l'élément de son `it`** pour un compte non délégué.
-
-Consommation journalière `cj v1 v2`
-- obtenus de `comptas` lors de la dernière connexion du compte, s'ils ont changé de plus de 10%. 
-- **Ce n'est donc pas un suivi en temps réel** qui aurait imposé une charge importante de mise à jour de `partitions / syntheses` à chaque mise à jour d'un compteur de `comptas` et des charges de synchronisation conséquente.
+  - `cleAP` : clé A du compte crypté par la clé P de la partition.
+  - `del`: `true` si c'est un délégué.
+  - `q` : `qc q1 q2 n` du document `comptas` du compte. 
+    - En cas de changement de `qc q1 q2` la copie est immédiate, sinon lors de la prochaine connexion du compte.
 
 L'ajout / retrait de la qualité de _délégué_ n'est effectué que par le Comptable au delà du choix initial établi au sponsoring par un _délégué_ ou le Comptable.
 
+# Documents `partitions`
+Extrait du document delegations visible par les comptes NON délégués de la partition.
+
+_data_:
+- `id` : numéro d'ordre de création de la tribu par le Comptable.
+- `v` : 1..N
+
+- `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
+- `ldel` : liste des clés A des délégués cryptées par la clé P de la partition.
+
 ## Gestion des quotas totaux par _partitions_
 La déclaration d'une partition par le Comptable d'un espace consiste à définir :
-- générer les clés P et D aléatoirement :
+- générer la clé P aléatoirement :
   - **les 2 premiers bytes donnent l'id de la partition**, son numéro d'ordre de création par le Comptable partant de de 1,
 - un `code` signifiant pour le Comptable (dans son `comptes`).
 - les sous-quotas `qc q1 q2` attribués.
