@@ -521,7 +521,7 @@ Une notification a les propriétés suivantes:
   - type E: la clé A du Comptable (que tous les comptes de l'espace ont).
   - types P et C par la clé P de la partition.
   - types Q et X: pas de texte, juste un code.
-- `idSource`: id du délégué ayant créé cette notification pour un type P ou C.
+- `idSource`: id du délégué ayant créé cette notification pour un type P ou C. !!!Discutable!!!
 
 **Remarque:** une notification `{ dh: ... }` correspond à la suppression de la notification antérieure (ni restriction, ni texte).
 
@@ -555,6 +555,35 @@ Les cartes de visites des avatars sont dédoublées dans d'autres documents:
   - si la version dans chat n'est pas à jour, elle est mise à jour. 
 - en session, lorsque la page listant les chats d'un avatar est ouverte, elle peut envoyer une requête de rafraîchissement des cartes de visite.
 
+# Documents `versions`
+Donne la plus haute version d'un document majeur `espaces partitions partitionxs comptes comptas` et pour `avatars` ou `groupes` et de leurs sous-documents.
+
+_data_ :
+- `id` : `rds` du document référencé.
+- `v` : 1..N, plus haute version attribuée au document et à ses sous-documents.
+- `suppr` : jour de suppression, ou 0 s'il est actif.
+
+C'est le seul document qu'une session client est habilitée à lire en direct de la base, en particulier par une lecture `onSnapshot` qui ne revient que quand une mise à jour a été opérée.
+
+Les autres lectures passent obligatoirement par le _serveur / Cloud Function_ afin d'être certain que la session cliente est habilitée à cette lecture en fonction de son authentification: ceci garantit que les données _hors périmètre_ d'un compte ne sont pas accessibles.
+
+## Pourquoi `rds` et pas `id` ?
+`rds` est un identifiant aléatoire sur 16 chiffres attribué à la création du document correspondant. 
+- les deux premiers chiffres sont le ns de l'espace,
+- le troisième donne le nom du document,
+  - 1 : `espaces`,
+  - 2 : `partitions`,
+  - 3 : `partitionxs`,
+  - 4 : `comptes`,
+  - 5 : `comptas`,
+  - 6 : `avatars`;
+  - 7 : `groupes`.
+- les 13 suivants sont aléatoires.
+
+Au lieu de `rds`, l'id aurait pu être utilisée (en différenciant les ids par type de documents) mais **il aurait été possible à une session malicieuse d'interroger versions sur des id hors de son périmètre** et d'obtenir des informations sur l'activité de mise à jour d'autres comptes, d'autres avatars que les siens, d'autres groupes que ceux accédés par ses avatars.
+
+Voir le chapitre **Connexion et synchronisation**.
+
 # Documents `espaces`
 Cle S, notification générale, options.
 _data_ :
@@ -562,6 +591,7 @@ _data_ :
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
 
+- `rds`
 - `cleES` : clé E cryptée par la clé S.
 - `notif` : notification de l'administrateur. Texte crypté par la clé A du Comptable (une constante bien connue depuis le `ns`).
 - `dlvat` : `dlv` de l'administrateur technique.
@@ -589,7 +619,33 @@ L'opération de mise à jour d'une `dlvat` est une opération longue du fait du 
 
 Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois) compatible avec ses contraintes mais évitant de contraindre les comptes à des connexion inutiles rien que pour maintenir le compte en vie, et surtout à éviter qu'ils n'oublient de le faire et voir leurs comptes automatiquement résiliés après un délai trop bref de non utilisation.
 
-# Documents `delegations`
+# Documents `syntheses`
+Synthèse des documents `partitions` de l'espace.
+
+La mise à jour d'une partition est peu fréquente : une _synthèse_ au niveau de l'espace est recalculée à chaque mise à jour d'une des partitions de l'espace.
+
+Ce document ne fait pas partie du périmètre synchronisable d'un compte mais peut être obtenu sur demande (pour autant que l'authentification le juge possible).
+
+_data_:
+- `id` : id de l'espace.
+- `v` : date-heure d'écriture (purement informative).
+
+- `tp` : table des synthèses des partitions de l'espace. L'indice dans cette table est l'id court de la partition. Chaque élément est la sérialisation de:
+  - `qc q1 q2` : quotas de la partition.
+  - `ac a1 a2` : sommes des quotas attribués aux comptes attachés à la partition.
+  - `c2M nx v2` : somme des consommations journalières et des volumes effectivement utilisés.
+  - `ntr0` : nombre de notifications partition sans restriction d'accès.
+  - `ntr1` : nombre de notifications partition avec restriction d'accès _lecture seule_.
+  - `ntr2` : nombre de notifications partition avec restriction d'accès _minimal_.
+  - `nbc` : nombre de comptes.
+  - `nbsp` : nombre de comptes _délégués_.
+  - `nco0` : nombres de comptes ayant une notification sans restriction d'accès.
+  - `nco1` : nombres de comptes ayant une notification avec restriction d'accès _lecture seule_.
+  - `nco2` : nombres de comptes ayant une notification avec restriction d'accès _minimal_.
+
+`tp[0]` est la somme des `tp[1..N]` calculé en session, pas stocké.
+
+# Documents `partitions`
 Niveau partition: 
 - quotas, 
 - notification et restriction d'accès.
@@ -603,25 +659,34 @@ _data_:
 - `id` : numéro d'ordre de création de la tribu par le Comptable.
 - `v` : 1..N
 
+- `rds`
 - `qc q1 q2` : quotas totaux de la partition.
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
+
+- `ldel` : liste des clés A des délégués cryptées par la clé P de la partition.
 
 - `tcpt` : table des comptes attachés à la partition. L'index `it` dans cette table figure dans la propriété `it` du document `comptes` correspondant :
   - `notif`: notification de niveau compte dont le texte est crypté par la clé P de la partition (`null` s'il n'y en a pas).
   - `cleAP` : clé A du compte crypté par la clé P de la partition.
   - `del`: `true` si c'est un délégué.
-  - `q` : `qc q1 q2 n` du document `comptas` du compte. 
-    - En cas de changement de `qc q1 q2` la copie est immédiate, sinon lors de la prochaine connexion du compte.
+  - `q` : `qc q1 q2 c2M nx v2` extraits du document `comptas` du compte. 
+    - En cas de changement de `qc q1 q2` la copie est immédiate, sinon c'est effectué seulement lors de la prochaine connexion du compte.
+    - `c2M` : consommation moyenne mensuelle lissée sur M et M-1 (conso2M de compteurs)
+    - `nx` : nn + nc + ng nombre de notes, chats, participation aux groupes.
+    - `v2` : volume de fichiers effectivement occupé.
 
 L'ajout / retrait de la qualité de _délégué_ n'est effectué que par le Comptable au delà du choix initial établi au sponsoring par un _délégué_ ou le Comptable.
 
-# Documents `partitions`
-Extrait du document delegations visible par les comptes NON délégués de la partition.
+# Documents `partitionxs`
+Extrait du document `partitions` visible par les comptes NON délégués de la partition. Cet extrait change très peu souvent:
+- quand un délégué est nommé / changé.
+- quand il y une notification de niveau partition.
 
 _data_:
-- `id` : numéro d'ordre de création de la tribu par le Comptable.
+- `id` : numéro d'ordre de création de la partition par le Comptable.
 - `v` : 1..N
 
+- `rds`
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
 - `ldel` : liste des clés A des délégués cryptées par la clé P de la partition.
 
@@ -631,28 +696,6 @@ La déclaration d'une partition par le Comptable d'un espace consiste à défini
   - **les 2 premiers bytes donnent l'id de la partition**, son numéro d'ordre de création par le Comptable partant de de 1,
 - un `code` signifiant pour le Comptable (dans son `comptes`).
 - les sous-quotas `qc q1 q2` attribués.
-
-# Documents `syntheses`
-La mise à jour d'une partition est peu fréquente : une _synthèse_ est recalculée à chaque mise à jour de `stn, q1, q2` ou d'un item de `act`.
-
-_data_:
-- `id` : id de l'espace.
-- `v` : date-heure d'écriture (purement informative).
-
-- `tp` : table des synthèses des partitions de l'espace. L'indice dans cette table est l'id court de la partition. Chaque élément est la sérialisation de:
-  - `qc q1 q2` : quotas de la partition.
-  - `ac a1 a2` : sommes des quotas attribués aux comptes attachés à la partition.
-  - `ca v1 v2` : somme des consommations journalières et des volumes effectivement utilisés.
-  - `ntr0` : nombre de notifications partition sans restriction d'accès.
-  - `ntr1` : nombre de notifications partition avec restriction d'accès _lecture seule_.
-  - `ntr2` : nombre de notifications partition avec restriction d'accès _minimal_.
-  - `nbc` : nombre de comptes.
-  - `nbsp` : nombre de comptes _délégués_.
-  - `nco0` : nombres de comptes ayant une notification sans restriction d'accès.
-  - `nco1` : nombres de comptes ayant une notification avec restriction d'accès _lecture seule_.
-  - `nco2` : nombres de comptes ayant une notification avec restriction d'accès _minimal_.
-
-`tp[0]` est la somme des `tp[1..N]` calculé en session, pas stocké.
 
 # Documents `comptes`
 - Phrase secrète, clés K P D, rattachement à une partition
@@ -665,6 +708,7 @@ _data_ :
 - `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète (`hps1`).
 - `dlv` : dernier jour de validité du compte.
 
+- `rds`
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXR` : clé K cryptée par XR.
 - `clePA` : comptes O seulement. Clé P de la partition cryptée par la clé A de son avatar principal.
@@ -704,6 +748,7 @@ _data_ :
 - `id` : numéro du compte = id de son avatar principal.
 - `v` : 1..N.
 
+- `rds`
 - `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
 - `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `compteurs` sérialisation des quotas, volumes et coûts.
@@ -721,16 +766,6 @@ _data_ :
     - `hashtags` : liste des hashtags attribués par le compte.
     - `texte` : commentaire écrit par le compte.
 
-# Documents `versions`
-Donne la plus haute version d'un document avatar ou groupe et de leurs sous-documents.
-
-_data_ :
-- `id` : `rds` du document référencé.
-- `v` : 1..N, plus haute version attribuée au document et à ses sous-documents.
-- `suppr` : jour de suppression, ou 0 s'il est actif.
-
-Voir le chapitre **Connexion et synchronisation**.
-
 # Documents `avatars`
 - Phrase de contact.
 - Carte de visite.
@@ -742,6 +777,7 @@ _data_:
 - `vcv` : version de la carte de visite afin qu'une opération puisse détecter (sans lire le document) si la carte de visite est plus récente que celle qu'il connaît.
 - `hZR` : `ns` + hash du PBKFD de la phrase de contact réduite.
 
+- `rds`
 - `cleAZC` : clé A cryptée par ZC (PBKFD de la phrase de contact complète).
 - `pcK` : phrase de contact complète cryptée par la clé K du compte.
 
@@ -1208,6 +1244,7 @@ _data_:
 - `v` :  1..N, Par convention, une version à 999999 désigne un **groupe logiquement détruit** mais dont les données sont encore présentes. Le groupe est _en cours de suppression_.
 - `dfh` : date de fin d'hébergement.
 
+- `rds`
 - `nn qn v2 q2`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
 - `idh` : id du compte hébergeur (pas transmise aux sessions).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
