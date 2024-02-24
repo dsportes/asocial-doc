@@ -1831,6 +1831,8 @@ Le traitement en session consiste à:
 - **mettre à jour l'état en mémoire** dans une séquence sans interruption (sans `await`) afin que la vison graphique soit cohérente.
 
 ## Phases de connexion
+!!! Liste des fichiers ayant une copie locale à synchroniser. !!!
+
 ### Phase 1
 En mode _avion_, la première phase consiste à:
 - vérifier l'authentification du compte par rapport à la base locale,
