@@ -1761,50 +1761,35 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 ## L'objet DataSync
 Cet objet sert:
 - entre session et _serveur / Cloud Function_ a obtenir les documents resynchronisant la session avec l'état de la base.
-- dans la base locale: à indiquer ce qui y est stocké, dans quelle version, et si l'état est _stable_ ou non.
+- dans la base locale: à indiquer ce qui y est stocké et dans quelle version.
 
-Les états successifs de la base sont toujours cohérents: tous les documents de chaque périmètre d'un compte est cohérent en lui-même.
+**Les états successifs _de la base_ sont toujours cohérents**: _tous_ les documents de _chaque_ périmètre d'un compte sont cohérents entre eux.
 
-Dans la base locale chaque sous-arbres d'un avatar ou d'un groupe du périmètre du compte est cohérent en lui-même, la mise à jour d'un sous-arbre est assurée par une transaction: 
-- à chaque id d'un sous-arbre correspond une version vl (version locale) qui est un cliché d'un état cohérent qui a existé (voire existe encore) en base centrale.
+### État courant d'une session
+Cet état en mémoire et le cas échéant base locale, est consigné dans un objet `DataSync`.
 
-Une image _cohérente_ du périmètre d'un compte est fixée par:
-- une version des documents comptes espaces partitions comptas,
-- une version de chacun des sous-arbres avatars et groupes cités dans comptes,
-- ces versions étant relevées au cours d'une transaction qui a relevé toutes ces versions.
+Dans cet état **chaque sous-arbre** d'un avatar ou d'un groupe du périmètre du compte est cohérent en lui-même, la mise à jour d'un sous-arbre a été assurée par une transaction: à chaque `id` d'un sous-arbre correspond une version `vs` (version session) qui est un cliché d'un état cohérent qui a existé (voire existe encore) en base centrale.
 
-Mais la base locale / l'état d'une session peut avoir des mises à jour successives de chacun de ses composants:
-- ses documents comptes espaces partitions comptas,
-- ses sous-arbres avatars et groupes.
+Chaque opération de remise à niveau de cet état est _partielle_ et concerne:
+- les 4 documents `comptes espaces partitions comptas`,
+- facultativement **UN** sous-arbre d'avatar ou de groupe cité par son id,
+- retourne le `DataSync` image de l'état après ces mises à jour.
 
-Si les mises à jour sont indépendantes:
-- l'image globale du périmètre peut correspondre à des états qui n'ont jamais existé: par exemple les compteurs de comptas donnent un volume de fichiers différent de la somme des volumes relevés dans les sous-arbres.
+Cette image est dite _cohérente_ quand les versions des 4 documents et de tous les sous-arbres ont été relevées dans les compteurs `vc` au cours d'une transaction `Sync` avec **option C**: la date-heure _serveur_ a été également relevée (à titre informatif).
 
-Si les mises à jour sont assurées par une seule transaction, l'état est totalement cohérent mais la transaction est très lourde.
-
-Globalement une session reçoit des avis de mises à jour. En les appliquant systématiquement elle va _tendre_ à être _cohérente_, ses remises à niveaux vont _rattraper_ l'état de la base.
-
-La question est de savoir si un état courant **est** cohérent, ou **en transition vers** un état cohérent.
-
-Le _serveur / Cloud Function_ a une fonction qui relève _l'état cohérent_ courant sous contrôle transactionnel et qui retourne un objet DataSync:
-- les versions de espaces partitions comptes comptas,
-- pour chaque avatar de comptes, la version de son sous-arbre,
-- pour chaque groupe relevé dans comptes, la version de son sous-arbre.
-
-Une session dispose d'un même objet DataSync avec les versions stockées en mémoire et base locale.
-
-Quand les deux objets sont _égaux_, la session est dans un état cohérent.
-- la _différence_ montre la liste des mises à jour à aller chercher au serveur pour parvenir à cet état cohérent.
+Au fil de l'eau une session reçoit des avis de mises à jour des 4 documents et des sous-arbres. En les appliquant systématiquement elle va _tendre_ à être _cohérente_, ses remises à niveaux vont _rattraper_ l'état de la base, mais il n'est pas possible de savoir si un état courant de DataSync **est** cohérent, ou **en transition vers** un état cohérent, sauf à demander à une transaction avec **option C** de le déterminer.
 
 
 ### Objet `DataSync`
-Quadruplet `sync` : `{ id, rds, vs, vb }`
+Quintuplet `sync` : `{ id, rds, vs, vc, vb }`
 - `id` : du document
 - `rds` : du document.
 - `vs` : version détenue par la session du document (comptes comptas espaces partitions) ou du sous-arbre (avatar et groupe).
-- `vb` : version détenue en base.
+- `va` : version actuelle détenue en base.
+- `vc` : version obtenue lors de la dernière transaction avec option C.
 
-- `dh` : date-heure
+- `dh` : dernière date-heure d'évaluation par le serveur.
+- `dhc` : date-heure de la dernière transaction avec option C.
 - `compte` : son `sync`
 - `compta` : son `sync`
 - `espace` : son `sync`
@@ -1814,49 +1799,115 @@ Quadruplet `sync` : `{ id, rds, vs, vb }`
 
 ### Opération `Sync`
 La session poste des _opérations de synchronisation_ `Sync` avec en argument,
-- l'opération souhaitée, ses options éventuelles,
-- une id (selon l'opération)
+- `optionC` ou non.
+- `id` (facultative) du sous-arbre à synchroniser.
 - son `dataSync` actuel.
 
+Une opération 'Sync' ne retourne les mises à jour que d'un sous-périmètre puisque au plus UN sous-arbre peut être cité.
+
+> Remarque: quand un compte n'a qu'un avatar et pas d'accès à des groupes, ce _sous-périmètre_ est le _périmètre_ complet.
+
+Elle récupère les versions requises et les documents dont la version en base est supérieure à celle connue en session.
+
+Avec `optionC` elle **interroge** les versions de **tous** les sous-arbres et les notent en `vc` dans l'objet `dataSync` avec le date-heure `dhc`.
+- l'état en session peut être **incomplet**, les versions `vs` étant différentes des versions `vb`.
+
+En _mode WebSocket_ l'opération inscrit tous les ids des documents / sous-arbres du périmètre auprès de la session WebSocket du compte.
+
 La réponse comporte:
-- **le `dataSync` mis à jour**. Par convention une version de base à -1, signifie _hors périmètre_:
-  - pour un groupe ou un avatar, le sous-arbre n'est plus référencé dans le document comptes.
+- **le `dataSync` mis à jour**. Par convention une version de base à 0, signifie _hors périmètre_:
+  - pour un groupe ou un avatar, le sous-arbre n'est plus référencé dans le document `comptes`.
   - pour partitions, le compte n'est plus un compte "O". Remarque: si le compte "O" a changé de délégué à NON délégué, l'objet mis à jour est significativement différent.
-- **des listes de documents _manquants / mis à jour_**, une liste par type de document. 
+- les documents `comptes comptas espaces partitions`, pour ceux dont la version est différente de celle citée en `vs`.
+- **des listes de sous-documents _manquants / mis à jour_**, une liste par type de document. 
 
 Le traitement en session consiste à:
 - **enregistrer dans la base locale** le nouvel état en une seule transaction,
-- **se mettre à l'écoute des mises à jour** des nouveaux **sous-arbres** avatar et groupe et de documents `partitions` requis (voire à arrêter l'écoute de ceux devenus hors périmètre).
+  - le cas échéant en supprimant les sous-arbres et le document `partitions` hors-périmètre.
+- **se mettre à l'écoute des mises à jour** 
+  - des nouveaux **sous-arbres** avatar et groupe, 
+  - du document `partitions` nouvellement requis, changement de partition ou changement de type O/A,
+  - voire à arrêter l'écoute des sous-arbres / partitions devenus hors périmètre.
 - **mettre à jour l'état en mémoire** dans une séquence sans interruption (sans `await`) afin que la vison graphique soit cohérente.
 
-### Phase de connexion
-Elle consiste en une succession de N opérations `Sync` avec des paramètres différents jusqu'à atteinte d'un état satisfaisant.
+## Phases de connexion
+### Phase 1
+En mode _avion_, la première phase consiste à:
+- vérifier l'authentification du compte par rapport à la base locale,
+- lit le `dataSync` de la base locale,
+- installer en mémoire tampon depuis la base locale les documents `comptes comptas espaces partitions` (ces deux derniers étant _peu_ interprétables).
+- installer en mémoire tampon depuis la base locale tous les sous-arbres,
+- passer directement en phase finale.
 
-### Synchronisation au fil de l'eau
-A chaque avis reçu de changement d'un versions, il en résulte une suite d'opérations  Sync jusqu'à atteinte de l'état satisfaisant.
+En mode _synchronisé_ une première phase consiste à:
+- lire le `dataSync` de la base locale, les versions `vb` des documents n'y sont pas nulles.
+- installer en mémoire tampon les documents de la base locale, regroupés en sous-arbres.
 
-### Opérations `Sync`
-#### `init`
-Traitement `entete` avec option `C`
-- en _mode WebSocket_ inscrit tous les ids des documents / sous-arbres requis auprès de la session.
+En mode _incognito_ la première phase consiste à:
+- créer un `dataSync` vide.
+- créer une mémoire tampon vide.
 
-#### `entete`
-Retourne les documents isolés `comptes comptas espaces partitions` requis pour l'état courant du compte: ne retourne pas ceux dont la version connue en session est déjà la bonne.
+### Phase 2-A en mode _synchronisé_ et _incognito_
+Soumission d'une opération `Sync` avec `optionC`:
+- l'authentification du compte est vérifiée.
+- au retour, l'id du compte est connue (elle ne l'était pa avant en mode _icognito_):
+  
+**Traitement de retour de phase 2**
+- les documents reçus sont mis en mémoire tampon et en _liste des mises à jour_ pour la base locale.
+- les documents qui étaient cités en `dataSync` et sont désormais hors-périmètre 
+  - sont inscrits dans la _liste des suppressions_ pour la base locale,
+  - sont supprimés de la mémoire tampon s'ils y étaient.
+- le nouveau `dataSync` est conservé pour la suite.
 
-#### `avgr`
-Argument : id de l'avatar ou du groupe.
+### Phase 2-B itérative (en mode _synchronisé_ et _incognito_)
+Pour chaque sous-arbre `ida` dont la version `vs` en `dataSync` est inférieure à leur version `vb`, soumission d'une opération `Sync` sans optionC et avec ida. 
 
-- retourne, si nécessaire les documents comptes: l'avatar / groupe demandé peut ne plus être requis.
-- récupère la dernière version du sous-arbre, si nécessaire avec les documents mis à jour.
+Même traitement au retour que ci-dessus.
 
-> Le dataSync retourné n'est pas _cohérent_. Il indique, le cas échéant, les sous-arbres qui ne sont plus requis. Seule la version du sous-arbre de l'id en argument est garantie la dernière.
+### Phase finale
+En mode _synchronisé_ mise à jour en une transaction des modifications et suppressions de la _liste des lises à jour / suppressions_.
 
-#### option : `C`
-Met à jour le `dataSync`,
-- avec les versions requises des documents de tête,
-- avec toutes les versions requises des sous-arbres sans les retourner. Pour chaque sous-arbre requis va chercher sa version dans `versions`.
+Établissement de l'état en mémoire en une séquence interrompue (sans `await`) depuis la mémoire tampon.
 
-> Le `dataSync` retourné est marqué _cohérent_ (mais peut être _complet_ ou non).
+## Synchronisation au fil de l'eau
+Au fil de l'eau il parvient des notifications de mises à jour de _versions_. Celles dont la version est inférieure ou égale à la version déjà détenue dans la mémoire de la session, sont ignorées.
+
+Dans le cas contraire une _phase de synchronisation est ouverte_:
+- une _liste de mises à jour / suppressions_ est créée.
+- l'id du document ou du sous-arbre est obtenu de l'état en mémoire, la notification de `versions` ne comportant que le `rds`.
+
+### Phase 2-A / 2-B: `Sync`
+Une opération `Sync` est soumise, sans `optionC`. L'id du sous-arbre est:
+- 0 si l'avis de changement concerne un des documents comptes comptas espaces partitions.
+- à l'id du sous-arbre si la notification correspond à un sous-arbre.
+
+En retour, même traitement que celui d'une **phase 2-A** de connexion, ce qui peut entraîner une **phase 2-B itérative**.
+
+### Phase finale
+La phase finale est la même que la phase finale de connexion en mode synchronisée.
+
+## Bouton d'information de _cohérence_
+Au fil de l'eau, savoir si l'état est cohérent ou non est coûteux en accès aux versions des sous-arbres (même si en général seul l'index est sollicité), mais surtout a très peu d'intérêt pratique.
+
+L'information d'un état _incomplet_ est plus intéressante et s'affiche comme un voyant: c'est temporaire et n'apparaît qu'entre les phases 2-A et finale (pendant les phases 2-B).
+
+La vérification de _cohérence_ consiste à lancer une phase 2-A / 2-B de synchronisation au fil de l'eau, mais avec une optionC sur le `Sync` initial.
+- rien ne garantit qu'à la fin de la phase finale, de nouvelles mises à jour ne soient apparues depuis le début du traitement et que l'état _final_ soit _cohérent_.
+- on peut certes reboucler, mais avec beaucoup de sous-arbres très sollicités,
+  - en théorie ça peut ne jamais arriver,
+  - cet état est vraiment temporaire, une fraction de seconde plus tard des nouvelles mises à jour peuvent survenir.
+
+Bref cette opération n'a de sens pratique que,
+- si on interrompt volontairement la synchronisation,
+- donc de fait qu'on retombe en mode _avion_.
+
+## Comptable: synchronisation d'une partition _courante_
+Le Comptable a sa partition synchronisée comme n'importe quel compte "O".
+
+Il peut consulter d'autres partitions, une à la fois, dite _courante_:
+- en WebSocket, demander l'écoute de celle-ci (ou l'arrêt de l'écoute),
+- sans WebSocket, lancer un onSnapshot spécifique sur le document versions de cette partition,
+- sur ce onSnapshot traiter ponctuellement la demande de ce document au _serveur_.
 
 # Purgatoire
 ## Clé RSA d'un avatar
