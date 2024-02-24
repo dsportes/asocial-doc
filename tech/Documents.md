@@ -512,7 +512,7 @@ Une notification a les propriétés suivantes:
     - E : espace clos
     - P : accès minimal
     - C : accès minimal
-    - A : accès minimal
+    - X : accès minimal
 - `dh` : date-heure de création.
 - `texte`: il est crypté par: 
   - type E: la clé A du Comptable (que tous les comptes de l'espace ont).
@@ -652,7 +652,7 @@ Niveau de chaque compte "O" rattaché:
 - notification et restriction d'accès.
 
 _data_:
-- `id` : numéro d'ordre de création de la tribu par le Comptable.
+- `id` : numéro d'ordre de création de la partition par le Comptable.
 - `v` : 1..N
 
 - `rds`
@@ -707,7 +707,8 @@ _data_ :
 
 _Comptes "O" seulement:_
 - `clePA` : clé P de la partition cryptée par la clé A de l'avatar principal du compte.
-- `del` : `true` si le compte est délégué.
+- `del` : `true` si le compte est délégué de la partition.
+- idp : 
 - `it` : index du compte dans les tables `tcpt` de son document `partitions`.
 
 - `mav` : map des avatars du compte. 
@@ -730,7 +731,6 @@ _Comptes "O" seulement:_
 - `tp` : table des partitions : `{c, qc, q1, q2}`.
   - `c` : `{ cleP, cleD, code }` crypté par la clé K du comptable
     - `cleP` : clé P de la partition.
-    - `cleD` : clé D de délégation.
     - `code` : texte très court pour le seul usage du comptable.
   - `qc, q1, q2` : quotas globaux de la partition.
 
