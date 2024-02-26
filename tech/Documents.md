@@ -1815,7 +1815,7 @@ Avec `optionC` elle **interroge** les versions de **tous** les sous-arbres et le
 En _mode WebSocket_ l'opération inscrit tous les ids des documents / sous-arbres du périmètre auprès de la session WebSocket du compte.
 
 La réponse comporte:
-- **le `dataSync` mis à jour**. Par convention une version de base à 0, signifie _hors périmètre_:
+- **le `dataSync` mis à jour**. Par convention une version de base à -1, signifie _devenu hors périmètre_:
   - pour un groupe ou un avatar, le sous-arbre n'est plus référencé dans le document `comptes`.
   - pour partitions, le compte n'est plus un compte "O". Remarque: si le compte "O" a changé de délégué à NON délégué, l'objet mis à jour est significativement différent.
 - les documents `comptes comptas espaces partitions`, pour ceux dont la version est différente de celle citée en `vs`.
@@ -1833,83 +1833,96 @@ Le traitement en session consiste à:
 ## Phases de connexion
 !!! Liste des fichiers ayant une copie locale à synchroniser. !!!
 
-### Phase 1
-En mode _avion_, la première phase consiste à:
-- vérifier l'authentification du compte par rapport à la base locale,
-- lit le `dataSync` de la base locale,
-- installer en mémoire tampon depuis la base locale les documents `comptes comptas espaces partitions` (ces deux derniers étant _peu_ interprétables).
-- installer en mémoire tampon depuis la base locale tous les sous-arbres,
-- passer directement en phase finale.
+### Mode _avion_
+#### Première phase
+- lire l'item de _boot_ de la base locale:
+  - il permet d'authentifier le compte (et d'acquérir sa clé K),
+  - lire le `dataSync` de la base locale,
+- installer en mémoire tampon depuis la base locale les documents CCEP `comptes comptas espaces partitions` (ces deux derniers étant _peu_ interprétables).
+- installer en mémoire tampon depuis la base locale tous les sous-arbres.
 
-En mode _synchronisé_ une première phase consiste à:
-- lire le `dataSync` de la base locale, les versions `vb` des documents n'y sont pas nulles.
-- installer en mémoire tampon les documents de la base locale, regroupés en sous-arbres.
+### Mode _synchronisé_ et _incognito_
+Le traitement de synchronisation au fil de l'eau est _suspendu_:
+- il peut recevoir des avis de mise à jour dès maintenant,
+- ces avis sont stockés dans la queue des mises à jour mais le traitement qui épuise cette queue n'est pas activé.
 
-En mode _incognito_ la première phase consiste à:
-- créer un `dataSync` vide.
-- créer une mémoire tampon vide.
+#### Première phase 
+Elle consiste à soumettre une opération `Sync` avec `optionC` et un `datasync` vide:
+- le compte va être authentifié, sa clé K connue.
+- ce `dataSync` est temporaire pour une session _synchronisé_ mais réel pour une session _incognito_.
 
-### Phase 2-A en mode _synchronisé_ et _incognito_
-Soumission d'une opération `Sync` avec `optionC`:
-- l'authentification du compte est vérifiée.
-- au retour, l'id du compte est connue (elle ne l'était pa avant en mode _icognito_):
-  
-**Traitement de retour de phase 2**
-- les documents reçus sont mis en mémoire tampon et en _liste des mises à jour_ pour la base locale.
-- les documents qui étaient cités en `dataSync` et sont désormais hors-périmètre 
-  - sont inscrits dans la _liste des suppressions_ pour la base locale,
-  - sont supprimés de la mémoire tampon s'ils y étaient.
-- le nouveau `dataSync` est conservé pour la suite.
+#### Seconde phase 
+Elle n'a lieu **que pour une session _synchronisée_**:
+- le `dataSync` de la base locale est lu et fusionné avec le `dataSync` temporaire. Il en résulte,
+  - une liste de sous-arbres devenus hors périmètres.
+  - des documents CCEP `comptes comptas espaces partitions` de version plus récente obtenu par la requête `Sync`.
+- **la base locale est mise à jour**. Elle est toujours meilleure que celle d'avant.
+- tous les documents de la base locale, regroupés en sous-arbres, et les documents CCEP, sont installés en _mémoire tampon_.
 
-### Phase 2-B itérative (en mode _synchronisé_ et _incognito_)
-Pour chaque sous-arbre `ida` dont la version `vs` en `dataSync` est inférieure à leur version `vb`, soumission d'une opération `Sync` sans optionC et avec ida. 
+#### Troisième phase
+Cet état de dataSync devient une sorte de file d'attente de traitements successifs de chacun des sous-arbres au cours de cette troisième phase.
+Pour chaque sous-arbre `ida` dont la version `vs` en `dataSync` est inférieure à leur version `vb`, 
+- soumission d'une opération `Sync` **sans** `optionC` et **avec** `ida`.
+- au retour,
+  - mise à jour de la base locale en mode _synchronisé_ en une seule transaction,
+  - stockage en _mémoire tampon_ des documents mis à jour (tous par principe en mode _incognito_).
 
-Même traitement au retour que ci-dessus.
+### Phase finale: tous modes
+Établissement de _l'état en mémoire_ en une séquence interrompue (sans `await`) depuis la mémoire tampon.
 
-### Phase finale
-En mode _synchronisé_ mise à jour en une transaction des modifications et suppressions de la _liste des lises à jour / suppressions_.
-
-Établissement de l'état en mémoire en une séquence interrompue (sans `await`) depuis la mémoire tampon.
+Ouverture du traitement de synchronisation au fil de l'eau.
 
 ## Synchronisation au fil de l'eau
-Au fil de l'eau il parvient des notifications de mises à jour de _versions_. Celles dont la version est inférieure ou égale à la version déjà détenue dans la mémoire de la session, sont ignorées.
+Au fil de l'eau il parvient des notifications de mises à jour de _versions_. 
 
-Dans le cas contraire une _phase de synchronisation est ouverte_:
-- une _liste de mises à jour / suppressions_ est créée.
-- l'id du document ou du sous-arbre est obtenu de l'état en mémoire, la notification de `versions` ne comportant que le `rds`.
+Une table _queue de traitements_ mémorise pour chaque document CCEP et sous-arbre son `rds` et la version notifiée par l'avis de mise à jour. Elle a l'avantage de regrouper des événements survenus très proches.
 
-### Phase 2-A / 2-B: `Sync`
-Une opération `Sync` est soumise, sans `optionC`. L'id du sous-arbre est:
-- 0 si l'avis de changement concerne un des documents comptes comptas espaces partitions.
-- à l'id du sous-arbre si la notification correspond à un sous-arbre.
+Les avis de mises à jour dont la version est inférieure ou égale à la version déjà détenue dans la mémoire de la session, sont ignorés.
 
-En retour, même traitement que celui d'une **phase 2-A** de connexion, ce qui peut entraîner une **phase 2-B itérative**.
+### Itération pour vider cette queue
+Tant qu'il reste des traitements à effectuer, une opération `Sync` est soumise, sans `optionC`.
+- le dataSync est celui courant,
+- L'id du sous-arbre est:
+  - 0 si l'avis de changement concerne un des documents CCEP.
+  - l'id du sous-arbre si la notification correspond à un sous-arbre.
 
-### Phase finale
-La phase finale est la même que la phase finale de connexion en mode synchronisée.
+En retour,
+- le dataSync est mis à jour,
+- mise à jour de la base locale en une transaction,
+- mise à jour de l'état mémoire sans interruption (sans `await`).
+
+## Partition courante d'un Comptable
+Une session Comptable peut parcourir toutes les partitions et pas seulement la sienne (#1).
+- à un instant donné il peut avoir une _partition courante_ d'id non 1, celle qu'il consulte et met à jour.
+- la session soumet une requête `GetPartitionC`. Elle récupère en réponse,
+  - le document de cette partition: il met à jour l'état en mémoire.
+  - un document `comptas` (ou pas). Ce dernier **est inscrit dans la _queue de synchronisation_** avec son document attaché afin d'être enregistré en base locale et en état mémoire de manière cohérente.
+- en mode _WebSocket_ SON abonnement spécifique `partitionC` référence le `rds` de cette partition. La session en recevra donc en plus l'avis de mise à jour par `versions`.
+- en mode _NON WebSocket_ la session déclenche un `onSnapshot` spécifique pour `partitionC` (il peut changer souvent).
+- dans les deux cas, pour la session émettrice l'avis de mise à jour devrait parvenir _après_ que le document partitions ait été enregistré dans l'état mémoire, son traitement sera ignoré.
+
+## Le document `comptas` d'une session change quasiment à chaque opération
+Une opération fait en général une lecture MAIS pas obligatoirement: si le document demandé est obtenu de la Cache du _serveur_ la consommation est nulle. Dans ce dernier cas:
+- le document `comptas` n'est pas mis à jour et n'est PAS retourné par l'opération puisqu'inchangé.
+
+**Si l'opération a eu au moins une consommation** et si l'espace n'est pas figé, le document `comptas` retourné en résultat est inscrit dans la _queue de traitement_: il sera intégré un peu plus tard de manière consistante en base locale et état mémoire.
+
+**Quand l'espace est figé**, les mises à jour en base sont strictement prohibées: les consommations ne sont PAS enregistrées (cadeau). Cette situation a pour vocation à être transitoire le temps d'un export de la base et du _storage_.
 
 ## Bouton d'information de _cohérence_
 Au fil de l'eau, savoir si l'état est cohérent ou non est coûteux en accès aux versions des sous-arbres (même si en général seul l'index est sollicité), mais surtout a très peu d'intérêt pratique.
 
 L'information d'un état _incomplet_ est plus intéressante et s'affiche comme un voyant: c'est temporaire et n'apparaît qu'entre les phases 2-A et finale (pendant les phases 2-B).
 
-La vérification de _cohérence_ consiste à lancer une phase 2-A / 2-B de synchronisation au fil de l'eau, mais avec une optionC sur le `Sync` initial.
-- rien ne garantit qu'à la fin de la phase finale, de nouvelles mises à jour ne soient apparues depuis le début du traitement et que l'état _final_ soit _cohérent_.
+La vérification de _cohérence_ consiste à lancer une phase 2-A / 2-B de synchronisation au fil de l'eau, mais avec une `optionC` sur le `Sync` initial.
+- rien ne garantit qu'à la fin de la phase finale, de nouvelles mises à jour ne seront pas apparues depuis le début du traitement et que l'état _final_ soit _cohérent_.
 - on peut certes reboucler, mais avec beaucoup de sous-arbres très sollicités,
-  - en théorie ça peut ne jamais arriver,
-  - cet état est vraiment temporaire, une fraction de seconde plus tard des nouvelles mises à jour peuvent survenir.
+  - en théorie ça peut ne jamais se terminer,
+  - cet état ne dure que jusqu'à arrivée d'un avis d'une mise à jour du périmètre, soit en général pas bien longtemps pour un périmètre très actif.
 
-Bref cette opération n'a de sens pratique que,
-- si on interrompt volontairement la synchronisation,
-- donc de fait qu'on retombe en mode _avion_.
-
-## Comptable: synchronisation d'une partition _courante_
-Le Comptable a sa partition synchronisée comme n'importe quel compte "O".
-
-Il peut consulter d'autres partitions, une à la fois, dite _courante_:
-- en WebSocket, demander l'écoute de celle-ci (ou l'arrêt de l'écoute),
-- sans WebSocket, lancer un onSnapshot spécifique sur le document versions de cette partition,
-- sur ce onSnapshot traiter ponctuellement la demande de ce document au _serveur_.
+Cette opération n'a de sens pratique que,
+- si on interrompt volontairement la synchronisation pendant la recherche d'un état cohérent,
+- qu'on retombe en mode _avion_ ou qu'on se déconnecte dès cet état atteint.
 
 # Purgatoire
 ## Clé RSA d'un avatar
