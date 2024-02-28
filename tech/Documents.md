@@ -696,14 +696,12 @@ La déclaration d'une partition par le Comptable d'un espace consiste à défini
 _data_ :
 - `id` : numéro du compte = id de son avatar principal.
 - `v` : 1..N.
-- `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète (`hps1`).
+- `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète.
 - `dlv` : dernier jour de validité du compte.
 
 - `rds`
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXR` : clé K cryptée par XR.
-
-- `rdsE rdsP rdsC`: `rds` de `espaces partitions comptas` !!!discutable!!!
 
 _Comptes "O" seulement:_
 - `clePA` : clé P de la partition cryptée par la clé A de l'avatar principal du compte.
@@ -1785,7 +1783,7 @@ Quintuplet `sync` : `{ id, rds, vs, vc, vb }`
 - `id` : du document
 - `rds` : du document.
 - `vs` : version détenue par la session du document (comptes comptas espaces partitions) ou du sous-arbre (avatar et groupe).
-- `va` : version actuelle détenue en base.
+- `vb` : version actuelle détenue en base.
 - `vc` : version obtenue lors de la dernière transaction avec option C.
 
 - `dh` : dernière date-heure d'évaluation par le serveur.
@@ -1800,7 +1798,7 @@ Quintuplet `sync` : `{ id, rds, vs, vc, vb }`
 ### Opération `Sync`
 La session poste des _opérations de synchronisation_ `Sync` avec en argument,
 - `optionC` ou non.
-- `id` (facultative) du sous-arbre à synchroniser.
+- `ida` (facultative) du sous-arbre à synchroniser.
 - son `dataSync` actuel.
 
 Une opération `Sync` ne retourne les mises à jour que d'un sous-périmètre puisque au plus UN sous-arbre peut être cité.
@@ -1900,12 +1898,13 @@ Le traitement standard de retour,
 ## Partition courante d'un Comptable
 Une session Comptable peut parcourir toutes les partitions et pas seulement la sienne (#1).
 - à un instant donné il peut avoir une _partition courante_ d'id non 1, celle qu'il consulte et met à jour.
-- la session soumet une requête `GetPartitionC`. Elle récupère en réponse,
-  - le document de cette partition: il met à jour l'état en mémoire.
-  - un document `comptas` (ou pas). Ce dernier **est inscrit dans la _queue de synchronisation_** avec son document attaché afin d'être enregistré en base locale et en état mémoire de manière cohérente.
+- la session soumet une requête `GetPartitionC` et récupère le document `comptas` (ou pas). Voir ci-après.
+  
+Traitement du document partitions reçus:
+- mise à jour du _store_ en mémoire.
 - en mode _WebSocket_ SON abonnement spécifique `partitionC` référence le `rds` de cette partition. La session en recevra donc en plus l'avis de mise à jour par `versions`.
 - en mode _NON WebSocket_ la session déclenche un `onSnapshot` spécifique pour `partitionC` (il peut changer souvent).
-- dans les deux cas, pour la session émettrice l'avis de mise à jour devrait parvenir _après_ que le document partitions ait été enregistré dans l'état mémoire, son traitement sera ignoré.
+- dans les deux cas _pour la session émettrice_ l'avis de mise à jour devrait parvenir _après_ que le document `partitions` ait été enregistré dans le _store_ mémoire, son traitement sera ignoré.
 
 ## Le document `comptas` d'une session change quasiment à chaque opération
 Une opération fait en général une lecture MAIS pas obligatoirement: si le document demandé est obtenu de la Cache du _serveur_ la consommation est nulle. Dans ce dernier cas:
