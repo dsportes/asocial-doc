@@ -722,7 +722,7 @@ _Comptes "O" seulement:_
     - rds: du groupe (clé d'accès à son `versions`)
     - `lp`: map des participations: 
       - _clé_: id court de l'avatar.
-      - _valeur_: indice `im` du membre dans la table `tmb` du groupe (`ids` du membre).
+      - _valeur_: indice `im` du membre dans la table `tid` du groupe (`ids` du membre).
 
 **Comptable seulement:**
 - `cleEK` : Clé E de l'espace cryptée par la clé K.
@@ -788,7 +788,7 @@ _data_:
     - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
     - `rds`: du groupe.
     - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe)
-    - `im`: indice du membre dans la table `tmb` du groupe.
+    - `im`: indice du membre dans la table `tid` du groupe.
     - `ivpar` : indice `im` de l'invitant.
     - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
@@ -802,7 +802,7 @@ Elle est effectuée en deux phases:
 - **une _chaîne_ de transactions différées:**
   - une pour chaque chat de l'avatar: mise à jour de l'exemplaire de l'autre et purge du sien.
   - une pour chaque groupe auquel l'avatar participe:
-    - mise à jour de la table `tmb`.
+    - mise à jour de la table `tid`.
     - purge du document `membres`.
     - si le groupe n'a plus de membres actifs, le groupe est _logiquement détruit_:
       - marque du document `versions` du groupe à _supprimé_ (`suppr` porte la date du jour).
@@ -1114,27 +1114,29 @@ Un groupe est caractérisé par :
 - son sous-document `chatgrs` (dont `ids` est `1`).
 - ses membres: des documents de sa sous-collection `membres`.
 
-## Membres d'un groupe: `im / ids`, la table `tmb`
+## Membres d'un groupe: `im / ids`, les tables `tid flags`
 Un membre est créé en étant déclaré _contact_ du groupe par un animateur ce qui lui affecte un _indice membre_ de 1 à N, attribué dans l'ordre d'inscription et sans réattribution (sauf cas particulier). Pour un groupe `id`, un membre est identifié par le couple `id / ids` (où `ids` est l'indice membre `im`). Le premier membre est celui du créateur du groupe et a pour indice 1.
 
-Les _flags_ et l'id de chaque membre d'index `im` sont stockés dans `tmb[im]` dont les éléments comportent 8 bytes:
-- _flags_ : les deux premiers bytes donnent les _flags_ du membre.
-- _id_ : les 6 suivants donnent son id (courte).
+Les _ids_ de chaque membre d'index `im` sont stockés dans `tid[im]`
+
+Les _flags_ de chaque membre d'index `im` sont stockés dans `flags[im]`
 
 ## États _contact / actif / inconnu_
 ### Disparu
 C'est un _ex membre_ qui a eu une existence et qui s'est auto-résilié ou dont le GC a détecté son absence.
 - il avait un indice `im`: 
-  - s'il n'a pas jamais eu _accès aux notes_, `tmb[im]` est `null`, l'indice `im` est réutilisable.
-  - sinon il faut prévenir la réutilisation de l'indice: `tmb[im]` vaut `true` par convention.
+  - `flags[im]` vaut 0.
+  - s'il n'a pas jamais eu _accès aux notes_, `tid[im]` est `0`, l'indice `im` est réutilisable.
+  - sinon il faut prévenir la réutilisation de l'indice: `tid[im]` vaut `1` par convention.
 - il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar.
 - son id ne figure plus dans les listes noires.
 
 ### Oublié
 C'est un _ex membre_ qui a eu une existence et qui a fait l'objet d'une demande _d'oubli_ par le compte lui-même et dans certains cas par un animateur.
-- il avait un indice `im`: 
-  - s'il n'a pas jamais eu _accès aux notes_ et n'est pas en _liste noire_, `tmb[im]` est `null`, l'indice `im` est réutilisable.
-  - sinon il faut prévenir la réutilisation de l'indice: `tmb[im]` vaut `true` par convention.
+- il avait un indice `im`:
+  - `flags[im]` vaut 0.
+  - s'il n'a pas jamais eu _accès aux notes_ et n'est pas en _liste noire_, `tid[im]` est `0`, l'indice `im` est réutilisable.
+  - sinon il faut prévenir la réutilisation de l'indice: `tid[im]` vaut `1` par convention.
 - il n'a plus de sous-documents `membres`, dans le groupe on ne connaît plus, ni son nom, ni l'id de son avatar.
 - **son id peut encore figurer dans les listes noires.**
 
@@ -1142,7 +1144,8 @@ C'est un _ex membre_ qui a eu une existence et qui a fait l'objet d'une demande 
 Quand um membre est un _contact_:
 - il a un indice `im` et des flags associés.
 - il a un document `membres` identifié par `[idg, im]` qui va donner sa clé et sa carte de visite.
-- il est connu dans `groupes` dans `tmb` à l'indice `im`.
+- il est connu dans `groupes` dans `tid` à l'indice `im`.
+- il peut avoir des flags dans `flags[im]`
 - **son compte ne le connaît pas**, il n'a pas le groupe dans sa liste de groupes.
 
 ### Contact invité
@@ -1150,6 +1153,7 @@ Un _contact_ peut avoir une _invitation_ en cours déclarée par un animateur (o
 - son avatar connaît cette invitation qui est stockée dans la map `invits` de son document `avatars`.
 - une invitation n'a pas de date limite de validité.
 - une invitation peut être annulée par un animateur ou l'avatar invité lui-même.
+- il a au moins le flag [IN] dans `flags[im]`
 
 ### Actif
 Quand un membre est _actif_:
@@ -1157,6 +1161,7 @@ Quand un membre est _actif_:
 - **son compte le connaît**, son compte a le groupe dans sa liste de groupes `mpg`,
 - le compte peut décider de redevenir _contact_, voire d'être _oublié_ du groupe (et devenir _inconnu_).
 - un animateur peut supprimer tous les droits d'un membre _actif_ mais il reste _actif_ (bien que très _passif_ par la force des choses).
+- il a au moins les flags [AC AH] dans `flags[im]`
 
 > Remarques:
 > - Un membre ne devient _actif_ que quand son compte a explicitement **validé une invitation** déclarée par un animateur (ou tous).
@@ -1172,9 +1177,9 @@ Le membre est en liste noire si son id apparaît dans une des deux listes:
 ### `im` attribués ou libres
 La règle générale est de ne pas libérer un `im` pour un futur autre membre quand un membre disparaît ou est oublié. Cet indice peut apparaître dans la liste des auteurs d'une note, la ré-attribution pourrait porter à confusion sur l'auteur d'une note.
 
-L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes. `tmb[im]` est `null`.
+L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes. `tid[im]` est `0`.
 
-### Table `tmb` : _flags_
+### Table `flags`
 - _statut_ :
   - [AC] **est _actif_**
   - [IN] **a une invitation en cours**
@@ -1216,7 +1221,7 @@ Une invitation est enregistrée dans la map `invits` de l'avatar invité:
 - _valeur_: `{cleGA, cvg, im, ivpar, dh}` 
   - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
   - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe)
-  - `im`: indice du membre dans la table `tmb` du groupe.
+  - `im`: indice du membre dans la table `tid` du groupe.
   - `ivpar` : indice `im` de l'invitant.
   - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
@@ -1251,7 +1256,10 @@ _data_:
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
-- `tmb` : table des membres.
+- `tid` : table des ids courts des membres.
+- `flags` : tables des flags.
+- `lng` : liste noire _groupe_ des ids (courts) des membres.
+- `lnc` : liste noire _compte_ des ids (courts) des membres.
 - `cvG` : carte de visite du groupe, textes cryptés par la clé du groupe `{v, photo, info}`.
 
 ## Décompte des participations à des groupes d'un compte
@@ -1287,7 +1295,7 @@ _data_:
 
 ### Inscription comme contact
 - s'il est en liste noire, refus.
-- recherche de l'indice `im` dans la table `tmb` du groupe pour l'id de l'avatar.
+- recherche de l'indice `im` dans la table `tid` du groupe pour l'id de l'avatar.
 - SI `im` n'existe pas,
   - c'est une première vie OU une nouvelle vie après oubli de la précédente.
   - un nouvel indice `im` lui est attribué en séquence s'il n'y en a pas de libre.
@@ -1309,13 +1317,13 @@ _data_:
 - inscription éventuelle en liste noire `lng`.
 - s'il est _actif_ ou _invité_, refus.
 - le document `membres` est détruit.
-- s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+- s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tid[im]` est mis à `null`, sinon il est mis à `true`.
 
 ### Refus d'invitation par le compte
 - Options possibles:
   - **rester en contact**. les _flags_ sont mis à jour.
   - **m'oublier** et me mettre en liste noire `lnc` ou non.
-    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tid[im]` est mis à `null`, sinon il est mis à `true`.
     - le document `membres` est détruit.
 - son item dans `invits` de son avatar est effacé.
 
@@ -1336,7 +1344,7 @@ _data_:
 - Options possibles:
   - **rester en contact**. les _flags_ sont mis à jour.
   - **m'oublier** et me mettre en liste noire `lnc` ou non.
-    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tmb[im]` est mis à `null`, sinon il est mis à `true`.
+    - s'il n'a jamais eu accès en écriture aux notes son slot `im` est réutilisable `tid[im]` est mis à `null`, sinon il est mis à `true`.
     - le document `membres` est détruit.
 - si le membre était le dernier _actif_, le groupe disparaît.
 - la participation au groupe disparaît de `mpg` du compte.
