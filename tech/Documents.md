@@ -675,10 +675,10 @@ _data_:
 L'ajout / retrait de la qualité de _délégué_ n'est effectué que par le Comptable au delà du choix initial établi au sponsoring par un _délégué_ ou le Comptable.
 
 ### Synchronisation
-**La session d'un compte délégué** reçoit l'intégralité du document `partitions`, mais  `notifC` est null.
+**La session d'un compte délégué** reçoit l'intégralité du document `partitions`, SAUF `notifC`.
 
-**La session d'un compte NON délégué** reçoit le document `partitions`, SAUF `tcpt`. La propriété notifC a la valeur de tcpt[it].notif du document. 
-- le document partitions est amputé de tout ce qui est relatif aux autres comptes de la partition.
+**La session d'un compte NON délégué** reçoit le document `partitions`, SAUF `tcpt`. La propriété `notifC` a la valeur de `tcpt[it].notif` du document. 
+- le document `partitions` est amputé de tout ce qui est relatif aux autres comptes de la partition.
 - les clés A des délégués sont disponibles, ils sont joignables et leurs cartes de visite accessibles.
 
 ## Gestion des quotas totaux par _partitions_
@@ -706,8 +706,7 @@ _data_ :
 _Comptes "O" seulement:_
 - `clePA` : clé P de la partition cryptée par la clé A de l'avatar principal du compte.
 - `del` : `true` si le compte est délégué de la partition.
-- idp : 
-- `it` : index du compte dans les tables `tcpt` de son document `partitions`.
+- `it` : index du compte dans `tcpt` de son document `partitions`.
 
 - `mav` : map des avatars du compte. 
   - _clé_ : id court de l'avatar.
@@ -727,7 +726,7 @@ _Comptes "O" seulement:_
 **Comptable seulement:**
 - `cleEK` : Clé E de l'espace cryptée par la clé K.
 - `tp` : table des partitions : `{c, qc, q1, q2}`.
-  - `c` : `{ cleP, cleD, code }` crypté par la clé K du comptable
+  - `c` : `{ cleP, code }` crypté par la clé K du comptable
     - `cleP` : clé P de la partition.
     - `code` : texte très court pour le seul usage du comptable.
   - `qc, q1, q2` : quotas globaux de la partition.
@@ -756,9 +755,9 @@ _Comptes "A" seulement_
   - moins les dons faits aux autres.
 - `ticketsK`: liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
 
-- `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte, cryptée par la clé K du compte.
+- `apropos` : map à propos des contacts (des avatars) et des groupes _connus_ du compte,
   - _cle_: `id` court de l'avatar ou du groupe,
-  - _valeur_ : `{ hashtags, texte }`
+  - _valeur_ : `{ hashtags, texte }` cryptée par la clé K du compte.
     - `hashtags` : liste des hashtags attribués par le compte.
     - `texte` : commentaire écrit par le compte.
 
