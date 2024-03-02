@@ -657,6 +657,7 @@ _data_:
 
 - `rds`
 - `qc q1 q2` : quotas totaux de la partition.
+- `clePK` : clé P de la partition cryptée par la clé K du comptable.
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
 - `notifC`: notification de niveau _compte_ dont le texte est crypté par la clé P de la partition. Voir ci-après.
 
