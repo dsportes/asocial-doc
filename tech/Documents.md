@@ -589,6 +589,9 @@ _data_ :
 
 - `rds`
 - `cleES` : clé E cryptée par la clé S.
+- `creation` : date de création.
+- `moisStat` : dernier mois de calcul de la statistique des comptas.
+- `moisStatT` : dernier mois de calcul de la statistique des tickets.
 - `notif` : notification de l'administrateur. Texte crypté par la clé A du Comptable (une constante bien connue depuis le `ns`).
 - `dlvat` : `dlv` de l'administrateur technique.
 - `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc q1 q2` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
@@ -627,17 +630,17 @@ _data_:
 - `v` : date-heure d'écriture (purement informative).
 
 - `tp` : table des synthèses des partitions de l'espace. L'indice dans cette table est l'id court de la partition. Chaque élément est la sérialisation de:
-  - `qc q1 q2` : quotas de la partition.
-  - `ac a1 a2` : sommes des quotas attribués aux comptes attachés à la partition.
-  - `c2M nx v2` : somme des consommations journalières et des volumes effectivement utilisés.
+  - `qc qn qv` : quotas de la partition.
+  - `ac an av` : sommes des quotas attribués aux comptes attachés à la partition.
+  - `c n v` : somme des consommations journalières et des volumes effectivement utilisés.
   - `ntr0` : nombre de notifications partition sans restriction d'accès.
-  - `ntr1` : nombre de notifications partition avec restriction d'accès _lecture seule_.
-  - `ntr2` : nombre de notifications partition avec restriction d'accès _minimal_.
+  - `ntr1` : nombre de notifications partition avec restriction d'accès 1.
+  - `ntr2` : nombre de notifications partition avec restriction d'accès 2_.
   - `nbc` : nombre de comptes.
-  - `nbsp` : nombre de comptes _délégués_.
+  - `nbd` : nombre de comptes _délégués_.
   - `nco0` : nombres de comptes ayant une notification sans restriction d'accès.
-  - `nco1` : nombres de comptes ayant une notification avec restriction d'accès _lecture seule_.
-  - `nco2` : nombres de comptes ayant une notification avec restriction d'accès _minimal_.
+  - `nco1` : nombres de comptes ayant une notification avec restriction d'accès 1.
+  - `nco2` : nombres de comptes ayant une notification avec restriction d'accès 2.
 
 `tp[0]` est la somme des `tp[1..N]` calculé en session, pas stocké.
 
@@ -656,10 +659,9 @@ _data_:
 - `v` : 1..N
 
 - `rds`
-- `qc q1 q2` : quotas totaux de la partition.
+- `qc qn qv` : quotas totaux de la partition.
 - `clePK` : clé P de la partition cryptée par la clé K du comptable.
 - `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
-- `notifC`: notification de niveau _compte_ dont le texte est crypté par la clé P de la partition. Voir ci-après.
 
 - `ldel` : liste des clés A des délégués cryptées par la clé P de la partition.
 
@@ -667,20 +669,20 @@ _data_:
   - `notif`: notification de niveau compte dont le texte est crypté par la clé P de la partition (`null` s'il n'y en a pas).
   - `cleAP` : clé A du compte crypté par la clé P de la partition.
   - `del`: `true` si c'est un délégué.
-  - `q` : `qc q1 q2 c2M nx v2` extraits du document `comptas` du compte. 
-    - En cas de changement de `qc q1 q2` la copie est immédiate, sinon c'est effectué seulement lors de la prochaine connexion du compte.
-    - `c2M` : consommation moyenne mensuelle lissée sur M et M-1 (conso2M de compteurs)
-    - `nx` : nn + nc + ng nombre de notes, chats, participation aux groupes.
-    - `v2` : volume de fichiers effectivement occupé.
+  - `q` : `qc qn qv c n v` extraits du document `comptas` du compte. 
+    - En cas de changement de `qc qn qv` la copie est immédiate, sinon c'est effectué seulement lors de la prochaine connexion du compte.
+    - `c` : consommation moyenne mensuelle lissée sur M et M-1 (`conso2M` de compteurs)
+    - `n` : nn + nc + ng nombre de notes, chats, participation aux groupes.
+    - `v` : volume de fichiers effectivement occupé.
 
 L'ajout / retrait de la qualité de _délégué_ n'est effectué que par le Comptable au delà du choix initial établi au sponsoring par un _délégué_ ou le Comptable.
 
 ### Synchronisation
-**La session d'un compte délégué** reçoit l'intégralité du document `partitions`, SAUF `notifC`.
+**La session d'un compte délégué** reçoit l'intégralité du document `partitions`.
 
-**La session d'un compte NON délégué** reçoit le document `partitions`, SAUF `tcpt`. La propriété `notifC` a la valeur de `tcpt[it].notif` du document. 
+**La session d'un compte NON délégué** reçoit le document `partitions` SAUF `tcpt`.
 - le document `partitions` est amputé de tout ce qui est relatif aux autres comptes de la partition.
-- les clés A des délégués sont disponibles, ils sont joignables et leurs cartes de visite accessibles.
+- les clés A des délégués sont disponibles, ils sont joignables et leurs cartes de visite accessibles sur demande.
 
 ## Gestion des quotas totaux par _partitions_
 La déclaration d'une partition par le Comptable d'un espace consiste à définir :
@@ -746,7 +748,7 @@ _data_ :
 
 - `rds`
 - `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
-- `qv` : `{qc, q1, q2, nn, nc, ng, v2}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
+- `qv` : `{qc, qn, qv, nn, nc, ng, v}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
 - `compteurs` sérialisation des quotas, volumes et coûts.
 
 _Comptes "A" seulement_
@@ -783,7 +785,7 @@ _data_:
 - `cvA` : carte de visite de l'avatar `{v, photo, texte}`. photo et texte cryptés par la clé A de l'avatar.
 
 - `invits`: map des invitations en cours de l'avatar:
-  - _clé_: `idav/idg` id de l'avatar invité / id du groupe.
+  - _clé_: `idav/idg` id court de l'avatar invité / id court du groupe.
   - _valeur_: `{cleGA, rds, cvg, im, ivpar, dh}` 
     - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
     - `rds`: du groupe.
@@ -950,21 +952,22 @@ L'`id` d'un exemplaire d'un chat est le couple `id, ids`.
 
 _data_ (de l'exemplaire I):
 - `id`: id de I,
-- `ids`: hash de l'id courte de E.
+- `ids`: aléatoire.
 - `v`: 1..N.
 - `vcv` : version de la carte de visite de E.
 
 - `st` : deux chiffres `I E`
   - I : 0:passif, 1:actif
   - E : 0:passif, 1:actif, 2:disparu
+- `idE idsE` : identifiant de _l'autre_ chat.
 - `cvA` : `{v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat (textes cryptés par sa clé A).
 - `CK` : clé C du chat cryptée par la clé K du compte de I.
 - `CA` : clé C du chat cryptée par la clé A quand le chat vient d'être créé par E (sera ré-encryptée en CK).
+- `cleEC` : cle de l'avatar E cryptée par la clé du chat.
 - `items` : liste des items `[{a, dh, l t}]`
   - `a` : 0:écrit par I, 1: écrit par E
   - `dh` : date-heure d'écriture.
   - `dhx` : date-heure de suppression.
-  - `l` : taille du texte.
   - `t` : texte crypté par la clé C du chat (vide s'il a été supprimé).
 
 ## Actions possibles (par I)
@@ -1004,7 +1007,7 @@ P est le parrain-sponsor, F est le filleul-sponsorisé.
 
 _data_:
 - `id` : id de l'avatar sponsor.
-- `ids` : `ns` + hash du PBKFD de la phrase réduite de parrainage, 
+- `ids` : `ns` + (hYR) hash du PBKFD de la phrase réduite de parrainage, 
 - `v`: 1..N.
 - `dlv` : date limite de validité
 
@@ -1014,7 +1017,7 @@ _data_:
 - `dh`: date-heure du dernier changement d'état.
 - `cleAYC` : clé A du sponsor crypté par le PBKFD de la phrase complète de sponsoring.
 - `clePYC` : clé P de sa partition (si c'est un compte "O") cryptée par le PBKFD de la phrase complète de sponsoring (donne le numéro de partition).
-- `cleDYC` : clé D de délégation de sa partition (si c'est un compte "O" délégué) cryptée par le PBKFD de la phrase complète de sponsoring.
+- `del` : `true` si le sponsorisé est délégué de sa partition.
 - `cvA` : `{ v, photo, info }` du sponsor, textes cryptés par sa cle A.
 - `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
   - pour un compte "A" `[0, 1, 1]`. Un tel compte n'a pas de `qc` et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
@@ -1052,16 +1055,15 @@ Pour une note de groupe, le droit de mise à jour d'une note d'un groupe est con
 
 _data_:
 - `id` : id de l'avatar ou du groupe.
-- `ids` : identifiant relatif à son avatar.
+- `ids` : identifiant aléatoire relatif à son avatar.
 - `v` : 1..N.
 
 - `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
 - `v2` : volume total des fichiers attachés.
-- `ht` :
-  - note personnelle : liste des hashtags cryptée par la clé K du compte.
-  - note de groupe : liste des hashtags cryptée par la clé du groupe.
+- `ht` : liste des hashtags _personnels_ cryptée par la clé K du compte.
+- `htg` : note de groupe : liste des hashtags cryptée par la clé du groupe.
 - `htm` : pour une note de groupe seulement, hashtags des membres. Map:
-    - _clé_ : `hgc` du compte de l'auteur,
+    - _clé_ : id courte du compte de l'auteur,
     - _valeur_ : liste des hashtags cryptée par la clé K du compte.
 - `l` : liste des _auteurs_ (leurs `im`) pour une note de groupe.
 - `d` : date-heure de dernière modification du texte.
@@ -1071,11 +1073,9 @@ _data_:
 
 !!!TODO!!! : vérifier / préciser `nomp`
 
-**_Remarque :_** une note peut être logiquement supprimée. Afin de synchroniser cette forme particulière de mise à jour le document est conservé _zombi_ (sa _data_ est `null`). La note sera purgée un jour avec son avatar / groupe.
+**Une note peut être logiquement supprimée**. Afin de synchroniser cette forme particulière de mise à jour le document est conservé _zombi_ (sa _data_ est `null`). La note sera purgée un jour avec son avatar / groupe.
 
-**`hgc` du compte de l'auteur**
-- un compte génère son `hgc` par le hash de son id crypté par sa clé K. 
-- de cette façon tous les avatars d'un compte bénéficient des mêmes hashtags mais les autres membres n'ont pas moyen de savoir à quel membre attribuer le `hgc` correspondant.
+**Pour une note de groupe**, la propriété `htm` n'est pas transmise en session: l'item correspondant au compte est copié dans `ht`.
 
 ## Map des fichiers attachés
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id_court` du groupe / avatar, `idf`
