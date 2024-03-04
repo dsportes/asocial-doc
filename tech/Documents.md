@@ -1059,17 +1059,17 @@ _data_:
 - `v` : 1..N.
 
 - `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
-- `v2` : volume total des fichiers attachés.
+- `vf` : volume total des fichiers attachés.
 - `ht` : liste des hashtags _personnels_ cryptée par la clé K du compte.
 - `htg` : note de groupe : liste des hashtags cryptée par la clé du groupe.
-- `htm` : pour une note de groupe seulement, hashtags des membres. Map:
+- `htm` : NON TRANSMIS en session pour une note de groupe seulement, hashtags des membres. Map:
     - _clé_ : id courte du compte de l'auteur,
     - _valeur_ : liste des hashtags cryptée par la clé K du compte.
 - `l` : liste des _auteurs_ (leurs `im`) pour une note de groupe.
 - `d` : date-heure de dernière modification du texte.
 - `texte` : texte (gzippé) crypté par la clé de la note.
-- `mfas` : map des fichiers attachés.
-- `refs` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa note _parent_.
+- `mfa` : map des fichiers attachés.
+- `ref` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa note _parent_.
 
 !!!TODO!!! : vérifier / préciser `nomp`
 
@@ -1288,6 +1288,7 @@ _data_:
   - `dam fam` : d'accès aux membres.
 - `flagsiv` : flags de l'invitation en cours.
 - `inv` : . Liste des indices des animateurs ayant validé la dernière invitation.
+- `idm` : id de l'avatar membre
 - `cleAG` : clé A de l'avatar membre cryptée par la clé G du groupe.
 - `cvA` : carte de visite du membre `{v, photo, info}`, textes cryptés par la clé A de l'avatar membre.
 
