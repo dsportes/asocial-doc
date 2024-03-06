@@ -708,6 +708,8 @@ _data_ :
 
 _Comptes "O" seulement:_
 - `clePA` : clé P de la partition cryptée par la clé A de l'avatar principal du compte.
+- `rdsp` : `rds` (court) du documents partitions.
+- `idp` : id de la partition (pour le serveur) (sinon 0)
 - `del` : `true` si le compte est délégué de la partition.
 - `it` : index du compte dans `tcpt` de son document `partitions`.
 
