@@ -704,7 +704,7 @@ _data_ :
 
 - `rds`
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
-- `cleKXR` : clé K cryptée par XR.
+- `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
 
 _Comptes "O" seulement:_
 - `clePA` : clé P de la partition cryptée par la clé A de l'avatar principal du compte.
@@ -734,7 +734,7 @@ _Comptes "O" seulement:_
   - `c` : `{ cleP, code }` crypté par la clé K du comptable
     - `cleP` : clé P de la partition.
     - `code` : texte très court pour le seul usage du comptable.
-  - `qc, q1, q2` : quotas globaux de la partition.
+  - `qc, qn, qv` : quotas globaux de la partition.
 
 La première partition d'`id` 1 est celle du Comptable et est indestructible.
 
