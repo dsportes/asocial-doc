@@ -784,7 +784,9 @@ _data_:
 - `cleAZC` : clé A cryptée par ZC (PBKFD de la phrase de contact complète).
 - `pcK` : phrase de contact complète cryptée par la clé K du compte.
 
-- `cvA` : carte de visite de l'avatar `{v, photo, texte}`. photo et texte cryptés par la clé A de l'avatar.
+- `cvA` : carte de visite de l'avatar `{id, v, photo, texte}`. photo et texte cryptés par la clé A de l'avatar.
+
+- `pub privK` : couple des clés publique / privée RSA de l'avatar.
 
 - `invits`: map des invitations en cours de l'avatar:
   - _clé_: `idav/idg` id court de l'avatar invité / id court du groupe.
@@ -933,11 +935,11 @@ Pour ajouter un item sur un chat, I doit connaître la clé de E : membre d'un m
 ## Clé d'un chat
 La clé C du chat est générée à la création du chat et l'ajout du premier item:
 - côté I, cryptée par la clé K de I,
-- côté E, cryptée par la clé A de E. Dans ce cas à la première écriture de E celle-ci sera ré-encryptée par la clé K de E.
+- côté E, cryptée par la clé `pub` de E.
 
 ## Décompte des nombres de chats par compte
 - un chat est compté pour 1 pour I quand la dernière opération qu'il a effectuée est un ajout: si cette dernière opération est un _raz_, le chat est dit _passif_ et compte pour 0.
-- ce principe de gestion évite de pénaliser ceux qui reçoivent des chats non sollicités et qui les _effacent_.
+- ceux qui reçoivent des chats non sollicités et qui les _effacent_ ce principe de gestion évite de pénaliser .
 
 ## Résiliation / disparition de E
 Quand un avatar ou un compte s'auto-résilie ou quand le GC détecte la disparition d'un compte par dépassement de sa date limite de validité, il _résilie_ tous ses avatars, puis le compte lui-même.
@@ -962,10 +964,11 @@ _data_ (de l'exemplaire I):
   - I : 0:passif, 1:actif
   - E : 0:passif, 1:actif, 2:disparu
 - `idE idsE` : identifiant de _l'autre_ chat.
-- `cvA` : `{v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat (textes cryptés par sa clé A).
-- `CK` : clé C du chat cryptée par la clé K du compte de I.
-- `CA` : clé C du chat cryptée par la clé A quand le chat vient d'être créé par E (sera ré-encryptée en CK).
-- `cleEC` : cle de l'avatar E cryptée par la clé du chat.
+- `cvE` : `{id, v, photo, info}` carte de visite de E au moment de la création / dernière mise à jour du chat (textes cryptés par sa clé A).
+- `cleCKP` : clé C du chat cryptée,
+  - si elle a une longueur inférieure à 256 bytes par la clé K du compte de I.
+  - sinon cryptée par la clé RSA publique de I.
+- `cleEC` : clé A de l'avatar E cryptée par la clé du chat.
 - `items` : liste des items `[{a, dh, l t}]`
   - `a` : 0:écrit par I, 1: écrit par E
   - `dh` : date-heure d'écriture.
@@ -985,14 +988,15 @@ _data_ (de l'exemplaire I):
 - _raz_ : effacement total de l'historique des items (du côté I)
   - `items` est vidée du côté I.
   - `st` de I vaut `01` et `st` de E vaut `10` ou `00`.
-  - le chat est dit _passif_ du côté I et ne redeviendra _actif_ qu'au prochain ajout d'un item par I.
+  - le chat devient _passif_ du côté I.
 
 > Un chat _passif_ pour un avatar reste un chat _écouté_, les items écrits par E arrivent, mais sur lequel I n'écrit pas. Il redevient _actif_ pour I dès que I écrit un item et ne redevient _passif_ que quand il fait un _raz_.
 
-## Établir un _contact direct_ entre A et B
-Si B veut ouvrir un chat avec A mais ne l'a pas en _contact_, n'en connaît pas la clé. S'il en connaît la _phrase de contact_, 
-- il calcule le hash de la phrase de contact réduite,
-- il demande par ce hash la clé A de A cryptée par le PBKFD de cette phrase.
+## Établir un _contact direct_ entre I et E
+Si I veut ouvrir un chat avec E mais ne l'a pas en _contact_, n'en connaît pas la clé A, il utilise la _phrase de contact_ de E, 
+- il calcule le hash de la phrase de contact réduite de E,
+- il demande par ce hash la clé A de A cryptée par le PBKFD de cette phrase de contact complète.
+- il demande la clé RSA publique de E pour crypter la clé générée du chat.
 
 ## Comptes "A" : dons par chat
 Un compte "A" _donateur_ peut faire un don à un autre compte "A" _bénéficiaire_ en utilisant un chat:
