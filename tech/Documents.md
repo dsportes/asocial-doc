@@ -1026,13 +1026,14 @@ _data_:
 - `clePYC` : clé P de sa partition (si c'est un compte "O") cryptée par le PBKFD de la phrase complète de sponsoring (donne le numéro de partition).
 - `nomYC` : nom du sponsorisé, crypté par le PBKFD de la phrase complète de sponsoring.
 - `del` : `true` si le sponsorisé est délégué de sa partition.
-- `cvA` : `{ v, photo, info }` du sponsor, textes cryptés par sa cle A.
+- `cvA` : `{ id, v, photo, info }` du sponsor, textes cryptés par sa cle A.
 - `quotas` : `[qc, q1, q2]` quotas attribués par le sponsor.
   - pour un compte "A" `[0, 1, 1]`. Un tel compte n'a pas de `qc` et peut changer à loisir `[q1, q2]` qui sont des protections pour lui-même (et fixe le coût de l'abonnement).
 - `don` : pour un compte autonome, montant du don.
 - `dconf` : le sponsor a demandé à rester confidentiel. Si oui, aucun chat ne sera créé à l'acceptation du sponsoring.
+- `dconf2` : le sponsorisé a demandé à rester confidentiel. Si oui, aucun chat ne sera créé à l'acceptation du sponsoring.
 - `ardYC` : ardoise de bienvenue du sponsor / réponse du sponsorisé cryptée par le PBKFD de la phrase de sponsoring.
-- `csp, itsp` : id du COMPTE sponsor et sont it dans sa partition. Écrit par le serveur et NON communiqué aux sessions.
+- `csp, itsp` : id du COMPTE sponsor et son it dans sa partition. Écrit par le serveur et NON communiqué aux sessions.
 
 **Remarques**
 - la `dlv` d'un sponsoring peut être modifiée tant que le statut est _en attente_.
