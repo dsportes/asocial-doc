@@ -98,7 +98,7 @@ Les opérations sont les suivantes:
 - OP_ChangementPC: 'Changement de la phrase de contact d\'un avatar',
 - OP_GetAvatarPC: 'Récupération d\'un avatar par sa phrase de contact',
 - OP_AjoutSponsoring: 'Création d\'un sponsoring',
-- OP_ChercherSponsoring: 'Recherche d\'un sponsoring',
+- OP_GetSponsoring: 'Recherche d\'un sponsoring',
 - OP_PassifChat: 'Mise en état "passif" d\'un chat',
 - OP_NouveauChat: 'Création d\'un "chat"',
 - OP_MajChat: 'Mise à jour d\'un "chat".',
