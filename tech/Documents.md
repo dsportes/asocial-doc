@@ -1258,7 +1258,7 @@ _data_:
 - `dfh` : date de fin d'hébergement.
 
 - `rds`
-- `nn qn v2 q2`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
+- `nn qn vf qv`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
 - `idh` : id du compte hébergeur (pas transmise aux sessions).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
 - `msu` : mode _simple_ ou _unanime_.
@@ -2183,9 +2183,17 @@ Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois) compatibl
   - C : d'un compte (comptes O) - lecture de `compte`
   - Q : de dépassement de quotas - lecture de `compta`
   - X : d'excès de consommation (dépassement du solde pour un compte "A") - lecture de `compta`. 
-- `comptas` : _presque_ toujours : pas si l'opération n'a rien lu ni écrit ce qui est possible (tout était en cache).
-- `compte` : en cas d'évolution _importante de comptas_ ou de maj de `compte`.
-- `espace partition` : en cas de maj par l'opération.
+- `rowCompta` : _presque_ toujours : pas si l'opération n'a rien lu ni écrit ce qui est possible (tout était en cache).
+- `rowCompte` : en cas d'évolution _importante de comptas_ ou de maj de `compte`.
+- `espace partition` : en cas de maj par une opération qui les ciblait.
+
+args vsync : [ vce, vci ] - versions de compte et compti détenues en session.
+  - retour du couple rowCompte, rowCompti pour anticipation d'une synchronisation ?
+
+Sur `Sync`:
+- notifs rowCompta
+- rowCompte rowCompti : si évolutions
+- rowAvatar ... rowGroupe ...
 
 ### Levée / baisse de notification E et P
 Si une notification E ou P se _lève_, a un niveau de restriction _montant_ (ou apparaît), la session n'en sait rien tant qu'elle ne lance pas un opération: **ce n'est pas grave**, puisque justement elle ne fait rien mais en sera averti dès qu'elle _agira_ (voire même une simple lecture).
