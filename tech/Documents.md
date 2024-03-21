@@ -1961,18 +1961,6 @@ Le résultat d'un cryptage a une longueur fixe de 256 bytes. Deux cryptages RSA 
 - identification, clé K, rds, hash de phrase secrète
 - id de sa partition pour un compte O et sa clé clePK.
 - mav / mpg
-- `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
-- `qv` : `{ qc, qn, qv, pcc, pcn, pcv, nbj }`
-  - `pcc, pcn, pcv, nbj` : remontés de `compta` en fin d'opération quand l'un d'eux passe un seuil de 5% / 5j, à la montée ou à la descente.
-    - `pcc` : pour un compte O, pourcentage de sa consommation mensualisée sur M/M-1 par rapport à son quota `qc`.
-    - `nbj` : pour un compta A, nombre de jours estimés de vie du compte avant épuisement de son solde en prolongeant sa consommation des 4 derniers mois et son abonnement `qn qv`.
-    - `pcn` : pourcentage de son volume de notes / chats / groupes par rapport à son quota qn.
-    - `pcv` : pourcentage de son volume de fichiers par rapport à son quota qv.
-  - `qc qn qv` : maj immédiate en cas de changement des quotas.
-    - pour un compte O identiques à ceux de son entrée dans partition.
-    - pour un compte A, qn qv donné par le compte lui-même.
-    - en cas de changement, les compteurs de consommation sont remontés. 
-  - permet de calculer `notifQ`, `notifX` (O), `notifS` (A)
 
 **Synchronisé par son `rds`:**
 - évite la possibilité d'interprétation des fréquences de changements par un autre compte que le titulaire.
@@ -1990,10 +1978,24 @@ _data_ :
 - `rds`
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
+- `cleEK` : clé de l'espace cryptée par la clé K du compte, à la création de l'espace pour le Comptable, à l'acceptation du sponsoring pour les autres comptes.
+
+- `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
+- `qv` : `{ qc, qn, qv, pcc, pcn, pcv, nbj }`
+  - `pcc, pcn, pcv, nbj` : remontés de `compta` en fin d'opération quand l'un d'eux passe un seuil de 5% / 5j, à la montée ou à la descente.
+    - `pcc` : pour un compte O, pourcentage de sa consommation mensualisée sur M/M-1 par rapport à son quota `qc`.
+    - `nbj` : pour un compta A, nombre de jours estimés de vie du compte avant épuisement de son solde en prolongeant sa consommation des 4 derniers mois et son abonnement `qn qv`.
+    - `pcn` : pourcentage de son volume de notes / chats / groupes par rapport à son quota qn.
+    - `pcv` : pourcentage de son volume de fichiers par rapport à son quota qv.
+  - `qc qn qv` : maj immédiate en cas de changement des quotas.
+    - pour un compte O identiques à ceux de son entrée dans partition.
+    - pour un compte A, qn qv donné par le compte lui-même.
+    - en cas de changement, les compteurs de consommation sont remontés. 
+  - permet de calculer `notifQ`, `notifX` (O), `notifS` (A)
 
 _Comptes "O" seulement:_
 - `clePK` : clé P de la partition cryptée par la clé K du compte. Si cette clé a une longueur de 256, la clé P a été cryptée par la clé publique de l'avatar principal du compte suite à une affectation à une partition APRÈS sa création (changement de partition, passage de compte A à O)
-- `idp` : id de la partition.
+- `idp` : id de la partition (son numéro).
 - `del` : `true` si le compte est délégué de la partition.
 - `notif`: notification de niveau _compte_ dont le texte est crypté par la clé P de la partition (`null` s'il n'y en a pas).
 
@@ -2011,12 +2013,9 @@ _Comptes "O" seulement:_
     - `lav`: liste de ses avatars participant au groupe.
 
 **Comptable seulement:**
-- `cleEK` : Clé E de l'espace cryptée par la clé K. ???
-- `mp` : map des partitions
-  - _clé_ : id de la partition,
-  - _valeur_ : clé P de la partition cryptée par la clé K du Comptable.
-
-**Remarque:** dans `compti`, le Comptable peut affecter un commentaire et des mots clés à la partition.
+- `tpK` : table des partitions cryptée par la clé K du Comptable `[ {cleP, code }]`. Son index est le numéro de la partition.
+  - `cleP` : clé P de la partition.
+  - `code` : code / commentaire court de convenance attribué par le Comptable
 
 ### `compta`
 **Ce document est lu à chaque début d'opération et mis à jour par l'opération.**
@@ -2041,12 +2040,9 @@ _data_:
   - `ticketsK`: liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
 
 ### `compti`
-Commentaires à propos des avatars et groupes connus du compte.
+Information personnelle / commentaires à propos des avatars et groupes connus du compte.
 
-**Synchronisé par rds du compte:**
-- _lecture_ seulement par Sync.
-
-**Retourné à la session à chaque opération l'ayant mis à jour** (anticipe une synchronisation).
+**Synchronisé par rds du compte:** _lecture_ seulement par `Sync`.
 
 _data_:
 - `id` : id du compte.
@@ -2059,14 +2055,14 @@ _data_:
     - `tx` : commentaire écrit par le compte.
 
 ## Sous-arbres avatar / groupe
-Synchronisés par rds de l'avatar / groupe
+Synchronisés par `rds` de l'avatar / groupe
 - évite une analyse de trafic de maj par des comptes autres que le compte lui-même.
-- _lecture_ par Sync uniquement:
+- _lecture_ par `Sync` uniquement:
   - sauf sponsorings qui peut être lu par un compte en création (par se clé de sponsoring).
 
 ## Documents `partitions` des partitions d'un espace
 Une partition est créée par le Comptable qui peut la supprimer quand il n'y a plus de comptes attachés à elle. 
-- L'identifiant d'une partition est un numéro aléatoire (relatif à son espace ns).
+- L'identifiant d'une partition est un numéro d'ordre de 1 à N attribué en séquence par le Comptable à sa création.
 
 **La clé P d'une partition** sert uniquement à crypter les textes des notifications de niveau partition ou relatif à un compte.
 - elle est générée à la création de la partition,
@@ -2077,39 +2073,49 @@ Une partition est créée par le Comptable qui peut la supprimer quand il n'y a 
 **Un document partition est explicitement demandé** (pas d'abonnement) par une session,
 - soit du Comptable,
 - soit d'un délégué.
-
-Un compte non délégué n'a pas accès au document de sa partition: il ne peut que demander au serveur la liste des `cleA` des délégués (donc leur ids) ce qui lui permet de les contacter pour un _chat d'urgence_.
-
-**A chaque opération** un compte récupère la _notification_ de niveau partition: c'est une lecture _lazy_ (comme pour `espace`), une notification du Comptable au niveau partition peut mettre 5 minutes à être prise en compte par les opérations.
+- un compte non délégué n'a pas accès au document de sa partition: il ne peut que demander au serveur la liste des `cleA` des délégués (donc leur ids) ce qui lui permet de les contacter pour un _chat d'urgence_.
 
 **Toute opération engagée par le Comptable ou un délégué** retourne la partition mise à jour. Ces opérations sont:
 - attachement / détachement d'un compte.
 - attribution / retrait de son statut de délégué.
-- pose / retrait d'une notification de niveau P ou C (pour un seul compte). La notification C est dans le compte mais son `nr` figure ici.
+- pose / retrait d'une notification de niveau P ou C (pour un seul compte). La notification C est dans le compte mais son `nr` figure ici, la notification P figure dans espaces mais son `nr` est répliqué dans `partitions`.
 - modification des quotas globaux de la partition.
 - modification des quotas attribués à un compte.
 - **incorporation, sur demande explicite, des consommations des comptes**, dans les compteurs `c2m nn nc ng v` de chaque compte. Les compteurs de consommation sont extraits des `comptas` des comptes par une transaction: ils sont _synchronisés_ (à la date `dhic`).
 
 _data_:
-- `id` : identifiant aléatoire de la partition généré par le Comptable à sa création.
+- `id` : numéro de partition attribué par le Comptable à sa création.
 - `v` : 1..N
 
 - `dhic` : date-heure de la dernière incorporation des consommations des comptes attachés à la partition.
-- `notif`: notification de niveau _partition_ dont le texte est crypté par la clé P de la partition.
+- `nrp`: niveau de restriction de la notification (éventuelle) de niveau _partition_ mémorisée dans `espaces` et dont le texte est crypté par la clé P de la partition.
+- `q`: `{ qc, qn, qv }` quotas globaux attribués à la partition par le Comptable.
 - `mcpt` : map des comptes attachés à la partition. 
   - _clé_: id du compte.
-  - _valeur_: `{ notif, cleA, del, q }`
-    - `nr`: niveau de restriction de la notification de niveau _compte_ (0 s'il n'y en a pas).
+  - _valeur_: `{ nr, cleA, del, q }`
+    - `nr`: niveau de restriction de la notification de niveau _compte_ (0 s'il n'y en a pas, 1 (sans restriction), 2 ou 3).
     - `cleAP` : clé A du compte crypté par la clé P de la partition.
     - `del`: `true` si c'est un délégué.
-    - `q` : `qc qn qv c2m nn nc nv v` extraits du document `comptas` du compte.
+    - `q` : `qc qn qv c2m nn nc ng v` extraits du document `comptas` du compte.
       - `c2m` est le compteur `conso2M` de compteurs, montant moyen _mensualisé_ de consommation de calcul observé sur M/M-1 (observé à `dhic`). 
 
-**Des compteurs _de synthèse_** `synth` sont calculés (en session ou dans le serveur):
-- `q` : les totaux des compteurs `q` de tous les comptes,
+`mcpt` compilé - Ajout à `q` :
+  - `pcc` : pourcentage d'utilisation de la consommation journalière `c2m / qc`
+  - `pcn` : pourcentage d'utilisation effective de qn : `nn + nc ng / qn`
+  - `pcv` : pourcentage d'utilisation effective de qc : `v / qv`
+
+**Un enregistrement `synth` est calculé** (en session ou dans le serveur):
+- `qt` : les totaux des compteurs `q` : (`qc qn qv c2m n (nn+nc+ng) v`) de tous les comptes,
 - `ntf`: [1, 2, 3] - le nombre de comptes ayant des notifications de niveau de restriction 1 / 2 / 3. 
 - `nbc nbd` : le nombre total de comptes et le nombre de délégués.
-- `nrp` : le niveau de restriction de sa notification de niveau partition.
+- _recopiés de la racine dans `synth`_ : `id nrp q`
+- plus, calculés localement :
+  - pcac : pourcentage d'affectation des quotas : qt.qc / q.qc
+  - pcan : pourcentage d'affectation des quotas : qt.qn / q.qn
+  - pcav : pourcentage d'affectation des quotas : qt.qv / q.qv
+  - pcc : pourcentage d'utilisation de la consommation journalière qt.c2m / q.qc
+  - pcn : pourcentage d'utilisation effective de qn : qt.n / q.qn
+  - pcv : pourcentage d'utilisation effective de qc : qt.v / q.qv
 
 ## Document `synthese` d'un espace
 Ce document est identifié par le ns de son espace. Il est demandé explicitement,
@@ -2120,84 +2126,83 @@ _data_:
 - `id` : ns de son espace.
 - `v` : date-heure de dernière mise à jour (à titre informatif).
 
-- `msynth` : map des _synthèses_ des partitions.
-  - _clé_: id de la partition.
+- `tsp` : table des _synthèses_ des partitions.
+  - _index_: numéro de la partition.
   - _valeur_ : `synth`, objet des compteurs de synthèse calculés de la partition.
+    - `id nbc nbd`
+    - `ntfp[1,2,3]`
+    - `q` : `{ qc, qn, qv }`
+    - `qt` : { qc qn qv c2m n v }`
+    - `ntf[1,2,3]`
+    - `pcac pcan pcav pcc pcn pcv`
 
-Des compteurs sont calculés en session depuis ceux ci-dessus.
+Une agrégation des `synth[i]` est calculée en session et stockée en `tsp[0]`.
 
-Le document `syntheses` est mis à jour à chaque fois qu'un document partition l'est: le `synth` de la partition est simplement reporté dans l'élément de map correspondant. En cas de suppression d'une partition son entrée est supprimée.
+Le document `syntheses` est mis à jour à chaque fois qu'un document partition l'est: le `synth` de la partition est simplement reporté dans l'élément d'indice correspondant de `tsp`. En cas de suppression d'une partition son entrée est supprimée.
 
 ## Documents `espaces`
-Ce document est créé par l'administrateur technique à l'occasion de la création de l'espace et du du compte du Comptable correspondant.
+Ce document est créé par l'administrateur technique à l'occasion de la création de l'espace et du Comptable correspondant.
 
-Il est obtenu sur demande:
-- par l'administrateur technique, qui d'ailleurs les demande tous.
-- par le Comptable de l'espace, qui ne peut demander que celui de son espace.
+Il est obtenu: 
+- **sur demande par l'administrateur technique**, qui les demande tous: le serveur lui décrypte les contenus de tous les espaces.
+- par **synchronisation** pour les comptes.
+
+Chaque compte reçoit dans son document `comptes` **la clé E de l'espace** cryptée par sa clé K: 
+- pour le Comptable à la création de l'espace, pour les autres à l'acceptation de leur sponsoring.
+- tout compte est en mesure de lire le contenu `contE` de SON espace, mais ne peut pas décrypter celui des autres espaces.
+- le serveur peut décrypter le contenu de tous les espaces et peut les communiquer en clair sur demande de l'administrateur technique seulement.
+
+**Les sessions sont systématiquement synchronisées à _leur_ espace:**
+- **elles sont ainsi informées à tout instant d'un changement de notification E de l'espace et P de leur partition**. 
+  - Dans le cas _Firestore_ ceci se fait par lecture _onSnapshot_ de la collection `espaces`, filtrée par l'id de l'espace.
+  - Rien n'empêche techniquement une application malicieuse de lire tous les espaces, sachant qu'elle ne serait en mesure de ne décrypter que le document du sien.
+- **elles sont informées des notifications C (pour un compte O), Q et X par synchronisation à leur compte:**
+  - les notifications de quota / consommation (Q et X) proviennent de dépassement de seuils de pourcentage (`pcn pcv` pour Q, `pcc nbj` pour X) qui remontent de `compta` à `compte` lors de franchissement de seuils (pas à chaque opération).
 
 _data_ :
 - `id` : de l'espace de 10 à 89.
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
 
-- `creation` : date de création.
-- `moisStat` : dernier mois de calcul de la statistique des comptas.
-- `moisStatT` : dernier mois de calcul de la statistique des tickets.
-- `notif` : notification de l'administrateur technique. Texte NON crypté.
-- `dlvat` : `dlv` de l'administrateur technique.
-- `t` : numéro de _profil_ de quotas dans la table des profils définis dans la configuration. Chaque profil donne un triplet de quotas `qc qn qv` qui serviront de guide pour le Comptable qui s'efforcera de ne pas en distribuer d'avantage sans se concerter avec l'administrateur technique.
+- `cleES` : clé de l'espace cryptée par la clé du site.
+- `contE` : données de l'espace encodées cryptées par la `cleE`:
+  - `creation` : date de création.
+  - `moisStat` : dernier mois de calcul de la statistique des comptas.
+  - `moisStatT` : dernier mois de calcul de la statistique des tickets.
+  - `dlvat` : `dlv` de l'administrateur technique.
+  - `notif` : notification de l'administrateur technique.
+  - `opt`: option des comptes autonomes.
+  - `nbmi`: nombre de mois d'inactivité acceptable pour un compte O fixé par le comptable. Ce changement n'a pas d'effet rétroactif.
+  - `tnotif` : table des notifications de niveau partition.
+    - _index_ : id (numéro) de la partition.
+    - _valeur_ : notification (ou `null`), texte crypté par la clé P de la partition.
 
-**Mis à jour par le Comptable:**
-- `opt`:
+Remarques:
+- `opt nbmi` : mis à jour par le cComptable. `opt`:
   - 0: 'Pas de comptes "autonomes"',
   - 1: 'Le Comptable peut rendre un compte "autonome" sans son accord',
   - 2: 'Le Comptable NE peut PAS rendre un compte "autonome" sans son accord',
-- `nbmi`: nombre de mois d'inactivité acceptable pour un compte O fixé par le comptable. Ce changement n'a pas d'effet rétroactif.
+- `tnotif` : mise à jour par le Comptable et les délégués des partitions.
 
-Au début de chaque opération, l'espace est lu afin de vérifier la présence d'une notification éventuellement restrictive.
+**Au début de chaque opération, l'espace est lu afin de vérifier la présence de notifications E et P** (éventuellement restrictives) de l'espace et de leur partition (pour un compte O):
 - c'est une lecture _lazy_ : si l'espace a été trouvé en cache et relu depuis la base depuis moins de 5 minutes, on l'estime à jour.
-- en conséquence, _quand il y a plusieurs serveurs en parallèle_, la prise en compte d'une notification n'est certaine qu'au bout de 5 minutes.
+- en conséquence, _quand il y a plusieurs serveurs en parallèle_, la prise en compte de ces notifications n'est _certaine_ qu'au bout de 5 minutes.
 
-**Le couple `{ opt, notif }` est retourné à _chaque opération_,** sachant qu'ayant été acquis _lazy_, sa validité est temporellement imprécise, sans impact fonctionnel réel.
-
-### `dlvat`
+### `dlvat nbmi`
 L'administrateur technique gère une `dlvat` pour l'espace : 
-- c'est la date à laquelle l'administrateur technique détruira les comptes "O". Cette information est disponible dans l'état de la session pour les comptes "O" (les comptes "A" n'étant pas intéressés).
+- c'est la date à laquelle l'administrateur technique détruira les comptes. Par défaut elle est fixée à la fin du siècle.
 - l'administrateur ne peut pas (re)positionner une `dlvat` à moins de `nbmi` mois du jour courant afin d'éviter les catastrophes de comptes supprimés sans que leurs titulaires n'aient eu le temps de se reconnecter.
-- par défaut, à l'initialisation elle vaut la fin du siècle.
 
 L'opération de mise à jour d'une `dlvat` est une opération longue du fait du repositionnement des `dlv` des comptes égales à la `dlvat` remplacée:
 - cette mise à jour porte sur le document `comptes`.
 - elle s'effectue en N opérations enchaînées. Au pire en cas d'incident en cours, une partie des comptes auront leur `dlv` mises à jour et pas d'autres: l'administrateur technique relance manuellement l'opération en surveillant sa bonne exécution complète.
 
-**Le maintien en vie d'un compte "O" en l'absence de connexion** a le double inconvénient, 
+**Le maintien en vie d'un compte en l'absence de connexion** a le double inconvénient, 
 - d'immobiliser des ressources peut-être pour rien,
 - d'augmenter les coûts d'avance sur les frais d'hébergement.
 
-Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois) compatible avec ses contraintes mais évitant de contraindre les comptes à des connexion inutiles rien que pour maintenir le compte en vie, et surtout à éviter qu'ils n'oublient de le faire et voir leurs comptes automatiquement résiliés après un délai trop bref de non utilisation.
+Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois),
+- évitant de contraindre les comptes à des connexions fréquentes rien que pour maintenir le compte en vie, 
+- évitant que les comptes oublient de le faire et se voient automatiquement résiliés après un délai trop bref de non utilisation de leur compte.
 
-## Synthèse: retour à chaque opération
-- `notifs` : E, P, C, Q, X
-  - E : de l'espace - lecture _lazy_ de `espace`
-  - P : d'une partition (comptes O) - lecture _lazy_ de `partition`
-  - C : d'un compte (comptes O) - lecture de `compte`
-  - Q : de dépassement de quotas - lecture de `compta`
-  - X : d'excès de consommation (dépassement du solde pour un compte "A") - lecture de `compta`. 
-- `rowCompta` : _presque_ toujours : pas si l'opération n'a rien lu ni écrit ce qui est possible (tout était en cache).
-- `rowCompte` : en cas d'évolution _importante de comptas_ ou de maj de `compte`.
-- `espace partition` : en cas de maj par une opération qui les ciblait.
-
-args vsync : [ vce, vci ] - versions de compte et compti détenues en session.
-  - retour du couple rowCompte, rowCompti pour anticipation d'une synchronisation ?
-
-Sur `Sync`:
-- notifs rowCompta
-- rowCompte rowCompti : si évolutions
-- rowAvatar ... rowGroupe ...
-
-### Levée / baisse de notification E et P
-Si une notification E ou P se _lève_, a un niveau de restriction _montant_ (ou apparaît), la session n'en sait rien tant qu'elle ne lance pas un opération: **ce n'est pas grave**, puisque justement elle ne fait rien mais en sera averti dès qu'elle _agira_ (voire même une simple lecture).
-
-Si une notification E ou P se _baisse_, a un niveau de restriction _descendante_ (ou disparaît), la session n'en sait rien: elle a toujours une icône rouge, mais peut être à tort. L'utilisateur peut être poussé à _attendre_ et à différer des opérations que si ça se trouve il pourrait exécuter, la notification ayant baissé à son insu.
-
-La bonne information arrivera lors d'une prochaine opération, d'où le principe de faire vérifier par la session le statut réel.
+> Il n'y a aucun moyen dans l'application pour contacter le titulaire d'un compte dans la _vraie_ vie, aucun identifiant de mail / téléphone, etc.
