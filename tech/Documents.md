@@ -777,8 +777,7 @@ _data_:
 - `vcv` : version de la carte de visite afin qu'une opération puisse détecter (sans lire le document) si la carte de visite est plus récente que celle qu'il connaît.
 - `hZR` : `ns` + hash du PBKFD de la phrase de contact réduite.
 
-- `rds`
-
+- `rds` : pas transmis en session.
 - `cleAZC` : clé A cryptée par ZC (PBKFD de la phrase de contact complète).
 - `pcK` : phrase de contact complète cryptée par la clé K du compte.
 
@@ -787,12 +786,10 @@ _data_:
 - `pub privK` : couple des clés publique / privée RSA de l'avatar.
 
 - `invits`: map des invitations en cours de l'avatar:
-  - _clé_: `idav/idg` id court de l'avatar invité / id court du groupe.
-  - _valeur_: `{cleGA, rds, cvg, im, ivpar, dh}` 
+  - _clé_: `idg` id court du groupe.
+  - _valeur_: `{cleGA, cvG, ivpar, dh}` 
     - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
-    - `rds`: du groupe.
-    - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe)
-    - `im`: indice du membre dans la table `tid` du groupe.
+    - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe).
     - `ivpar` : indice `im` de l'invitant.
     - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
@@ -1187,7 +1184,7 @@ La règle générale est de ne pas libérer un `im` pour un futur autre membre q
 
 L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparition_ quand **le membre n'a jamais eu accès aux notes en écriture**: son `im` n'a pas pu être référencé dans des notes. `tid[im]` est `0`.
 
-### Table `flags`
+### Table `flags / hists`
 - _statut_ :
   - [AC] **est _actif_**
   - [IN] **a une invitation en cours**
@@ -1201,7 +1198,7 @@ L'exception est _libérer_ un `im` à l'occasion d'un _oubli_ ou d'une _disparit
   - [PA] **d'animer le groupe**. 
   - _Remarque_: un animateur sans droit d'accès aux notes peut déclarer une invitation et être hébergeur.
 
-- _historique_
+- `hists` : _historique_
   - [HA] **a, un jour, été actif**
   - [HN] **avec accès aux notes**
   - [HM] **avec accès aux membres**
@@ -1225,11 +1222,10 @@ C'est une nouvelle vie dans le groupe. Les notes écrites dans la vie antérieur
 - pour revenir au mode _simple_ depuis le mode _unanime_, il faut que **TOUS** les animateurs aient validé ce retour.
 
 Une invitation est enregistrée dans la map `invits` de l'avatar invité:
-- _clé_: `idav/idg` id de l'avatar invité / id du groupe.
-- _valeur_: `{cleGA, cvg, im, ivpar, dh}` 
+- _clé_: `idg` id du groupe.
+- _valeur_: `{cleGA, cvg, ivpar, dh}` 
   - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
   - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe)
-  - `im`: indice du membre dans la table `tid` du groupe.
   - `ivpar` : indice `im` de l'invitant.
   - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
@@ -1257,7 +1253,7 @@ _data_:
 - `v` :  1..N, Par convention, une version à 999999 désigne un **groupe logiquement détruit** mais dont les données sont encore présentes. Le groupe est _en cours de suppression_.
 - `dfh` : date de fin d'hébergement.
 
-- `rds`
+- `rds` : pas transmis en session.
 - `nn qn vf qv`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
 - `idh` : id du compte hébergeur (pas transmise aux sessions).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
@@ -1266,6 +1262,7 @@ _data_:
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
 - `tid` : table des ids courts des membres.
 - `flags` : tables des flags.
+- `hists` : tables des flags historiques.
 - `lng` : liste noire _groupe_ des ids (courts) des membres.
 - `lnc` : liste noire _compte_ des ids (courts) des membres.
 - `cvG` : carte de visite du groupe, textes cryptés par la clé du groupe `{v, photo, info}`.
@@ -1975,7 +1972,7 @@ _data_ :
 - `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète.
 - `dlv` : dernier jour de validité du compte.
 
-- `rds`
+- `rds` : non transmis en session
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
 - `cleEK` : clé de l'espace cryptée par la clé K du compte, à la création de l'espace pour le Comptable, à l'acceptation du sponsoring pour les autres comptes.
@@ -2002,13 +1999,13 @@ _Comptes "O" seulement:_
 - `mav` : map des avatars du compte. 
   - _clé_ : id court de l'avatar.
   - _valeur_ : `{ rds, claAK }`
-    - `rds`: de l'avatar (clé d'accès à son `versions`).
+    - `rds`: de l'avatar (clé d'accès à son `versions`). `null` en session.
     - `cleAK`: clé A de l'avatar crypté par la clé K du compte.
 
 - `mpg` : map des participations aux groupes:
   - _clé_ : id du groupe
   - _valeur_: `{ rds, cleGK, lav }`
-    - `rds`: du groupe (clé d'accès à son `versions`)
+    - `rds`: du groupe (clé d'accès à son `versions`). `null` en session.
     - `cleGK` : clé G du groupe cryptée par la clé K du compte.
     - `lav`: liste de ses avatars participant au groupe.
 
@@ -2081,13 +2078,22 @@ Une partition est créée par le Comptable qui peut la supprimer quand il n'y a 
 - pose / retrait d'une notification de niveau P ou C (pour un seul compte). La notification C est dans le compte mais son `nr` figure ici, la notification P figure dans espaces mais son `nr` est répliqué dans `partitions`.
 - modification des quotas globaux de la partition.
 - modification des quotas attribués à un compte.
-- **incorporation, sur demande explicite, des consommations des comptes**, dans les compteurs `c2m nn nc ng v` de chaque compte. Les compteurs de consommation sont extraits des `comptas` des comptes par une transaction: ils sont _synchronisés_ (à la date `dhic`).
+
+#### Incorporation des consommations des comptes
+Les compteurs de consommation d'un compte extraits de `comptas` sont recopiés à l'occasion de la fin d'une opération:
+- dans les compteurs `{ qc, qn, qv, pcc, pcn, pcv, nbj }` du document `comptes`,
+- dans les compteurs `q: { qc qn qv c2m nn nc ng v }` de l'entrée du compte dans son document `partitions`.
+  - par conséquence la ligne de synthèse de sa partition est reportée dans l'élément correspondant de son document `syntheses`.
+- afin d'éviter des mises à jour trop fréquentes, la procédure de report n'est engagée qui si les compteurs `pcc pcn pcv` passe un cap de 5% ou que `nbj` passe un cap de 5 jours.
+
+> **Remarque**: la modification d'un compteur de quotas `qc qn qv` provoque cette procédure de report `comptas / comptes / partitions / syntheses` sans effet de seuil. 
+
+> Il en est de même quand le **niveau de restriction des notifications P C Q X** change.
 
 _data_:
 - `id` : numéro de partition attribué par le Comptable à sa création.
 - `v` : 1..N
 
-- `dhic` : date-heure de la dernière incorporation des consommations des comptes attachés à la partition.
 - `nrp`: niveau de restriction de la notification (éventuelle) de niveau _partition_ mémorisée dans `espaces` et dont le texte est crypté par la clé P de la partition.
 - `q`: `{ qc, qn, qv }` quotas globaux attribués à la partition par le Comptable.
 - `mcpt` : map des comptes attachés à la partition. 
@@ -2104,7 +2110,7 @@ _data_:
   - `pcn` : pourcentage d'utilisation effective de qn : `nn + nc ng / qn`
   - `pcv` : pourcentage d'utilisation effective de qc : `v / qv`
 
-**Un enregistrement `synth` est calculé** (en session ou dans le serveur):
+**Un objet `synth` est calculable** (en session ou dans le serveur):
 - `qt` : les totaux des compteurs `q` : (`qc qn qv c2m n (nn+nc+ng) v`) de tous les comptes,
 - `ntf`: [1, 2, 3] - le nombre de comptes ayant des notifications de niveau de restriction 1 / 2 / 3. 
 - `nbc nbd` : le nombre total de comptes et le nombre de délégués.
@@ -2143,19 +2149,17 @@ Le document `syntheses` est mis à jour à chaque fois qu'un document partition 
 ## Documents `espaces`
 Ce document est créé par l'administrateur technique à l'occasion de la création de l'espace et du Comptable correspondant.
 
-Il est obtenu: 
-- **sur demande par l'administrateur technique**, qui les demande tous: le serveur lui décrypte les contenus de tous les espaces.
-- par **synchronisation** pour les comptes.
-
-Chaque compte reçoit dans son document `comptes` **la clé E de l'espace** cryptée par sa clé K: 
-- pour le Comptable à la création de l'espace, pour les autres à l'acceptation de leur sponsoring.
-- tout compte est en mesure de lire le contenu `contE` de SON espace, mais ne peut pas décrypter celui des autres espaces.
-- le serveur peut décrypter le contenu de tous les espaces et peut les communiquer en clair sur demande de l'administrateur technique seulement.
+**Il est _synchronisé_: **
+- à chaque mise à jour d'un document `espaces` le document `versions` **de même id** porte la nouvelle version.
+- en session en mode _Firestore_ l'écoute `onSnapshot` du document `versions` portant l'id de l'espace permet d'être notifié de son évolution.
+- la lecture effective du document vérifie l'habilitation à sa lecture et ne transmet que les propriétés autorisées.
+- le fait de ne pas recours à un `rds` différent de l'id:
+  - simplifie la procédure de synchronisation.
+  - si une session _malicieuse_ se met à l'écoute de versions autres que celles de son espace, elle obtient une information sur la fréquence de mise à jour des autres espaces (très faible), sans pouvoir accéder à leurs contenus (soit une donnée de très faible intérêt).
 
 **Les sessions sont systématiquement synchronisées à _leur_ espace:**
 - **elles sont ainsi informées à tout instant d'un changement de notification E de l'espace et P de leur partition**. 
   - Dans le cas _Firestore_ ceci se fait par lecture _onSnapshot_ de la collection `espaces`, filtrée par l'id de l'espace.
-  - Rien n'empêche techniquement une application malicieuse de lire tous les espaces, sachant qu'elle ne serait en mesure de ne décrypter que le document du sien.
 - **elles sont informées des notifications C (pour un compte O), Q et X par synchronisation à leur compte:**
   - les notifications de quota / consommation (Q et X) proviennent de dépassement de seuils de pourcentage (`pcn pcv` pour Q, `pcc nbj` pour X) qui remontent de `compta` à `compte` lors de franchissement de seuils (pas à chaque opération).
 
@@ -2164,25 +2168,32 @@ _data_ :
 - `v` : 1..N
 - `org` : code de l'organisation propriétaire.
 
-- `cleES` : clé de l'espace cryptée par la clé du site.
-- `contE` : données de l'espace encodées cryptées par la `cleE`:
-  - `creation` : date de création.
-  - `moisStat` : dernier mois de calcul de la statistique des comptas.
-  - `moisStatT` : dernier mois de calcul de la statistique des tickets.
-  - `dlvat` : `dlv` de l'administrateur technique.
-  - `notif` : notification de l'administrateur technique.
-  - `opt`: option des comptes autonomes.
-  - `nbmi`: nombre de mois d'inactivité acceptable pour un compte O fixé par le comptable. Ce changement n'a pas d'effet rétroactif.
-  - `tnotif` : table des notifications de niveau partition.
-    - _index_ : id (numéro) de la partition.
-    - _valeur_ : notification (ou `null`), texte crypté par la clé P de la partition.
+- `creation` : date de création.
+- `moisStat` : dernier mois de calcul de la statistique des comptas.
+- `moisStatT` : dernier mois de calcul de la statistique des tickets.
+- `dlvat` : `dlv` de l'administrateur technique.
+- `notifE` : notification pour l'espace de l'administrateur technique. Le texte n'est pas crypté.
+- `notifP` : pour un délégué, la notification de sa partition.
+- `opt`: option des comptes autonomes.
+- `nbmi`: nombre de mois d'inactivité acceptable pour un compte O fixé par le comptable. Ce changement n'a pas d'effet rétroactif.
+- `tnotifP` : table des notifications de niveau _partition_.
+  - _index_ : id (numéro) de la partition.
+  - _valeur_ : notification (ou `null`), texte crypté par la clé P de la partition.
 
 Remarques:
-- `opt nbmi` : mis à jour par le cComptable. `opt`:
+- `opt nbmi` : sont mis à jour par le Comptable. `opt`:
   - 0: 'Pas de comptes "autonomes"',
   - 1: 'Le Comptable peut rendre un compte "autonome" sans son accord',
   - 2: 'Le Comptable NE peut PAS rendre un compte "autonome" sans son accord',
 - `tnotif` : mise à jour par le Comptable et les délégués des partitions.
+
+**Propriétés accessibles :**
+- administrateur technique : toutes de tous les espaces.
+- Comptable : toutes de _son_ espace.
+- Délégués : sur leur espace seulement,
+  - `id v org creation notifE opt`
+  - la notification de _leur_ partition est recopiée de tnotifP[p] en notifP.
+- Autres comptes: pas d'accès.
 
 **Au début de chaque opération, l'espace est lu afin de vérifier la présence de notifications E et P** (éventuellement restrictives) de l'espace et de leur partition (pour un compte O):
 - c'est une lecture _lazy_ : si l'espace a été trouvé en cache et relu depuis la base depuis moins de 5 minutes, on l'estime à jour.
