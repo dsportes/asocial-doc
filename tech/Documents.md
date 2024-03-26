@@ -1972,7 +1972,7 @@ _data_ :
 - `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète.
 - `dlv` : dernier jour de validité du compte.
 
-- `rds` : non transmis en session
+- `rds` : `null` en session.
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
 - `cleEK` : clé de l'espace cryptée par la clé K du compte, à la création de l'espace pour le Comptable, à l'acceptation du sponsoring pour les autres comptes.
