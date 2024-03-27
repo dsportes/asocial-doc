@@ -1407,7 +1407,7 @@ Chaque compte a une **date limite de validité**:
 - propriété indexée de son `comptes`.
 
 Le GC utilise le dépassement de dlv pour libérer les ressources correspondantes (notes, chats, ...) d'un compte qui n'est plus utilisé:
-- **pour un compte A** la `dlv` représente la limite d'épuisement de son crédit mais bornée à `nnmi` mois du jour de son calcul.
+- **pour un compte A** la `dlv` représente la limite d'épuisement de son crédit mais bornée à `nbmi` mois du jour de son calcul.
 - **pour un compte O**, la `dlv` représente la plus proche de ces deux limites,
   - un nombre de jours sans connexion (donnée par `nbmi` du document `espaces` de l'organisation),
   - la date `dlvat` jusqu'à laquelle l'organisation a payé ses coûts d'hébergement à l'administrateur technique (par défaut la fin du siècle). C'est la date `dlvat` qui figure dans le document `espaces` de l'organisation. Dans ce cas, par convention, c'est la **date du premier jour du mois suivant** pour pouvoir être reconnue.
@@ -2217,3 +2217,27 @@ Le Comptable fixe en conséquence un `nbmi` (de 3, 6, 12, 18, 24 mois),
 - évitant que les comptes oublient de le faire et se voient automatiquement résiliés après un délai trop bref de non utilisation de leur compte.
 
 > Il n'y a aucun moyen dans l'application pour contacter le titulaire d'un compte dans la _vraie_ vie, aucun identifiant de mail / téléphone, etc.
+
+# Restrictions de fonctionnement
+Elles se traduisent par le ralentissement / le blocage de certaines opérations (ou partie d'opération) selon l'état du compte et de l'espace.
+
+`1-RAL1  2-RAL2` : Ralentissement des opérations
+- Comptes O : compte.qv.pcc > 90% / 100%
+- Comptes A : compte.qv.nbj < 20 / 10
+
+`3-NRED` : Nombre de notes / chats /groupes en réduction
+- compte.qv.pcn > 100
+
+`4-VRED` : Volume de fichier en réduction
+- compte.qv.pcv > 100
+
+`5-LECT` : Compte en lecture seule (sauf actions d'urgence)
+- Comptes 0 : espace.notifP compte.notifC de nr == 2
+
+`6-MINI` : Accès minimal, actions d'urgence seulement
+- Comptes 0 : espace.notifP compte.notifC de nr == 3
+
+`9-FIGE` : Espace figé en lecture
+- espace.notif.nr == 2
+
+Les restrictions _graves_ (5 à 9) empêchent la prolongation de la `dlv` du compte.
