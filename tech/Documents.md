@@ -2171,6 +2171,7 @@ _data_ :
 - `creation` : date de création.
 - `moisStat` : dernier mois de calcul de la statistique des comptas.
 - `moisStatT` : dernier mois de calcul de la statistique des tickets.
+- `nprof` : numéro de profil d'abonnement.
 - `dlvat` : `dlv` de l'administrateur technique.
 - `notifE` : notification pour l'espace de l'administrateur technique. Le texte n'est pas crypté.
 - `notifP` : pour un délégué, la notification de sa partition.
