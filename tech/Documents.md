@@ -780,6 +780,7 @@ _data_:
 - `rds` : pas transmis en session.
 - `cleAZC` : clé A cryptée par ZC (PBKFD de la phrase de contact complète).
 - `pcK` : phrase de contact complète cryptée par la clé K du compte.
+- `hZC` : hash du PBKFD de la phrase de contact complète.
 
 - `cvA` : carte de visite de l'avatar `{id, v, photo, texte}`. photo et texte cryptés par la clé A de l'avatar.
 
@@ -970,12 +971,32 @@ _data_ (de l'exemplaire I):
   - `dhx` : date-heure de suppression.
   - `t` : texte crypté par la clé C du chat (vide s'il a été supprimé).
 
+## Création d'un chat
+**Sur création d'un compte par sponsoring**
+- vérification qu'il existe un sponsoring créé par idE et qu'il accepte le chat.
+- si le sponsorisé l'a souhaité.
+- le chat est créé avec deux items: a) le mot de bienvenue du sponsor, b) la réponse du sponsorisé.
+
+**Quand E est délégué de la partition de I**
+- vérification que E est bien un délégué de la partition citée.
+- I demande la clé RSA publique de E pour crypter la clé générée du chat.
+- création avec un item.
+
+**Quand E est membre d'un groupe G cité et I aussi**
+- vérification que I accède aux membres de G et que E y est membre actif.
+- I demande la clé RSA publique de E pour crypter la clé générée du chat.
+- création avec un item.
+
+**Quand I connaît la phrase de contact de E**
+- vérification que E a bien cette phrase de contact et récupération de la cleA de E.
+- I a calculé les hash des phrases de contact complète et réduite de E et obtenu en retour la clé A de E cryptée par le PBKFD de cette phrase de contact complète.
+- I demande la clé RSA publique de E pour crypter la clé générée du chat.
+- création avec un item.
+
+Le nombre de chats dans la compta de I est incrémenté.
+
 ## Actions possibles (par I)
 - _ajout d'un item_
-  - si le chat n'existait pas, 
-    - il est créé avec ce premier item dans `items`.
-    - le nombre de chats dans `comptas.qv.nc` est incrémenté.
-    - `st` de I vaut `10` et `st` de E vaut `01`.
   - l'item apparaît dans `items` de E (son `a` est inversé).
 - _effacement du texte d'un item de I_
   - le texte de l'item est effacé des deux côtés.
@@ -984,24 +1005,16 @@ _data_ (de l'exemplaire I):
   - `items` est vidée du côté I.
   - `st` de I vaut `01` et `st` de E vaut `10` ou `00`.
   - le chat devient _passif_ du côté I.
+- _faire un don_:
+  Un compte "A" _donateur_ peut faire un don à un autre compte "A" bénéficiaire_ en utilisant un chat.
+  - le chat avec don ne peut intervenir que si le chat est défini entre les deux avatars **principaux** des comptes.
+  - le montant du don est dans une liste préétablie.
+  - le solde du donateur (dans sa `comptas`) doit être supérieur au montant du don.
+  - sauf spécification contraire du donateur, le texte de l'item ajouté dans le chat à cette occasion mentionne le montant du don.
+  - le donateur est immédiatement débité.
+  - le bénéficiaire est immédiatement crédité dans `solde` de sa `comptas`.
 
 > Un chat _passif_ pour un avatar reste un chat _écouté_, les items écrits par E arrivent, mais sur lequel I n'écrit pas. Il redevient _actif_ pour I dès que I écrit un item et ne redevient _passif_ que quand il fait un _raz_.
-
-## Établir un _contact direct_ entre I et E
-Si I veut ouvrir un chat avec E mais ne l'a pas en _contact_, n'en connaît pas la clé A, il utilise la _phrase de contact_ de E, 
-- il calcule le hash de la phrase de contact réduite de E,
-- il demande par ce hash la clé A de A cryptée par le PBKFD de cette phrase de contact complète.
-- il demande la clé RSA publique de E pour crypter la clé générée du chat.
-
-## Comptes "A" : dons par chat
-Un compte "A" _donateur_ peut faire un don à un autre compte "A" _bénéficiaire_ en utilisant un chat:
-- le montant du don est dans une liste préétablie.
-- le solde du donateur (dans sa `comptas`) doit être supérieur au montant du don.
-- sauf spécification contraire du donateur, le texte de l'item ajouté dans le chat à cette occasion mentionne le montant du don.
-- le donateur est immédiatement débité.
-- le bénéficiaire est immédiatement crédité dans `solde` de sa `comptas`.
-
-> Remarque: le chat avec don ne peut intervenir que si le chat est défini entre les deux avatars **principaux** des comptes.
 
 # Documents `sponsorings`
 P est le parrain-sponsor, F est le filleul-sponsorisé.
