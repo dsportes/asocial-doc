@@ -1,15 +1,25 @@
 ## Dev
-ChargerGMS : ne charge pas chatgrs. Oubli ? (sync)
+ApercuChat: dev et test "Rafraîchir CV"
 
-DisparitionMembre: nag pas mis à jour 0 / 1 ?
+Blocage P et C - Quotas
 
-NouveauGroupe : son chatgrs n'est pas créé (on attend la première insertion d'un item)
+Comptes: CV et apropos
 
-Création d'un chat: il faut que le contact ne soit pas uniquement connu en tant que simple contact de groupes.
+Contacts
 
-Vérifier les conditions de prise d'hébergement d'un groupe
+Groupes
 
-Suppression d'un avatar / groupe sur note-store.js: vérifier / tester
+Crédits + test don sur chat
+
+Notes
+
+Fichiers
+
+Reports
+
+GC
+
+Firebase
 
 ### Meta-données sur le serveur
 Certaines opérations sur le serveur, voient passer des _meta-liens_ temporairement à l'occasion d'une opération: un serveur pirate _pourrait_ les tracer au fil de l'eau.
