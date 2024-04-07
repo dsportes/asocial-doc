@@ -1,7 +1,9 @@
 ## Dev
-ApercuChat: dev et test "Rafraîchir CV"
+Setquptas
 
-Blocage P et C - Quotas
+Barre People : Chgt partition, statut délégué, muter A <->E
+
+Notif P et C
 
 Comptes: CV et apropos
 
