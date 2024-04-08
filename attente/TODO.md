@@ -1,5 +1,5 @@
 ## Dev
-Setquptas
+Vérifier le comptage des chats
 
 Barre People : Chgt partition, statut délégué, muter A <->E
 
