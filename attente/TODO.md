@@ -1,17 +1,15 @@
 ## Dev
 Vérifier le comptage des chats
 
-Barre People : Chgt partition, statut délégué, muter A <->E
+Crédits + test don sur chat
 
-Notif P et C
+Barre People : muter A <->E
 
 Comptes: CV et apropos
 
 Contacts
 
 Groupes
-
-Crédits + test don sur chat
 
 Notes
 
