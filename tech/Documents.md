@@ -845,6 +845,7 @@ _data_:
 - `refa` : code court (32c) facultatif du compte A à l'émission.
 - `refc` : code court (32c) facultatif du Comptable à la réception.
 - `di`: date d'incorporation du crédit par le compte A dans son solde.
+- `idc`: id du compte générateur. Cette donnée n'est pas transmise aux sessions.
 
 ## Cycle de vie
 #### Génération d'un ticket (annonce de paiement) par le compte A
@@ -872,7 +873,7 @@ En cas d'erreur, un ticket peut être effacé par son émetteur, _à condition_ 
 #### Incorporation du crédit dans le solde du compte A
 - l'opération est automatique à la prochaine connexion du compte A postérieure à une _réception de paiement_. En cours de session, un bouton permet d'activer cette incorporation sans attendre la prochaine connexion.
 - elle consiste à intégrer au solde du compte le montant d'un ticket _réceptionné_ (mais pas encore _incorporé au solde_)
-- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas.ticketsK`. En cas de différence de montants, une alerte s'affiche.
+- le plus faible des deux montants `ma` et `mc` est incorporé au solde de `comptas`. En cas de différence de montants, une alerte s'affiche.
 - la date d'incorporation `di` est mise à jour dans l'exemplaire du compte mais PAS par dans `tickets` du Comptable (qui donc ignore la propriété `di`).
 
 **Remarques:**
@@ -2048,7 +2049,14 @@ _data_:
     - du cumul des crédits reçus depuis le début de la vie du compte (ou de son dernier passage en compte A), 
     - plus les dons reçus des autres,
     - moins les dons faits aux autres.
-  - `ticketsK`: liste des tickets cryptée par la clé K du compte `{ids, v, dg, dr, ma, mc, refa, refc, di}`.
+  - `tickets`: map des tickets / dons:
+    - _clé_: `ids`
+    - _valeur_: `{dg, iddb, dr, ma, mc, refa, refc, di}`
+    - Pour un don :
+      - `dg` est la date du don.
+      - `ma` est le montant du don (positif ou négatif)
+      - `iddb`: id du donateur / bénéficiaire (selon le signe de `ma`).
+
 
 ### `compti`
 Information personnelle / commentaires à propos des avatars et groupes connus du compte.
