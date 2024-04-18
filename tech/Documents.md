@@ -2052,11 +2052,10 @@ _data_:
   - `tickets`: map des tickets / dons:
     - _clé_: `ids`
     - _valeur_: `{dg, iddb, dr, ma, mc, refa, refc, di}`
-    - Pour un don :
-      - `dg` est la date du don.
-      - `ma` est le montant du don (positif ou négatif)
-      - `iddb`: id du donateur / bénéficiaire (selon le signe de `ma`).
-
+  - `dons` : liste des dons effectués / reçus
+    - `dh`: date-heure du don
+    - `m`: montant du don (positif ou négatif)
+    - `iddb`: id du donateur / bénéficiaire (selon le signe de `m`).
 
 ### `compti`
 Information personnelle / commentaires à propos des avatars et groupes connus du compte.
