@@ -1,11 +1,8 @@
 ## Dev
-Vérifier le comptage des chats
-
-Crédits + test don sur chat
 
 Barre People : muter A <->E
 
-Comptes: CV et apropos
+Comptes: apropos changerPS
 
 Contacts
 
@@ -16,6 +13,8 @@ Notes
 Fichiers
 
 Reports
+
+Suppression avatar
 
 GC
 
