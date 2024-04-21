@@ -1991,6 +1991,7 @@ _data_ :
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
 - `cleEK` : clé de l'espace cryptée par la clé K du compte, à la création de l'espace pour le Comptable. Permet au comptable de lire les reports créés sur le serveur et cryptés par cette clé E.
+- `privK` : clé privée RSA de son avatar principal cryptée par la clé K du compte.
 
 - `dhvuK` : date-heure de dernière vue des notifications par le titulaire du compte, cryptée par la clé K.
 - `qv` : `{ qc, qn, qv, pcc, pcn, pcv, nbj }`
