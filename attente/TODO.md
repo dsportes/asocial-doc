@@ -2,8 +2,6 @@
 
 Barre People : muter A <->E
 
-Comptes: changerPS
-
 Contacts
 
 Groupes
