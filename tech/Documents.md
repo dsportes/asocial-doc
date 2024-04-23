@@ -2069,9 +2069,9 @@ _data_:
 
 - `mc` : map à propos des contacts (des avatars) et des groupes _connus_ du compte,
   - _cle_: `id` court de l'avatar ou du groupe,
-  - _valeur_ : `{ ht, tx }` cryptée par la clé K du compte.
-    - `ht` : liste des hashtags attribués par le compte.
-    - `tx` : commentaire écrit par le compte.
+  - _valeur_ : `{ ht, tx }`.
+    - `ht` : liste des hashtags séparés par un espace attribués par le compte et cryptée par la clé K du compte.
+    - `tx` : commentaire écrit par le compte gzippé et crypté par la clé K du compte.
 
 ## Sous-arbres avatar / groupe
 Synchronisés par `rds` de l'avatar / groupe

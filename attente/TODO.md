@@ -2,7 +2,7 @@
 
 Barre People : muter A <->E
 
-Comptes: apropos changerPS
+Comptes: changerPS
 
 Contacts
 
