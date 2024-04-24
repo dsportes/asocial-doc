@@ -1,9 +1,5 @@
 ## Dev
 
-Barre People : muter A <->E
-
-Contacts
-
 Groupes
 
 Notes
@@ -11,6 +7,8 @@ Notes
 Fichiers
 
 Reports
+
+Barre People : muter A <->E
 
 Suppression avatar
 
