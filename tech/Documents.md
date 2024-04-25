@@ -791,8 +791,8 @@ _data_:
   - _valeur_: `{cleGA, cvG, ivpar, dh}` 
     - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
     - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe).
-    - `ivpar` : indice `im` de l'invitant.
-    - `dh` : date-heure d'invitation. Le couple `[ivpar, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
+    - `idiv` : id court de l'invitant.
+    - `dh` : date-heure d'invitation. Le couple `[idiv, dh]` permet de retrouver l'item dans le chat du groupe donnant le message de bienvenue / invitation émis par l'invitant.
 
 ## Résiliation d'un avatar
 Elle est effectuée en deux phases:
@@ -1378,8 +1378,8 @@ _data_
 - `ids` : `1`
 - `v` : sa version.
 
-- `items` : liste ordonnée des items de chat `{im, dh, lg, texte}`
-  - `im` : indice membre de l'auteur,
+- `items` : liste ordonnée des items de chat `{id, dh, lg, texte}`
+  - `id` : id du membre auteur,
   - `dh` : date-heure d'enregistrement de l'item,
   - `lg` : longueur du texte en clair de l'item. 0 correspond à un item effacé.
   - `texte` : texte (gzippé) crypté par la clé G du groupe.
@@ -2266,3 +2266,252 @@ Elles se traduisent par le ralentissement / le blocage de certaines opérations 
 - espace.notif.nr == 2
 
 Les restrictions _graves_ (5 à 9) empêchent la prolongation de la `dlv` du compte.
+
+# Documents `groupes`
+Un groupe est caractérisé par :
+- son entête : un document `groupes`.
+- son sous-document `chatgrs` (dont `ids` est `1`).
+- ses membres: des documents de sa sous-collection `membres`.
+
+**Droits d'accès d'un membre.**
+
+Um membre peut avoir les accès suivants:
+- [AM] : accès aux membres et au chat du groupe.
+- [AN] : accès aux notes du groupe.
+
+Il peut avoir les deux (cas général) ou n'en avoir aucun ce qui:
+- limite son accès au groupe à la lecture de la carte de visite du groupe.
+- pour un un animateur il peut être _hébergeur_.
+
+Des droits d'accès sont conférés par un animateur:
+- [DM] **d'accès à la liste des membres**.
+- [DN] **d'accès en lecture aux notes du groupe**.
+- [DE] **droits d'écriture sur les notes du groupe** (ce qui implique DN).
+
+L'historique synthétique est consigné par:
+- [HM] **a eu un jour accès aux membres**
+- [HN] **a eu un jour accès aux notes**
+- [HE] **a eu un jour la possibilité d'écrire une note**
+
+## Statut d'un membre dans le groupe: tables `st tid flags`
+Ces trois tables sont synchrones: l'indice `im` d'un membre est le même pour les trois:
+- `tid` : table des ids des membres.
+- `st` : statut de ce membre.
+- `flags`: accès et droits d'accès de ce membre.
+
+> Ces tables s'étendent, les indices devenus inutiles ne sont pas réutilisés.
+
+**Statut `st`:**
+- 0 : **radié**: ce membre ne peut plus agir. Ses flags HM HN HE indiquent s'il a pu accéder un jour aux membres, aux notes ou en écrire. `tid[im]` vaut 0.
+- 1 : **proposé** par un membre ayant un droit d'accès aux membres.
+  - l'avatar proposé n'est pas au courant et ne peut rien faire dans le groupe.
+  - les membres du groupe peuvent voir sa carte de visite.
+  - un animateur peut le faire passer en état _invité_ ou _le radier_ (avec ou sans inscription en liste noire _groupe_).
+- 2 : **invité** par un animateur.
+  - l'avatar proposé est au courant, il a une _invitation_ dans son avatar.
+  - les membres du groupe peuvent voir sa carte de visite et les droits d'accès qui seront appliqués si l'avatar accepte l'invitation.
+  - un animateur peut:
+    - changer ses droits d'accès futurs.
+    - _le radier_ (avec ou sans inscription en liste noire _groupe_).
+  - l'avatar peut,
+    - accepter l'invitation: il passera en état 3 _actif_ ou 4 _animateur_.
+    - refuser l'invitation et être _radié_ (avec ou sans inscription en liste noire _compte_).
+- 3 : **actif** (non animateur)
+  - l'avatar a le groupe enregistré dans son compte (`mpg`).
+  - il peut:
+    - changer son accès aux membres et aux notes (mais pas ses droits).
+    - se radier lui-même avec on sans inscription en liste noire _compte_.
+  - un animateur peut:
+    - changer ses droits d'accès (mais pas ses accès effectifs qui sont du ressort du membre).
+    - l'inscrire en liste noire _groupe_, ce qui ne change pas son statut mais empêchera de proposer / inviter cet avatar après qu'il se soit radié lui-même.
+- 4 : **animateur**. _actif_ avec privilège d'animation.
+
+Le nombre de notes pris en compte dans la comptabilité du compte:
+- est incrémenté de 1 quand il accepte une invitation,
+- est décrémenté de 1 quand il s'auto-radie.
+
+Dès qu'un membre prend un statut de **1 à 4**:
+- un indice `im` lui est attribué en séquence du dernier attribué (taille de `tid`). 
+- ses accès et droits sont consignés dans la table `flags` à l'indice `im`.
+- il a un document `membres` associé: `ids`, l'identification relative du membre dans le groupe est son indice `im`.
+
+## Radiations et inscriptions en liste noires `lng lnc`
+La liste noire `lng` est la liste des ids des membres que l'animateur ne veut plus voir réapparaître dans le groupe après leur radiation.
+
+La liste noire `lnc` est la liste des ids des membres qui se sont auto-radiés en indiquant ne jamais vouloir être ni proposé, ni invité.
+
+Un animateur peut radier un membre en statuts _proposé et invité_:
+- il peut à cette occasion l'inscrire en liste noire du groupe pour bloquer d'ultérieures éventuelles propositions / invitations.
+
+Un membre _actif_ ne peut plus être radié par un animateur, mais ce dernier:
+- peut changer ses droits (sauf si le membre est lui-même animateur). Le cas échéant le membre ne voit plus du groupe que sa carte de visite.
+- peut l'inscrire en liste noire du groupe pour éviter de le voir réapparaître quand le membre se sera auto-radié.
+
+Un membre actif peut _s'auto-radier_:
+- il ne verra plus le groupe dans sa liste des groupes.
+- sans inscription en liste noire, il pourra ultérieurement être reproposé / réinvité comme s'il n'avait jamais participé au groupe.
+- avec inscription en liste noire il pourra plus jamais ultérieurement être reproposé / réinvité.
+
+A la radiation d'un membre d'indice `im`:
+- son document `membres` est logiquement détruit (passe en _zombi_).
+- peut être inscrit dans les listes noires `lng lnc`.
+- ses entrées dans `tid st` sont à 0.
+- dans `flags` son entrée mentionne les dernières valeurs de `HM HN HE` ce qui permet, non pas de savoir qui c'était, mais quels ont été ses accès au cours de sa vie avant radiation (O si son statut n'a jamais été actif).
+
+> Quand le GC découvre la _disparition_ d'un avatar membre, il s'opère l'équivalent d'une radiation sans mise en liste noire (l'avatar ne reviendra jamais).
+
+## Création d'un membre
+Le membre _fondateur_ du groupe a un _indice_ `im` 1 et est créé au moment de la création du groupe:
+- dans la table `flags` à l'indice `im`: `DM DN DE AM AN HM hN HE`
+  - il a _droit_ d'accès aux membres et aux notes en écriture,
+  - ses accès aux membres et notes sont ouverts,
+  - il a pour statut `st[1]` _animateur_.
+- son id figure en `tid[1]`.
+
+Les autres membres sont créés, lorsqu'ils sont soit proposés, soit invité.
+- un indice `im` est pris en séquence, `tid[im]` contient leur id.
+- leur document `membres` est créé. 
+- _proposition_: leurs flags sont à 0, son statut est à 1.
+- _invitation_: 
+  - leurs flags donnent les _droits_ futurs DM DN DE selon le choix de l'animateur.
+  - une **invitation** est insérée dans leur avatar.
+
+>Réapparition d'un membre après _radiation sans liste noire_ par un animateur 
+Un animateur peut radier un avatar _proposé ou invité_ sans le mettre en liste noire. L'avatar peut être reproposé / réinvité plus tard et aura un nouvel indice et un nouveau document `membres`, son historique est vierge. 
+
+## Modes d'invitation
+- _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par **UN** animateur (un seul suffit).
+- _unanime_ : dans ce mode il faut que **TOUS** les animateurs aient validé l'invitation (le dernier ayant validé provoquant l'invitation).
+- pour passer en mode _unanime_ il suffit qu'un seul animateur le demande.
+- pour revenir au mode _simple_ depuis le mode _unanime_, il faut que **TOUS** les animateurs aient validé ce retour.
+
+Une invitation est enregistrée dans la map `invits` de l'avatar invité:
+- _clé_: `idg` id du groupe.
+- _valeur_: `{cleGA, cvG, cleAG, cvA, txtG}`
+  - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
+  - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe).
+  - `cleAG`: clé A de l'avatar invitant crypté par la clé G du groupe.
+  - `cvA` : carte de visite de l'invitant (photo et texte sont cryptés par la clé G du groupe). 
+  - `txtG` : message de bienvenue / invitation émis par l'invitant.
+
+Ces données permettent à l'invité de voir en session les cartes de visite du groupe et de l'invitant ainsi que le texte d'invitation (qui figure également dans le chat du groupe). Le message de remerciement en cas d'acceptation ou de refus sera également inscrit dans le chat du groupe.
+
+## Hébergement par un membre _actif_
+L'hébergement d'un groupe est noté par :
+- `imh`: indice membre de l'avatar hébergeur. 
+- `idh` : id du **compte** de l'avatar hébergeur. **Cette donnée est cachée aux sessions**.
+- `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé. Les notes ne peuvent plus être mises à jour _en croissance_ quand `dfh` existe.
+
+### Prise d'hébergement
+- en l'absence d'hébergeur, c'est possible pour,
+  - tout animateur,
+  - en l'absence d'animateur: tout actif ayant le droit d'écriture des notes, puis tout actif ayant accès aux notes, puis tout actif.
+- s'il y a déjà un hébergeur, seul un animateur peut se substituer à condition que le nombre de notes et le volume de fichiers actuels `vf` ne le mette pas en dépassement de son abonnement.
+
+### Fin d'hébergement par l'hébergeur
+- `dfh` est mise la date du jour + 90 jours.
+- le nombre de notes et le volume V2 de `comptas` sont décrémentés de ceux du groupe.
+
+Au dépassement de `dfh`, le GC détruit le groupe.
+
+## Data
+_data_:
+- `id` : id du groupe.
+- `v` :  1..N, Par convention, une version à 999999 désigne un **groupe logiquement détruit** mais dont les données sont encore présentes. Le groupe est _en cours de suppression_.
+- `dfh` : date de fin d'hébergement.
+
+- `rds` : pas transmis en session.
+- `nn qn vf qv`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
+- `idh` : id du compte hébergeur (pas transmise aux sessions).
+- `imh` : indice `im` du membre dont le compte est hébergeur.
+- `msu` : mode _simple_ ou _unanime_.
+  - `null` : mode simple.
+  - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
+- `tid` : table des ids courts des membres.
+- `st` : table des statuts.
+- `flags` : tables des flags.
+- `lng` : liste noire _groupe_ des ids (courts) des membres.
+- `lnc` : liste noire _compte_ des ids (courts) des membres.
+- `cvG` : carte de visite du groupe, textes cryptés par la clé du groupe `{v, photo, info}`.
+
+## Décompte des participations à des groupes d'un compte
+- quand un avatar a accepté une invitation, il devient _actif_ et a une nouvelle entrée dans la liste des participations aux groupes (`mpg`) dans l'avatar principal de son compte.
+- quand l'avatar décide de s'auto-radier, cette entrée est supprimée.
+- le _nombre de participations aux groupes_ dans `comptas.qv.ng` du compte est le nombre total de ces entrées dans `mpg`.
+
+# Documents `membres`
+Un document `membres` est créé à la déclaration d'un avatar comme _contact_.
+
+Le document `membres` est détruit,
+- par une opération de radiation.
+- par la destruction de son groupe lors de la résiliation du dernier membre actif.
+
+_data_:
+- `id` : id du groupe.
+- `ids`: identifiant, indice `im` de membre relatif à son groupe.
+- `v` : 
+- `vcv` : version de la carte de visite du membre.
+
+- `ddi` : date d'invitation.
+- `dac` : date de début d'activité
+- **dates de début de la première et fin de la dernière période...**
+  - `dln fln` : d'accès en lecture aux notes.
+  - `den fen` : d'accès en écriture aux notes.
+  - `dam fam` : d'accès aux membres.
+- `inv` : Liste des im des animateurs ayant validé la dernière invitation.
+- `cleAG` : clé A de l'avatar membre cryptée par la clé G du groupe.
+- `cvA` : carte de visite du membre `{id, v, photo, info}`, textes cryptés par la clé A de l'avatar membre.
+
+## Opérations
+
+### Proposition
+- s'il est en liste noire, refus.
+- attribution de l'indice `im`.
+- un row `membres` est créé.
+
+### Invitation par un animateur
+- choix des _droits_ et inscription dans `invits` de l'avatar.
+- vote d'invitation (en mode _unanime_):
+  - si tous les animateurs ont voté, inscription dans `invits` de l'avatar.
+  - si le vote change les _droits_, les autres votes sont annulés.
+- `ddi` est remplie dans `membres`.
+
+### Annulation d'invitation par un animateur
+- effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
+
+### Radiation par un animateur (avec ou sans liste noire)
+- le statut passe de 1-2 (sinon erreur) à 0.
+- s'il était invité, effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
+- inscription éventuelle en liste noire `lng`.
+- le document `membres` devient _zombi_.
+
+### Refus d'invitation par le compte
+- mise à 0 du statut, des flags et de l'entrée dans tid.
+- document `membres` mis en _zombi_
+- Option liste noire: inscription dans `lnc`.
+- son item dans `invits` de son avatar est effacé.
+
+### Acceptation d'invitation par le compte
+- dans l'avatar principal du compte un item est ajouté dans `mpg`,
+- dans `comptas` le compteur `qv.ng` est incrémenté.
+- `dac dln ... fam` de `membres` sont mises à jour.
+- son item dans `invits` de son avatar est effacé.
+- flags `AN AM`: accès aux notes, accès aux autres membres.
+- statut à 3 ou 4.
+
+### Modification des droits par un animateur
+- flags `DM DN DE`
+
+### Mise en liste noire groupe par un animateur
+- le statut est actif.
+- le membre est mis en liste noire `lng`.
+
+### Modification des accès membres / notes par le compte
+- flags `AN AM`: accès aux notes, accès aux autres membres.
+
+## Radiation demandée par le compte**
+- document membres mis en _zombi_.
+- mis à 0 du statut, de l'entrée dans tid. Dans flags il ne reste que les HM HN HE.
+- si le membre était le dernier _actif_, le groupe disparaît.
+- la participation au groupe disparaît de `mpg` du compte.
+- option liste noire: mise en liste noire `lnc`.
