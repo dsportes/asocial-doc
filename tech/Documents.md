@@ -1378,11 +1378,11 @@ _data_
 - `ids` : `1`
 - `v` : sa version.
 
-- `items` : liste ordonnée des items de chat `{id, dh, lg, texte}`
-  - `id` : id du membre auteur,
-  - `dh` : date-heure d'enregistrement de l'item,
-  - `lg` : longueur du texte en clair de l'item. 0 correspond à un item effacé.
-  - `texte` : texte (gzippé) crypté par la clé G du groupe.
+- `items` : liste ordonnée des items de chat `{im, dh, dhx, t}`
+  - `im` : im du membre auteur,
+  - `dh` : date-heure d'écriture.
+  - `dhx` : date-heure de suppression.
+  - `t` : texte crypté par la clé G du groupe (vide s'il a été supprimé).
 
 ## Opérations
 ### Ajout d'un item
