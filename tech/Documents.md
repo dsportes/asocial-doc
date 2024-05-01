@@ -2452,15 +2452,18 @@ _data_:
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
 
+- `dpr` : date de proposition
 - `ddi` : date d'invitation.
 - `dac` : date de début d'activité
 - **dates de début de la première et fin de la dernière période...**
   - `dln fln` : d'accès en lecture aux notes.
   - `den fen` : d'accès en écriture aux notes.
   - `dam fam` : d'accès aux membres.
-- `inv` : Liste des im des animateurs ayant validé la dernière invitation.
 - `cleAG` : clé A de l'avatar membre cryptée par la clé G du groupe.
 - `cvA` : carte de visite du membre `{id, v, photo, info}`, textes cryptés par la clé A de l'avatar membre.
+- `inv` : Liste des im des animateurs ayant validé la dernière invitation.
+- `flinv`: flags d'invitation: AN (animateur) DM DN DE.
+- `msgG`: message d'invitation crypté par la clé G.
 
 ## Opérations
 
