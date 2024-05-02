@@ -2503,6 +2503,7 @@ _data_:
 ## Opérations
 ### Par un animateur:
 - Inscription en contact - 0 -> 1
+
 - Radiation d'un contact - 1 -> 0
 - Invitation simple - 1 -> 3
 - Annulation d'invitation - 2 / 3
