@@ -2302,46 +2302,53 @@ Ces trois tables sont synchrones: l'indice `im` d'un membre est le même pour le
 > Ces tables s'étendent, les indices devenus inutiles ne sont pas réutilisés.
 
 **Statut `st`:**
-- 0 : **radié**: ce membre ne peut plus agir. Ses flags HM HN HE indiquent s'il a pu accéder un jour aux membres, aux notes ou en écrire. `tid[im]` vaut 0.
-- 1 : **proposé** par un membre ayant un droit d'accès aux membres.
-  - l'avatar proposé n'est pas au courant et ne peut rien faire dans le groupe.
+- 0 : **radié**: c'est un ex-membre désormais _inconnu_, peut-être disparu, son id est perdu (`tid[im]` vaut 0).
+- 1 : **contact** proposé pour une éventuelle invitation future par un membre ayant un droit d'accès aux membres.
+  - l'avatar n'est pas au courant et ne peut rien faire dans le groupe.
   - les membres du groupe peuvent voir sa carte de visite.
   - un animateur peut le faire passer en état _invité_ ou _le radier_ (avec ou sans inscription en liste noire _groupe_).
-- 2 : **invité** par un animateur.
-  - l'avatar proposé est au courant, il a une _invitation_ dans son avatar.
-  - les membres du groupe peuvent voir sa carte de visite et les droits d'accès qui seront appliqués si l'avatar accepte l'invitation.
-  - un animateur peut:
-    - changer ses droits d'accès futurs.
-    - _le radier_ (avec ou sans inscription en liste noire _groupe_).
-  - l'avatar peut,
-    - accepter l'invitation: il passera en état 3 _actif_ ou 4 _animateur_.
-    - refuser l'invitation et être _radié_ (avec ou sans inscription en liste noire _compte_).
-- 3 : **actif** (non animateur)
-  - l'avatar a le groupe enregistré dans son compte (`mpg`).
-  - il peut:
-    - changer son accès aux membres et aux notes (mais pas ses droits).
-    - se radier lui-même avec on sans inscription en liste noire _compte_.
-  - un animateur peut:
-    - changer ses droits d'accès (mais pas ses accès effectifs qui sont du ressort du membre).
-    - l'inscrire en liste noire _groupe_, ce qui ne change pas son statut mais empêchera de proposer / inviter cet avatar après qu'il se soit radié lui-même.
-- 4 : **animateur**. _actif_ avec privilège d'animation.
+- 2 / 3 : **pré-invité / invité**: 
+  - 2 : **En attente de votes** quand un vote unanime est requis. Un ou plusieurs animateurs ont voté pour inviter le contact, mais pas tous.
+    - l'avatar n'est pas au courant et ne peut rien faire dans le groupe.
+    - les membres du groupe peuvent voir sa carte de visite.
+    - les animateurs peuvent:
+      - voter pour, effacer leur vote, changer les conditions d'invitation. Quand tous les animateurs ont voté pour, l'avatar devient _invité_.
+      - _le radier_ (avec ou sans inscription en liste noire _groupe_) ou annuler l'invitation et le conserver comme simple contact.
+  - 3 : **En attente de réponse** quand le dernier animateur a voté (ou le premier pour les groupes à invitation simple), l'invitation a été transmise à l'avatar invité.
+    - l'avatar proposé est au courant, il a une _invitation_ dans son avatar.
+    - les membres du groupe peuvent voir sa carte de visite et les droits d'accès qui seront appliqués si l'avatar accepte l'invitation.
+    - un animateur peut:
+      - changer ses droits d'accès futurs.
+      - _le radier_ (avec inscription en liste noire _groupe_) ou annuler l'invitation et le conserver comme simple contact.
+    - l'avatar peut,
+      - accepter l'invitation: il passera en état _actif_ ou _animateur_.
+      - refuser l'invitation et _s'auto-radier_ (avec ou sans inscription en liste noire _compte_) ou redevenir simple contact.
+- 4 / 5 : **actif** 
+  - 4 : **non animateur**
+    - l'avatar a le groupe enregistré dans son compte (`mpg`).
+    - il peut:
+      - changer son accès aux membres et aux notes (mais pas ses droits).
+      - _s'auto-radier_ (avec on sans inscription en liste noire _compte_) ou redevenir simple contact.
+    - un animateur peut:
+      - changer ses droits d'accès (mais pas ses accès effectifs qui sont du ressort du membre).
+      - l'inscrire en liste noire _groupe_, ce qui ne change pas son statut mais empêchera de l'inviter après qu'il se soit auto-radié.
+  - 5 : **animateur**. _actif_ avec privilège d'animation.
 
 Le nombre de notes pris en compte dans la comptabilité du compte:
 - est incrémenté de 1 quand il accepte une invitation,
-- est décrémenté de 1 quand il s'auto-radie.
+- est décrémenté de 1 quand il s'auto-radie ou redevient simple contact.
 
-Dès qu'un membre prend un statut de **1 à 4**:
+Dès qu'un membre a un statut:
 - un indice `im` lui est attribué en séquence du dernier attribué (taille de `tid`). 
 - ses accès et droits sont consignés dans la table `flags` à l'indice `im`.
 - il a un document `membres` associé: `ids`, l'identification relative du membre dans le groupe est son indice `im`.
 
 ## Radiations et inscriptions en liste noires `lng lnc`
-La liste noire `lng` est la liste des ids des membres que l'animateur ne veut plus voir réapparaître dans le groupe après leur radiation.
+La liste noire `lng` est la liste des ids des membres que l'animateur ne veut plus voir réapparaître dans le groupe après leur auto-radiation. Un membre _actif_ dans ce cas ne peut plus redevenir simple contact.
 
-La liste noire `lnc` est la liste des ids des membres qui se sont auto-radiés en indiquant ne jamais vouloir être ni proposé, ni invité.
+La liste noire `lnc` est la liste des ids des membres qui se sont auto-radiés en indiquant ne jamais vouloir être connu du groupe à l'avenir.
 
-Un animateur peut radier un membre en statuts _proposé et invité_:
-- il peut à cette occasion l'inscrire en liste noire du groupe pour bloquer d'ultérieures éventuelles propositions / invitations.
+Un animateur peut radier un membre en statuts _non actifs_.
 
 Un membre _actif_ ne peut plus être radié par un animateur, mais ce dernier:
 - peut changer ses droits (sauf si le membre est lui-même animateur). Le cas échéant le membre ne voit plus du groupe que sa carte de visite.
@@ -2349,35 +2356,38 @@ Un membre _actif_ ne peut plus être radié par un animateur, mais ce dernier:
 
 Un membre actif peut _s'auto-radier_:
 - il ne verra plus le groupe dans sa liste des groupes.
-- sans inscription en liste noire, il pourra ultérieurement être reproposé / réinvité comme s'il n'avait jamais participé au groupe.
-- avec inscription en liste noire il pourra plus jamais ultérieurement être reproposé / réinvité.
+- sans inscription en liste noire, il pourra ultérieurement être réinscrit comme contact ou réinvité comme s'il n'avait jamais participé au groupe.
+- avec inscription en liste noire il pourra plus jamais ultérieurement être réinscrit comme contact ou réinvité.
 
 A la radiation d'un membre d'indice `im`:
 - son document `membres` est logiquement détruit (passe en _zombi_).
-- peut être inscrit dans les listes noires `lng lnc`.
-- ses entrées dans `tid st` sont à 0.
-- dans `flags` son entrée mentionne les dernières valeurs de `HM HN HE` ce qui permet, non pas de savoir qui c'était, mais quels ont été ses accès au cours de sa vie avant radiation (O si son statut n'a jamais été actif).
+- il peut être inscrit dans les listes noires `lng lnc`.
+- ses entrées dans `tid st flags` sont à 0.
+
+Un membre actif peut décider de redevenir _simple contact_:
+- il ne verra plus le groupe dans sa liste des groupes.
+- une trace historique simplifiée de son existence subsiste: a) dans ses flags (HM HN HE), b) dans les dates importantes dans son document membre.
 
 > Quand le GC découvre la _disparition_ d'un avatar membre, il s'opère l'équivalent d'une radiation sans mise en liste noire (l'avatar ne reviendra jamais).
 
 ## Création d'un membre
 Le membre _fondateur_ du groupe a un _indice_ `im` 1 et est créé au moment de la création du groupe:
-- dans la table `flags` à l'indice `im`: `DM DN DE AM AN HM hN HE`
+- dans la table `flags` à l'indice `im`: `DM DN DE AM AN HM HN HE`
   - il a _droit_ d'accès aux membres et aux notes en écriture,
   - ses accès aux membres et notes sont ouverts,
   - il a pour statut `st[1]` _animateur_.
 - son id figure en `tid[1]`.
 
-Les autres membres sont créés, lorsqu'ils sont soit proposés, soit invité.
+Les autres membres sont créés, lorsqu'ils sont soit proposés comme contact, soit invités.
 - un indice `im` est pris en séquence, `tid[im]` contient leur id.
 - leur document `membres` est créé. 
-- _proposition_: leurs flags sont à 0, son statut est à 1.
+- _proposition de contact_: leurs flags sont à 0, son statut est à 1.
 - _invitation_: 
-  - leurs flags donnent les _droits_ futurs DM DN DE selon le choix de l'animateur.
+  - des flags donnent les _droits_ futurs DM DN DE et _animateur_ selon le choix de l'animateur.
   - une **invitation** est insérée dans leur avatar.
 
->Réapparition d'un membre après _radiation sans liste noire_ par un animateur 
-Un animateur peut radier un avatar _proposé ou invité_ sans le mettre en liste noire. L'avatar peut être reproposé / réinvité plus tard et aura un nouvel indice et un nouveau document `membres`, son historique est vierge. 
+> Réapparition d'un membre après _radiation sans liste noire_ par un animateur 
+Un animateur peut radier un avatar _non actif_ sans le mettre en liste noire. L'avatar peut être réinscrit comme contact / réinvité plus tard et aura un nouvel indice et un nouveau document `membres`, son historique est vierge. 
 
 ## Modes d'invitation
 - _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par **UN** animateur (un seul suffit).
@@ -2395,6 +2405,30 @@ Une invitation est enregistrée dans la map `invits` de l'avatar invité:
   - `txtG` : message de bienvenue / invitation émis par l'invitant.
 
 Ces données permettent à l'invité de voir en session les cartes de visite du groupe et de l'invitant ainsi que le texte d'invitation (qui figure également dans le chat du groupe). Le message de remerciement en cas d'acceptation ou de refus sera également inscrit dans le chat du groupe.
+
+### Invitations en cours: `invits`
+Cette map a une entrée par invitation _ouverte_ et pas encore ni acceptée ni refusée ni même totalement votée: `{ fl, li[] }`
+- `fl` : flags d'invitation. Droits futurs DM DN DE et NA (pouvoir d'animation).
+- `li` :
+  - liste des `im` des animateurs ayant voté l'invitation pour un mode unanime.
+  - pour un mode d'invitation simple, il n'y a qu'un terme.
+
+Quand l'invitation a été acceptée ou refusée, l'entrée correspondante dans invits est détruite.
+
+Quand l'invitation est encore _en vote_ (statut 2), les listes li sont remises à jour quand un des animateurs cités n'est plus _actif animateur_.
+
+## Un membre peut avoir plusieurs périodes d'activité
+- il est inscrit une fois comme _contact_ (ou directement comme _invité_).
+- il accepte l'invitation et devient actif.
+- il décide de redevenir _simple contact_: sa période d'activité se termine.
+- il est à nouveau _invité_ et accepte son invitation: sa deuxième période d'activité commence.
+
+Tant que le membre,
+- ne s'est pas auto-radié,
+- n'a pas été radié par un animateur alors qu'il était _contact ou invité_
+- il conserve son indice im, son document membre et une trace des périodes d'activité:
+  - ses flags HM HN HE indiquent sommairement s'il a eu _un jour_ accès aux membres, accès aux notes en lecture ou en écriture.
+  - dans son document membre, les couples de dates de début de la première période et de fin de la dernière période d'activité, d'accès aux membres et aux notes en lecture ou écriture.
 
 ## Hébergement par un membre _actif_
 L'hébergement d'un groupe est noté par :
@@ -2427,6 +2461,7 @@ _data_:
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
+- `invits` : map `{ fl, li[] }` des invitations en attente de vote ou de réponse.
 - `tid` : table des ids courts des membres.
 - `st` : table des statuts.
 - `flags` : tables des flags.
@@ -2452,22 +2487,48 @@ _data_:
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
 
-- `dpr` : date de proposition
-- `ddi` : date d'invitation.
-- `dac` : date de début d'activité
+- `dpc` : date de premier contact (ou de première invitation s'il a été directement invité).
+- `ddi` : date de la dernière invitation (envoyée au membre, c'est à dire _votée_).
 - **dates de début de la première et fin de la dernière période...**
+  - `dac fac` : d'activité.
   - `dln fln` : d'accès en lecture aux notes.
   - `den fen` : d'accès en écriture aux notes.
   - `dam fam` : d'accès aux membres.
 - `cleAG` : clé A de l'avatar membre cryptée par la clé G du groupe.
 - `cvA` : carte de visite du membre `{id, v, photo, info}`, textes cryptés par la clé A de l'avatar membre.
-- `inv` : Liste des im des animateurs ayant validé la dernière invitation.
-- `flinv`: flags d'invitation: AN (animateur) DM DN DE.
-- `msgG`: message d'invitation crypté par la clé G.
+- `msgG`: message d'invitation crypté par la clé G pour une invitation en attente de vote ou de réponse. 
+
+> Un message d'invitation est aussi inscrit dans le chat du groupe ou figure aussi la réponse de l'invité. `msgG` est effacé après acceptation ou refus, mais pas les items correspondants dans le chat.
 
 ## Opérations
+### Par un animateur:
+- Inscription en contact - 0 -> 1
+- Radiation d'un contact - 1 -> 0
+- Invitation simple - 1 -> 3
+- Annulation d'invitation - 2 / 3
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire G -> 0
+  - et radiation avec inscription en liste noire G -> 0
+- Vote d'invitation - 2 
+  - vote pour -> 2 ou 3
+  - retrait d'un vote pour
+- Modification des conditions d'invitation - 2 / 3. Pour le mode _unanime_ revient à 2 (votes annulés)
+- Modification des droits d'accès - 4 / 5
+- Inscription (préventive) en liste noire G - 4 / 5
 
-### Proposition
+### Par le membre lui-même:
+- Acceptation d'invitation - 3 -> 4 / 5
+- Refus d'une invitation - 3 
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire C -> 0
+  - et radiation avec inscription en liste noire C -> 0
+- Modification des accès membre / note et statut d'animateur - 4 / 5 -> 4 (si retrait animateur)
+- Arrêt d'activité - 4 / 5
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire C -> 0
+  - et radiation avec inscription en liste noire C _> 0
+
+### Inscription en contact
 - s'il est en liste noire, refus.
 - attribution de l'indice `im`.
 - un row `membres` est créé.
