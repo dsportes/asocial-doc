@@ -2461,7 +2461,7 @@ _data_:
 - `msu` : mode _simple_ ou _unanime_.
   - `null` : mode simple.
   - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
-- `invits` : map `{ fl, li[] }` des invitations en attente de vote ou de réponse.
+- `invits` : map `{ fl, li[] }` des invitations en attente de vote ou de réponse. Clé: `im` du membre invité.
 - `tid` : table des ids courts des membres.
 - `st` : table des statuts.
 - `flags` : tables des flags.
