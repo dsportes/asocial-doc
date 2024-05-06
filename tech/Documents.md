@@ -2397,14 +2397,16 @@ Un animateur peut radier un avatar _non actif_ sans le mettre en liste noire. L'
 
 Une invitation est enregistrée dans la map `invits` de l'avatar invité:
 - _clé_: `idg` id du groupe.
-- _valeur_: `{cleGA, cvG, cleAG, cvA, txtG}`
+- _valeur_: `{cleGA, cvG, invpar, txtG}`
   - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
   - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe).
-  - `cleAG`: clé A de l'avatar invitant crypté par la clé G du groupe.
-  - `cvA` : carte de visite de l'invitant (photo et texte sont cryptés par la clé G du groupe). 
-  - `txtG` : message de bienvenue / invitation émis par l'invitant.
+  - `flags` : d'invitation.
+  - `invpar` : `[{ cleAG, cvA }]`
+    - `cleAG`: clé A de l'avatar invitant crypté par la clé G du groupe.
+    - `cvA` : carte de visite de l'invitant (photo et texte sont cryptés par la clé G du groupe). 
+  - `msgG` : message de bienvenue / invitation émis par l'invitant.
 
-Ces données permettent à l'invité de voir en session les cartes de visite du groupe et de l'invitant ainsi que le texte d'invitation (qui figure également dans le chat du groupe). Le message de remerciement en cas d'acceptation ou de refus sera également inscrit dans le chat du groupe.
+Ces données permettent à l'invité de voir en session les cartes de visite du groupe et du ou des invitants ainsi que le texte d'invitation (qui figure également dans le chat du groupe). Le message de remerciement en cas d'acceptation ou de refus sera également inscrit dans le chat du groupe.
 
 ### Invitations en cours: `invits`
 Cette map a une entrée par invitation _ouverte_ et pas encore ni acceptée ni refusée ni même totalement votée: `{ fl, li[] }`
