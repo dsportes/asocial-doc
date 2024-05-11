@@ -1226,4 +1226,971 @@ _data_:
 - un mot de remerciement est écrit par le sponsorisé au sponsor sur `ardYC` **ET** ceci est dédoublé dans un chat sponsorisé / sponsor créé à ce moment et comportant l'item de réponse. Si le sponsor ou le sponsorisé ont requis la confidentialité, le chat n'est pas créé.
 - le statut du `sponsoring` est 2.
 
+# Documents `notes`
+La clé de cryptage d'une note est selon le cas :
+- *note personnelle d'un avatar A* : la clé K de l'avatar.
+- *note d'un groupe G* : la clé du groupe G.
+
+Pour une note de groupe, le droit de mise à jour d'une note d'un groupe est contrôlé par `im` qui indique quel membre (son `im`) a l'exclusivité d'écriture (sinon tous).
+
+_data_:
+- `id` : id de l'avatar ou du groupe.
+- `ids` : identifiant aléatoire relatif à son avatar.
+- `v` : 1..N.
+
+- `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
+- `vf` : volume total des fichiers attachés.
+- `ht` : liste des hashtags _personnels_ cryptée par la clé K du compte.
+- `htg` : note de groupe : liste des hashtags cryptée par la clé du groupe.
+- `htm` : note de groupe seulement, hashtags des membres. Map:
+    - _clé_ : id courte du compte de l'auteur,
+    - _valeur_ : liste des hashtags cryptée par la clé K du compte.
+    - non transmis en session.
+- `l` : liste des _auteurs_ (leurs `im`) pour une note de groupe.
+- `d` : date-heure de dernière modification du texte.
+- `texte` : texte (gzippé) crypté par la clé de la note.
+- `mfa` : map des fichiers attachés.
+- `ref` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa note _parent_.
+
+`nomp` /VERIF/
+
+**Une note peut être logiquement supprimée**. Afin de synchroniser cette forme particulière de mise à jour le document est conservé _zombi_ (sa _data_ est `null`). La note sera purgée un jour avec son avatar / groupe.
+
+**Pour une note de groupe**, la propriété `htm` n'est pas transmise en session: l'item correspondant au compte est copié dans `ht`.
+
+## Map des fichiers attachés
+- _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id_court` du groupe / avatar, `idf`
+- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé de la note.
+
+**Identifiant de stockage :** `org/id_court/idf`
+- `org` : code de l'organisation.
+- `id_court` : id _court_ de l'avatar / groupe auquel la note appartient.
+- `idf` : identifiant aléatoire du fichier.
+
+En imaginant un stockage sur file-system,
+- l'application a un répertoire racine par espace portant le code de l'organisation,
+- il y un répertoire par avatar / groupe ayant des notes ayant des fichiers attachés,
+- pour chacun, un fichier par fichier attaché.
+
+_Un nouveau fichier attaché_ est stocké sur support externe **avant** d'être enregistré dans son document `notes`. Ceci est noté dans un document `transferts`. 
+Les fichiers créés par anticipation et non validés dans un document `notes` comme ceux qui n'y ont pas été supprimés après validation de la note, sont retrouvés par le GC.
+
+La purge d'un avatar / groupe s'accompagne de la suppression de son _répertoire_. 
+
+La suppression d'une note s'accompagne de la suppressions de N fichiers dans un seul _répertoire_.
+
+## Note rattachée à une autre
+Le rattachement d'une note à une autre permet de définir un arbre des notes.
+- une note d'un avatar A1 peut être rattachée:
+  - soit à la racine A1, en fait elle n'est pas rattachée,
+  - soit à une autre note de A1,
+  - soit à une note de groupe: A1 peut ainsi commenter des notes d'un groupe par des notes qu'il sera seul à voir.
+- une note d'un groupe G1 ne peut être rattachée qu'à une autre note du même groupe.
+
+Les cycles (N1 rattachée à N2 rattachée à N3 rattachée à N1 par exemple) sont détectés et bloqués.
+
+# Documents `groupes`
+Un groupe est caractérisé par :
+- son entête : un document `groupes`.
+- son (unique) sous-document `chatgrs` (dont `ids` est `1`).
+- ses membres: des documents de sa sous-collection `membres`.
+
+**Droits d'accès d'un membre.**
+
+Um membre peut se _restreindre_ lui-même les accès suivants:
+- [AM] : accès aux membres et au chat du groupe.
+- [AN] : accès aux notes du groupe.
+
+Il peut avoir les deux (cas général) ou n'en avoir aucun ce qui:
+- limite son accès au groupe à la lecture de la carte de visite du groupe.
+- pour un un animateur il peut être _hébergeur_.
+
+Des droits d'accès sont conférés par un animateur (indépendamment de [AM] / [AN]):
+- [DM] **d'accès à la liste des membres**.
+- [DN] **d'accès en lecture aux notes du groupe**.
+- [DE] **droits d'écriture sur les notes du groupe** (ce qui implique DN).
+
+L'accès [AM] ([AN]):
+- vrai: DES QUE le membre a le droit [DM], il accède aux membres. 
+- faux: il n'accède pas aux membres **même s'il en le droit** par [DM].
+
+L'historique synthétique est consigné par:
+- [HM] **a eu un jour accès aux membres**
+- [HN] **a eu un jour accès aux notes**
+- [HE] **a eu un jour la possibilité d'écrire une note**
+
+## Statut d'un membre dans le groupe: tables `st tid flags`
+Ces trois tables sont synchrones: l'indice `im` d'un membre est le même pour les trois:
+- `tid` : table des ids des membres.
+- `st` : statut de ce membre.
+- `flags`: accès et droits d'accès de ce membre.
+
+> Ces tables s'étendent, les indices devenus inutiles ne sont pas réutilisés.
+
+**Statut `st`:**
+- 0 : **radié**: c'est un ex-membre désormais _inconnu_, peut-être disparu, son id est perdu (`tid[im]` vaut 0).
+- 1 : **contact** proposé pour une éventuelle invitation future par un membre ayant un droit d'accès aux membres.
+  - l'avatar n'est pas au courant et ne peut rien faire dans le groupe.
+  - les membres du groupe peuvent voir sa carte de visite.
+  - un animateur peut le faire passer en état _invité_ ou _le radier_ (avec ou sans inscription en liste noire _groupe_).
+- 2 / 3 : **pré-invité / invité**: 
+  - 2 : **pré-invité : en attente de votes** quand un vote unanime est requis. Un ou plusieurs animateurs ont voté pour inviter le contact, mais pas tous.
+    - l'avatar n'est pas au courant et ne peut rien faire dans le groupe.
+    - les membres du groupe peuvent voir sa carte de visite.
+    - les animateurs peuvent:
+      - voter pour, effacer leur vote, changer les conditions d'invitation. Quand tous les animateurs ont voté pour, l'avatar devient _invité_.
+      - _le radier_ (avec ou sans inscription en liste noire _groupe_) ou annuler l'invitation et le conserver comme simple contact.
+  - 3 : **invité: en attente de réponse** quand le dernier animateur a voté (ou le premier pour les groupes à invitation simple), l'invitation a été transmise à l'avatar invité.
+    - l'avatar proposé est au courant, il a une _invitation_ dans son avatar.
+    - les membres du groupe peuvent voir sa carte de visite et les droits d'accès qui seront appliqués si l'avatar accepte l'invitation.
+    - un animateur peut:
+      - changer ses droits d'accès futurs.
+      - _le radier_ (avec inscription en liste noire _groupe_) ou annuler l'invitation et le conserver comme simple contact.
+    - l'avatar peut,
+      - accepter l'invitation: il passera en état _actif_ ou _animateur_.
+      - refuser l'invitation et _s'auto-radier_ (avec ou sans inscription en liste noire _compte_) ou redevenir simple contact.
+- 4 / 5 : **actif** 
+  - 4 : **non animateur**
+    - l'avatar a le groupe enregistré dans son compte (`mpg`).
+    - il peut:
+      - changer son accès aux membres et aux notes (mais pas ses droits).
+      - _s'auto-radier_ (avec on sans inscription en liste noire _compte_) ou redevenir simple contact.
+    - un animateur peut:
+      - changer ses droits d'accès (mais pas ses accès effectifs qui sont du ressort du membre).
+      - le radier, avec ou sans inscription en en liste noire _groupe_ ou simplement le ramener en statut _contact_.
+  - 5 : **animateur**. _actif_ avec privilège d'animation.
+    - un autre animateur ne peut ni changer ses droits, ni le radier, ni lui retirer son statut d'animateur (mais lui-même peut le faire).
+
+Le nombre de notes pris en compte dans la comptabilité du compte:
+- est incrémenté de 1 quand il accepte une invitation,
+- est décrémenté de 1 quand il est radié ou redevient simple contact.
+
+Dès qu'un membre a un statut:
+- un indice `im` lui est attribué en séquence du dernier attribué (taille de `tid`). 
+- ses accès et droits sont consignés dans la table `flags` à l'indice `im`.
+- il a un document `membres` associé: `ids`, l'identification relative du membre dans le groupe est son indice `im`.
+
+## Radiations et inscriptions en liste noires `lng lnc`
+La liste noire `lng` est la liste des id des membres que l'animateur ne veut plus voir réapparaître dans le groupe après leur radiation.
+
+La liste noire `lnc` est la liste des id des membres qui se sont auto-radiés en indiquant ne jamais vouloir être connu du groupe à l'avenir.
+
+Un animateur peut radier un membre, sauf les autres animateurs.
+
+Un membre actif peut _s'auto-radier_:
+- il ne verra plus le groupe dans sa liste des groupes.
+- sans inscription en liste noire, il pourra ultérieurement être réinscrit comme contact ou réinvité comme s'il n'avait jamais participé au groupe.
+- avec inscription en liste noire il pourra plus jamais ultérieurement être réinscrit comme contact ou réinvité.
+
+A la radiation d'un membre d'indice `im`:
+- son document `membres` est logiquement détruit (passe en _zombi_).
+- il peut être inscrit dans les listes noires `lng lnc`.
+- ses entrées dans `tid st flags` sont à 0.
+
+Un membre actif peut décider de redevenir _simple contact_:
+- il ne verra plus le groupe dans sa liste des groupes.
+- une trace historique simplifiée de son existence subsiste: a) dans ses flags (HM HN HE), b) dans les dates importantes dans son document membre.
+
+> Quand le GC découvre la _disparition_ du compte d'un avatar membre, il s'opère l'équivalent d'une radiation sans mise en liste noire (mais l'avatar ne reviendra jamais).
+
+## Création d'un membre
+Le membre _fondateur_ du groupe a un _indice_ `im` 1 et est créé au moment de la création du groupe:
+- dans la table `flags` à l'indice `im`: `DM DN DE AM AN HM HN HE`
+  - il a _droit_ d'accès aux membres et aux notes en écriture,
+  - ses accès aux membres et notes sont ouverts,
+  - il a pour statut `st[1]` _animateur_.
+- son id figure en `tid[1]`.
+
+Les autres membres sont créés, lorsqu'ils sont soit proposés comme contact, soit invités.
+- un indice `im` est pris en séquence, `tid[im]` contient leur id.
+- leur document `membres` est créé. 
+- _proposition de contact_: leurs flags sont à 0, son statut est à 1.
+- _invitation_: 
+  - des flags donnent les _droits_ futurs DM DN DE et _animateur_ selon le choix de l'animateur.
+  - une **invitation** est insérée dans leur avatar.
+
+> Réapparition d'un membre après _radiation sans liste noire_ par un animateur.
+Un animateur peut radier un avatar sans le mettre en liste noire. L'avatar peut être réinscrit comme contact / réinvité plus tard et aura un nouvel indice et un nouveau document `membres`, son historique est vierge. 
+
+## Modes d'invitation
+- _simple_ : dans ce mode (par défaut) un _contact_ du groupe peut-être invité par **UN** animateur (un seul suffit).
+- _unanime_ : dans ce mode il faut que **TOUS** les animateurs aient validé l'invitation (le dernier ayant validé provoquant l'invitation).
+- pour passer en mode _unanime_ il suffit qu'un seul animateur le demande.
+- pour revenir au mode _simple_ depuis le mode _unanime_, il faut que **TOUS** les animateurs aient validé ce retour.
+
+Une invitation est enregistrée dans la map `invits` de l'avatar invité:
+- _clé_: `idg` id du groupe.
+- _valeur_: `{cleGA, cvG, invpar, txtG}`
+  - `cleGA`: clé du groupe crypté par la clé A de l'avatar.
+  - `cvG` : carte de visite du groupe (photo et texte sont cryptés par la clé G du groupe).
+  - `flags` : d'invitation. Animateur DM DN DE.
+  - `invpar` : `[{ cleAG, cvA }]`
+    - `cleAG`: clé A de l'avatar invitant crypté par la clé G du groupe.
+    - `cvA` : carte de visite de l'invitant (photo et texte sont cryptés par la clé G du groupe). 
+  - `msgG` : message de bienvenue / invitation émis par l'invitant.
+
+Ces données permettent à l'invité de voir en session les cartes de visite du groupe et du ou des invitants ainsi que le texte d'invitation (qui figure également dans le chat du groupe). Le message de remerciement en cas d'acceptation ou de refus sera également inscrit dans le chat du groupe.
+
+### Invitations en cours: `invits`
+Cette map a une entrée par invitation _ouverte_ et pas encore ni acceptée ni refusée ni même totalement votée: `{ fl, li[] }`
+- `fl` : flags d'invitation. Droits futurs DM DN DE et pouvoir d'animation.
+- `li` :
+  - liste des `im` des animateurs ayant voté l'invitation pour un mode unanime.
+  - pour un mode d'invitation simple, il n'y a qu'un terme.
+
+Quand l'invitation a été acceptée ou refusée, l'entrée correspondante dans `invits` est détruite.
+
+Quand l'invitation est encore _en vote_ (statut 2), les listes `li` sont remises à jour quand un des animateurs cités n'est plus _actif animateur_.
+
+## Un membre peut avoir plusieurs périodes d'activité
+- il est inscrit une fois comme _contact_ puis est _invité_.
+- il accepte l'invitation et devient actif.
+- il décide de redevenir _simple contact_ (sans se radier): sa période d'activité se termine.
+- il est à nouveau _invité_ et accepte son invitation: sa deuxième période d'activité commence.
+
+Tant que le membre,
+- ne s'est pas auto-radié,
+- n'a pas été radié par un animateur,
+- il conserve son indice `im`, son document `membres` et une trace des périodes d'activité:
+  - ses flags `HM HN HE` indiquent sommairement s'il a eu _un jour_ accès aux membres, accès aux notes en lecture ou en écriture.
+  - dans son document `membres`, les couples de dates de début de la première période et de fin de la dernière période d'activité, d'accès aux membres et aux notes en lecture ou écriture.
+
+## Hébergement par un membre _actif_
+L'hébergement d'un groupe est noté par :
+- `imh`: indice membre de l'avatar hébergeur. 
+- `idh` : id du **compte** de l'avatar hébergeur. **Cette donnée n'est pas transmise aux sessions**.
+- `dfh`: date de fin d'hébergement qui vaut 0 tant que le groupe est hébergé. Les notes ne peuvent plus être mises à jour _en croissance_ quand `dfh` existe.
+
+### Prise d'hébergement
+- en l'absence d'hébergeur, c'est possible pour,
+  - tout animateur,
+  - en l'absence d'animateur: tout actif ayant le droit d'écriture des notes, puis tout actif ayant accès aux notes, puis tout actif.
+- s'il y a déjà un hébergeur, seul un animateur peut se substituer à l'hébergeur actuel.
+- dans tous les cas c'est à condition que le nombre de notes `nn` et le volume de fichiers actuels `vf` ne le mette pas en dépassement de son abonnement.
+
+### Fin d'hébergement par l'hébergeur
+- `dfh` est mise la date du jour + 90 jours.
+- le nombre de notes `ng` et le volume `v` de `comptas` sont décrémentés de ceux du groupe.
+
+Au dépassement de `dfh`, le GC détruit le groupe.
+
+## Data
+_data_:
+- `id` : id du groupe.
+- `v` :  1..N, Par convention, une version à 999999 désigne un **groupe logiquement détruit** mais dont les données sont encore présentes. Le groupe est _en cours de suppression_.
+- `dfh` : date de fin d'hébergement.
+
+- `rds` : pas transmis en session.
+- `nn qn vf qv`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
+- `idh` : id du compte hébergeur (pas transmise aux sessions).
+- `imh` : indice `im` du membre dont le compte est hébergeur.
+- `msu` : mode _simple_ ou _unanime_.
+  - `null` : mode simple.
+  - `[ids]` : mode unanime : liste des indices des animateurs ayant voté pour le retour au mode simple. La liste peut être vide mais existe.
+- `invits` : map `{ fl, li[] }` des invitations en attente de vote ou de réponse. Clé: `im` du membre invité.
+- `tid` : table des ids courts des membres.
+- `st` : table des statuts.
+- `flags` : tables des flags.
+- `lng` : liste noire _groupe_ des ids (courts) des membres.
+- `lnc` : liste noire _compte_ des ids (courts) des membres.
+- `cvG` : carte de visite du groupe, textes cryptés par la clé du groupe `{v, photo, info}`.
+
+## Décompte des participations à des groupes d'un compte
+- quand un avatar a accepté une invitation, il devient _actif_ et a une nouvelle entrée dans la liste des participations aux groupes (`mpg`) dans l'avatar principal de son compte.
+- quand l'avatar est radié cette entrée est supprimée.
+- le _nombre de participations aux groupes_ dans `comptas.qv.ng` du compte est le nombre total de ces entrées dans `mpg`.
+
+# Documents `membres`
+Un document `membres` est créé à la déclaration d'un avatar comme _contact_.
+
+Le document `membres` est détruit,
+- par une opération de radiation.
+- par la destruction de son groupe lors de la résiliation du dernier membre actif.
+
+_data_:
+- `id` : id du groupe.
+- `ids`: identifiant, indice `im` de membre relatif à son groupe.
+- `v` : 
+- `vcv` : version de la carte de visite du membre.
+
+- `dpc` : date de premier contact.
+- `ddi` : date de la dernière invitation (envoyée au membre, c'est à dire _votée_).
+- **dates de début de la première et fin de la dernière période...**
+  - `dac fac` : d'activité.
+  - `dln fln` : d'accès en lecture aux notes.
+  - `den fen` : d'accès en écriture aux notes.
+  - `dam fam` : d'accès aux membres.
+- `cleAG` : clé A de l'avatar membre cryptée par la clé G du groupe.
+- `cvA` : carte de visite du membre `{id, v, photo, info}`, textes cryptés par la clé A de l'avatar membre.
+- `msgG`: message d'invitation crypté par la clé G pour une invitation en attente de vote ou de réponse. 
+
+> Un message d'invitation est aussi inscrit dans le chat du groupe ou figure aussi la réponse de l'invité. `msgG` est effacé après acceptation ou refus, mais pas les items correspondants dans le chat.
+
+## Opérations
+### Par un animateur:
+- Inscription en contact - 0 -> 1
+
+- Radiation d'un contact - 1 -> 0
+- Invitation simple - 1 -> 3
+- Annulation d'invitation - 2 / 3
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire G -> 0
+  - et radiation avec inscription en liste noire G -> 0
+- Vote d'invitation - 2 
+  - vote pour -> 2 ou 3
+  - retrait d'un vote pour
+- Modification des conditions d'invitation - 2 / 3. Pour le mode _unanime_ revient à 2 (votes annulés)
+- Modification des droits d'accès - 4 / 5
+- Radiation d'un membre actif - 4 / 5
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire G -> 0
+  - et radiation avec inscription en liste noire G -> 0
+
+### Par le membre lui-même:
+- Acceptation d'invitation - 3 -> 4 / 5
+- Refus d'une invitation - 3 
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire C -> 0
+  - et radiation avec inscription en liste noire C -> 0
+- Modification des accès membre / note et statut d'animateur - 4 / 5 -> 4 (si retrait animateur)
+- Auto-radiation - 4 / 5
+  - et retour en contact -> 1
+  - et radiation sans inscription en liste noire C -> 0
+  - et radiation avec inscription en liste noire C _> 0
+
+### Inscription en contact
+- s'il est en liste noire, refus.
+- attribution de l'indice `im`.
+- un row `membres` est créé.
+
+### Invitation par un animateur
+- choix des _droits_ et inscription dans `invits` de l'avatar.
+- vote d'invitation (en mode _unanime_):
+  - si tous les animateurs ont voté, inscription dans `invits` de l'avatar.
+  - si le votant change les _droits_, les autres votes sont annulés.
+- `ddi` est remplie dans `membres`.
+
+### Annulation d'invitation par un animateur
+- effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
+
+### Radiation par un animateur (avec ou sans liste noire)
+- le statut passe de 1-2 (sinon erreur) à 0.
+- s'il était invité, effacement de l'entrée de l'id du groupe dans `invits` de l'avatar.
+- inscription éventuelle en liste noire `lng`.
+- le document `membres` devient _zombi_.
+
+### Refus d'invitation par le compte
+- mise à 0 du statut, des flags et de l'entrée dans `tid`.
+- document `membres` mis en _zombi_
+- Option liste noire: inscription dans `lnc`.
+- son item dans `invits` de son avatar est effacé.
+
+### Acceptation d'invitation par le compte
+- dans l'avatar principal du compte un item est ajouté dans `mpg`,
+- dans `comptas` le compteur `qv.ng` est incrémenté.
+- `dac dln ... fam` de `membres` sont mises à jour.
+- son item dans `invits` de son avatar est effacé.
+- flags `AN AM`: accès aux notes, accès aux autres membres.
+- statut à 3 ou 4.
+
+### Modification des droits par un animateur
+- flags `DM DN DE`
+
+### Radiation d'un actif par un animateur
+- le statut est actif et deviendra 0 (radié) ou 1 (retour en contact).
+- le membre est mis (ou non) en liste noire `lng`.
+- cas de radiation: son document `membres` est mis en _zombi_.
+
+### Modification des accès membres / notes par le compte
+- flags `AN AM`: accès aux notes, accès aux autres membres.
+
+## Radiation demandée par le compte**
+- document `membres` mis en _zombi_.
+- mis à 0 du statut, de l'entrée dans tid. Dans flags il ne reste que les HM HN HE.
+- si le membre était le dernier _actif_, le groupe disparaît.
+- la participation au groupe disparaît de `mpg` du compte.
+- option liste noire: mise en liste noire `lnc`.
+
+# Documents `Chatgrs`
+A chaque groupe est associé **UN** document `chatgrs` qui représente le chat des membres d'un groupe. Il est créé avec le groupe et disparaît avec lui.
+
+_data_
+- `id` : id du groupe
+- `ids` : `1`
+- `v` : sa version.
+
+- `items` : liste ordonnée des items de chat `{im, dh, dhx, t}`
+  - `im` : im du membre auteur,
+  - `dh` : date-heure d'écriture.
+  - `dhx` : date-heure de suppression.
+  - `t` : texte gzippé crypté par la clé G du groupe (vide s'il a été supprimé).
+
+## Opérations
+### Ajout d'un item
+- autorisé pour tout membre actif ayant droit d'accès aux membres.
+- le texte est limité à 300 signes.
+
+### Effacement d'un item
+- autorisé pour l'auteur de l'item ou un animateur du groupe.
+
+### Sur invitation par un animateur
+- le texte d'invitation est enregistré comme item, les autres membres du groupe peuvent ainsi le voir.
+
+### Sur acceptation ou refus d'invitation
+- le texte explicatif est enregistré comme item.
+
+Un item ne peut pas être corrigé après écriture, juste effacé.
+
+Le chat d'un groupe garde les items dans l'ordre ante-chronologique jusqu'à concurrence d'une taille totale de 5000 signes.
+
+# Gestion des disparitions des comptes: `dlv` 
+
+Chaque compte a une **date limite de validité**:
+- toujours une _date de dernier jour du mois_ (sauf exception par convention décrite plus avant),
+- propriété indexée de son document `comptes`.
+
+Le GC utilise le dépassement de `dlv` pour libérer les ressources correspondantes (notes, chats, ...) d'un compte qui n'est plus utilisé:
+- **pour un compte "A"** la `dlv` représente la limite d'épuisement de son crédit mais bornée à `nbmi` mois du jour de son calcul.
+- **pour un compte "O"**, la `dlv` représente la plus proche de ces deux limites,
+  - un nombre de jours sans connexion (donnée par `nbmi` du document `espaces` de l'organisation),
+  - la date `dlvat` jusqu'à laquelle l'organisation a payé ses coûts d'hébergement à l'administrateur technique (par défaut la fin du siècle). C'est la date `dlvat` qui figure dans le document `espaces` de l'organisation. Dans ce cas, par convention, c'est la **date du premier jour du mois suivant** pour pouvoir être reconnue.
+
+> Remarque. En toute rigueur un compte "A" qui aurait un gros crédit pourrait ne pas être obligé de se connecter pour prolonger la vie de son compte _oublié / tombé en désuétude / décédé_. Mais il n'est pas souhaitable de conserver des comptes _morts_ en hébergement, même payé: ils encombrent pour rien l'espace.
+
+## Calcul de la `dlv` d'un compte
+La `dlv` d'un compte est recalculée à plusieurs occasions.
+
+### Acceptation du sponsoring du compte
+Première valeur calculée selon le type du compte.
+
+### Connexion
+La connexion permet de refaire les calculs en particulier en prenant en compte de nouveaux tarifs.
+
+C'est l'occasion majeure de prolongation de la vie d'un compte.
+
+### Don pour un compte "A": passe par un chat
+Les `dlv` du _donneur_ et du récipiendaire sont recalculées sur l'instant.
+
+### Enregistrement d'un crédit par le Comptable
+Pour le destinataire du crédit sa dlv est recalculée sur l'instant.
+
+### Modification de l'abonnement d'un compte A
+La `dlv` est recalculée à l'occasion de la nouvelle évaluation qui en résulte.
+
+### Mutation d'un compte "O" en "A" et d'un compte "A" en "O"
+La `dlv` est recalculée en fonction des nouvelles conditions.
+
+## Changement des paramètres dans l'espace d'une organisation
+Il y a deux données: 
+- `dlvat`: date limite de vie des comptes "O", fixée par l'administrateur technique en fonction des contributions effectives reçues de l'organisation pour héberger ses comptes "O".
+- `nbmi`: nombre de mois d'inactivité acceptable fixé par le Comptable (3, 6, 9, 12, 18 ou 24). Ce changement n'a pas d'effet rétroactif.
+
+> **Remarque**: `nbmi` est fixé par configuration par le Comptable _pour chaque espace_. C'est une contrainte de délai maximum entre deux connexions à un compte, faute de quoi le compte est automatiquement supprimé. La constante `IDBOBS` fixe elle un délai maximum (2 ans par exemple), _pour un appareil et un compte_ pour bénéficier de la synchronisation incrémentale. Un compte peut se connecter toutes les semaines et avoir _un_ poste sur lequel il n'a pas ouvert une session synchronisée depuis 3 ans: bien que tout à fait vivant, si le compte se reconnecte en mode _synchronisé_ sur **ce** poste, il repartira depuis une base locale vierge, sans bénéficier d'un redémarrage incrémental.
+
+### Changement de `dlvat`
+Si le financement de l'hébergement par accord entre l'administrateur technique et le Comptable d'un espace tarde à survenir, beaucoup de comptes O ont leur existence menacée par l'approche de cette date couperet. Un accord tardif doit en conséquence avoir des effets immédiats une fois la décision actée.
+
+Par convention une `dlvat` est fixée au **1 d'un mois** et ne peut pas être changée pour une date inférieure à M + 3 (nbmi ?) du jour de modification.
+
+L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transactions pour toutes les `dlv` des `comptes` égales à l'ancienne `dlvat`. La transaction finale fixe aussi la nouvelle `dlvat`. La valeur de remplacement est,
+- la nouvelle `dlvat` (au 1 d'un mois) si elle est inférieure à `auj + nbmi mois`: c'est encore la `dlvat` qui borne la vie des comptes O (à une autre borne).
+- sinon la fixe à `auj + nbmi mois` (au dernier jour d'un mois), comme si les comptes s'étaient connectés aujourd'hui.
+
+_Remarque_: idéalement une transaction unique aurait été préférable mais elle pourrait être longue et entraînerait des blocages.
+
+# Opérations GC
+Le lancement est quotidien et enchaîne les étapes ci-dessous, en asynchronisme de la requête l'ayant lancé.
+
+En cas d'exception dans une étape, une relance est faite après un certain délai afin de surmonter un éventuel incident sporadique.
+
+> Remarque : le traitement du lendemain est en lui-même une reprise.
+
+> Pour chaque opération, il y a N transactions, une par document à traiter, ce qui constitue un _checkpoint_ naturel fin.
+
+## `GCfvc` - Étape _fin de vie des comptes_
+Suppression des comptes dont la `dlv` est inférieure à la date du jour.
+
+La suppression d'un compte est en partie différée:
+- les versions du `compte / avatars / groupes` sont marquées _suppr_ (ce qui les rend _logiquement supprimés), les documents `comptes comptis comptas` sont purgés.
+- ses documents `avatars` ont une version v à 999999 (_suppression en cours_)
+- ses documents `groupes` dont le nombre de membres actifs devient 0, ont leur version à 999999 (_suppression en cours_).
+
+## `GCpav` - Étape _purge des avatars logiquement supprimés_
+Pour chaque avatar dont la version est 999999, gestion des chats et purge des sous-documents `chats sponsoring notes avatars` et finalement du document `avatars` lui-même.
+
+## `GCHeb` - Étape _fin d'hébergement_
+Récupération des groupes dont la `dfh` est inférieure à la date du jour et suppression logique (version à 999999).
+
+## `GCpgr` - Étape _purge des groupes logiquement supprimés_
+Pour chaque groupe dont la version est 999999, gestion des invitations et participations puis purge des sous-documents **notes membres chatgrs** et finalement du document `groupes` lui-même.
+- les membres _invités_ ont leurs avatars mis à jour (suppression de l'invitation).
+- le membre hébergeur se voit restituer ses ressources.
+
+### `GCFpu` : traitement des documents `fpurges`
+L'opération récupère tous les items d'`id` de fichiers depuis `fpurges` et déclenche une purge sur le Storage.
+
+Les documents `fpurges` sont purgés.
+
+### `GCTra` : traitement des transferts abandonnés
+L'opération récupère toutes les documents `transferts` dont les `dlv` sont antérieures ou égales à aujourd'hui.
+
+Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
+
+Les documents `transferts` sont purgés.
+
+### `GCspo` : purge des sponsorings obsolètes
+L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures à aujourd'hui. Ces documents sont purgés.
+
+### `GCstc` : création des statistiques mensuelles des `comptas` et des `tickets`
+La boucle s'effectue pour chaque espace:
+- `comptas`: traitement par l'opération `ComptaStat` pour récupérer les compteurs du mois M-1. 
+  - Le traitement n'est déclenché que si le mois à calculer M-1 n'a pas déjà été enregistré comme fait dans `comptas.moisStat` et que le compte existait déjà à M-1.
+- `tickets`: traitement par l'opération `TicketsStat` pour récupérer les tickets de M-3 et les purger.
+  - Le traitement n'est déclenché que le mois à calculer M-3 n'a pas déjà été enregistré comme fait dans `comptas.moisStatT` et que le compte existait déjà à M-3.
+  - une fois le fichier CSV écrit en _storage_, les tickets de M-3 et avant sont purgés.
+
+**Les fichiers CSV sont stockés en _storage_** après avoir été cryptés par la clé E de l'espace.
+
+Les statistiques sont doublement accessibles par le Comptable ET l'administrateur technique du site.
+
+# Décomptes des coûts et crédits
+
+> **Remarque**: en l'absence d'activité de sessions la _consommation_ d'un compte est nulle, alors que le _coût d'abonnement_ augmente à chaque seconde même sans activité.
+
+On compte **en session** les downloads / uploads soumis au _Storage_. /VERIF/
+
+On compte **sur le serveur** le nombre de lectures et d'écritures effectués dans chaque opération:
+- intégration dans le document `comptas` du compte, le cas échéant avec propagation au compte (voire partition) si le changement est significatif.
+- retour à la session pour information où sont cumulés les 4 compteurs depuis le début de la session.
+
+Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
+
+Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ... D'un autre côté, le serveur considère les volumes utilisés en base alors que n / v vont être décomptés sur des quotas (des maximum rarement atteints).
+
+## Classe `Tarif`
+Un tarif correspond à,
+- `am`: son premier mois d'application. Un tarif s'applique toujours au premier de son mois.
+- `cu` : un tableau de 6 coûts unitaires `[u1, u2, ul, ue, um, ud]`
+  - `u1`: 30 jours de quota qn (250 notes / chats)
+  - `u2`: 30 jours de quota qv (100Mo)
+  - `ul`: 1 million de lectures
+  - `ue`: 1 million d'écritures
+  - `um`: 1 GB de transfert montant.
+  - `ud`: 1 GB de transfert descendant.
+
+En configuration un tableau ordonné par `aaaamm` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. 
+
+L'initialisation de la classe `Tarif.init(...)` est faite depuis la configuration (UI comme serveur).
+
+On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en cours (les _futurs_ c'est possible).
+
+La méthode `const t = Tarif.cu(a, m)` retourne le tarif en vigueur pour le mois indiqué.
+
+## Objet quotas et volumes `qv` : `{ qc, qn, qv, nn, nc, ng, v }`
+- `qc`: quota de consommation
+- `qn`: quota du nombre total de notes / chats / groupes.
+- `qv`: quota du volume des fichiers.
+- `nn`: nombre de notes existantes.
+- `nc`: nombre de chats existants.
+- `ng` : nombre de participations aux groupes existantes.
+- `v`: volume effectif total des fichiers.
+
+Cette objet est la propriété `qv` de `comptas`. 
+
+## Objet consommation `conso` : `{ nl, ne, vm, vd }`
+- `nl`: nombre absolu de lectures depuis la création du compte.
+- `ne`: nombre d'écritures.
+- `vm`: volume _montant_ vers le Storage (upload).
+- `vd`: volume _descendant_ du Storage (download).
+
+Cet objet rapporte une évolution de consommation. Paramètre de l'opération `EnregConso`.
+
+## Unités
+- T : temps.
+- D : nombre de document (note, chat, participations à un groupe).
+- B : byte.
+- L : lecture d'un document.
+- E : écriture d'un document.
+- € : unité monétaire.
+
+## Classe `Compteurs`
+Cette classe donne les éléments de facturation et des éléments de statistique d'utilisation sur les les 12 derniers mois (mois en cours y compris).
+
+**Propriétés:**
+- `dh0` : date-heure de création du compte.
+- `dh` : date-heure courante (dernier calcul).
+- `qv` : quotas et volumes pris en compte au dernier calcul `{ qc, qn, qv, nn, nc, ng, v }`.
+- Quand on _prolonge_ l'état actuel pendant un certain temps AVANT d'appliquer de nouvelles valeurs, il faut pouvoir disposer de celles-ci.
+- `vd` : [0..3] - vecteurs détaillés pour M M-1 M-2 M-3.
+- `mm` : [0..18] - coût abonnement + consommation pour le mois M et les 17 mois antérieurs (si 0 pour un mois, le compte n'était pas créé).
+- `aboma` : somme des coûts d'abonnement des mois antérieurs au mois courant depuis la création du compte.
+- `consoma` : somme des coûts de consommation des mois antérieurs au mois courant depuis la création du compte.
+
+Le vecteur `vd[0]` et le montant `mm[0]` vont évoluer tant que le mois courant n'est pas terminé. Pour les mois antérieurs `vd[i]` et `mm[i]` sont immuables.
+
+### Dynamique
+Un objet de class `Compteurs` est construit,
+- soit depuis `serial`, la sérialisation de son dernier état,
+- soit depuis `null` pour un nouveau compte.
+- la construction recalcule tout l'objet: il était sérialisé à un instant `dh`, il est recalculé pour être à jour à l'instant t.
+- **puis** il peut être mis à jour, facultativement, juste avant le retour du `constructor`, par:
+  - `qv` : quand il faut mettre à jour les quotas ou les volumes,
+  - `conso` : quand il faut enregistrer une consommation.
+
+`const compteurs = new Compteurs(serial, qv, conso, dh)`
+- `dh` est facultatif et sert pour effectuer des batteries de tests ne dépendants pas de l'heure courante.
+
+### Vecteur détaillé d'un mois
+Pour chaque mois M à M-3, il y a un **vecteur** de 14 (X1 + X2 + X2 + 3) compteurs:
+- moyennes et cumuls servent au calcul au montant du mois:
+  - QC : moyenne de qc dans le mois (€)
+  - QN : moyenne de qn dans le mois (D)
+  - QV : moyenne de qv dans le mois (B)
+  - NL : nb lectures cumulés sur le mois (L),
+  - NE : nb écritures cumulés sur le mois (E),
+  - VM : total des transferts montants (B),
+  - VD : total des transferts descendants (B).
+- compteurs de _consommation moyenne sur le mois_ qui n'ont qu'une utilité documentaire.
+  - NN : nombre moyen de notes existantes.
+  - NC : nombre moyen de chats existants.
+  - NG : nombre moyen de participations aux groupes existantes.
+  - V : volume moyen effectif total des fichiers stockés.
+- 3 compteurs spéciaux
+  - MS : nombre de ms dans le mois - si 0, le compte n'était pas créé
+  - CA : coût de l'abonnement pour le mois
+  - CC : coût de la consommation pour le mois
+
+Le getter `get serial ()` retourne la sérialisation de l'objet afin de l'écrire dans la propriété `compteurs` de `comptas`.
+
+**En session,** `compteurs` est recalculé par `compile()` à la connexion et en synchro,
+
+**En serveur,** des opérations peuvent faire évoluer `qv` de `comptas`. L'objet `compteurs` est construit (avec un `qv` -et `conso` s'il enregistre une consommation) puis sa sérialisation est enregistrée dans `comptas`:
+- création / suppression d'une note ou d'un chat: incrément / décrément de nn / nc.
+- prise / abandon d'hébergement d'un groupe: delta sur nn / nc / v.
+- création / suppression de fichiers: delta sur v.
+- enregistrement d'un changement de quotas qn / qv.
+- upload / download d'un fichier: delta sur vm / vd.
+- enregistrement d'une consommation de calcul: delta sur nl / ne / vd / vm en passant l'évolution de consommation dans l'objet `conso`.
+
+En session:
+- le Comptable peut afficher le `compteurs` de n'importe quel compte "A" ou "O".
+- les délégués d'une partition ne peuvent faire afficher les `compteurs` _que_ des comptes "O" de leur partition.
+
+### Mutation d'un compte _autonome_ en compte _d'organisation_
+Le compte a demandé et accepté, de passer O. Son accord est traduit par le dernier item de son chat avec le délégué ou le Comptable qui effectue l'opération: son texte est `**YO**`.
+
+Le Comptable ou un délégué désigne le compte dans ses contacts et vérifie:
+- que c'est un compte "A",
+- que le dernier item écrit par le compte est bien `**YO**`.
+
+Les quotas `qc / qn / qv` sont ajustés par le sponsor / comptable:
+- de manière à supporter au moins le volume actuels n / v,
+- en respectant les quotas de la partition courante.
+
+L'opération de mutation:
+- inscrit le compte dans la partition courante,
+- dans `compteurs` du `comptas` du compte:
+  - remise à zéro du total abonnement et consommation des mois antérieurs (`razma()`):
+  - l'historique des compteurs et de leurs valorisations reste intact.
+  - les montants du mois courant et des 17 mois antérieurs sont inchangés,
+  - MAIS les deux compteurs `aboma` et `consoma` qui servent à établir les dépassements de coûts sont remis à zéro: en conséquence le compte va bénéficier d'un mois (au moins) de consommation _d'avance_.
+- inscription d'un item de chat.
+
+### Rendre _autonome_ un compte "O"
+C'est une opération du Comptable et/ou d'un délégué:
+- selon la configuration de l'espace, l'accord du compte est requis si la configuration de l'espace l'a rendu obligatoire (item de chat avec `**YO**`)
+
+L'opération de mutation:
+- retire le compte de sa partition.
+- comme dans le cas ci-dessus, remise à zéro des compteurs total abonnement et consommation des mois antérieurs.
+- dans `comptas`:
+  - `solde` vaut un pécule de 2c, le temps de générer un ticket et de l'encaisser.
+  - les listes des `tickets dons` sont vides.
+
+### Sponsoring d'un compte "O"
+Rien de particulier : `compteurs` est initialisé. Sa consommation est nulle, de facto ceci lui donne une _avance_ de consommation moyenne d'au moins un mois.
+
+### Sponsoring d'un compte "A"
+`compteurs` est initialisé, sa consommation est nulle mais il bénéficie d'un _solde_ minimal pour lui laisser le temps d'enregistrer son premier crédit.
+
+Dans `comptas` on trouve:
+- un `solde` de 2 centimes.
+- des listes `tickets dons` vide.
+
+# Annexe III : Connexion et Synchronisation au fil de l'eau d'une session UI
+Principes:
+- à la fin de la phase de _connexion_, 
+  - tous les documents _synchronisés_ du périmètre du compte sont en mémoire et cohérents entre eux. 
+    - 1 `espaces`
+    - 1 `comptes comptis`
+    - N sous-arbres `avatars ... notes sponsorings chats tickets`
+    - M sous-arbres `groupes ... notes membres`
+  - si la session est _synchronisée_ cet état est aussi celui de la base base locale IDB qui a été mise à jour de manière cohérente pour le compte, puis pour chaque avatar, chaque groupe.
+- par la suite l'opération `Sync` maintient cet état.
+
+> La création d'un compte par acceptation de sponsoring amène la session au même point que la _connexion_ ci-dessus.
+
+> Les trois autres documents du périmètre du compte `syntheses partitions comptas` sont chargés à la demande.
+
+## L'objet DataSync
+Cet objet sert:
+- entre session et _serveur / Cloud Function_ a obtenir les documents resynchronisant la session avec l'état de la base.
+- dans la base locale: à indiquer ce qui y est stocké et dans quelle version.
+
+**Les états successifs _de la base_ sont toujours cohérents**: _tous_ les documents de _chaque_ périmètre d'un compte sont cohérents entre eux.
+
+### État courant d'une session
+Cet état en mémoire et le cas échéant base locale, est consigné dans l'objet `DataSync`.
+
+Dans cet état **chaque sous-arbre** d'un avatar ou d'un groupe du périmètre du compte est cohérent en lui-même, la mise à jour d'un sous-arbre a été assurée par une seule transaction: 
+- à chaque `id` d'un sous-arbre correspond une version `vs` (version session) qui est un cliché d'un état cohérent qui a existé (voire existe encore) en base centrale noté `vb`.
+
+### Synchronisation en session
+Après la phase de _connexion_, l'état en mémoire est cohérent et stable, avec une tâche _d'écoute des changements_ active en permanence:
+- en mode _Firebase_ des lectures _onSnapshot_ sont lancées sur tous les documents versions dont l'id est un des rds des documents du périmètre (compte / avatar / groupe):
+  - un callback survient à réception d'un _avis de changement de version_
+    - soit LE document espaces a changé,
+    - soit un ou les deux documents comptes comptis ont changé,
+    - soit un ou plusieurs documents avatars notes sponsorings tickets identifié en majeur par l'id d'un avatar du périmètre ont changé,
+    - soit un ou plusieurs documents groupes notes membres identifié en majeur par l'id d'un groupe du périmètre ont changé,
+
+ de fond actives en perm
+- 
+ ... du moins tant que les données du pla synchronisation en session 
+
+### L'opération `Sync`
+Une phase de synchronisation en session
+Chaque opération `Sync` de remise à niveau de cet état est _partielle_ et concerne:
+- les 2 documents `comptes comptis`,
+- facultativement **UN** sous-arbre d'avatar ou de groupe cité par son id,
+- retourne le `DataSync` image de l'état après ces mises à jour.
+
+Cette image est dite _cohérente_ quand les versions des 4 documents et de tous les sous-arbres ont été relevées dans les compteurs `vc` au cours d'une transaction `Sync` avec **option C**: la date-heure _serveur_ a été également relevée (à titre informatif).
+
+Au fil de l'eau une session reçoit des avis de mises à jour des 4 documents et des sous-arbres. En les appliquant systématiquement elle va _tendre_ à être _cohérente_, ses remises à niveaux vont _rattraper_ l'état de la base, mais il n'est pas possible de savoir si un état courant de DataSync **est** cohérent, ou **en transition vers** un état cohérent, sauf à demander à une transaction avec **option C** de le déterminer.
+
+
+### Objet `DataSync`
+Quintuplet `sync` : `{ id, rds, vs, vc, vb }`
+- `id` : du document
+- `rds` : du document.
+- `vs` : version détenue par la session du document (comptes comptas espaces partitions) ou du sous-arbre (avatar et groupe).
+- `vb` : version actuelle détenue en base.
+- `vc` : version obtenue lors de la dernière transaction avec option C.
+
+- `dh` : dernière date-heure d'évaluation par le serveur.
+- `dhc` : date-heure de la dernière transaction avec option C.
+- `compte` : son `sync`
+- `compta` : son `sync`
+- `espace` : son `sync`
+- `partition` : son `sync` si c'est un compte "O"
+- `avatars` : map de _clé_ id de l'avatar et de _valeur_ son `sync`.
+- `groupes` : map de _clé_ id groupe et de _valeur_ son `sync`.
+
+### Opération `Sync`
+La session poste des _opérations de synchronisation_ `Sync` avec en argument,
+- `optionC` ou non.
+- `ida` (facultative) du sous-arbre à synchroniser.
+- son `dataSync` actuel.
+
+Une opération `Sync` ne retourne les mises à jour que d'un sous-périmètre puisque au plus UN sous-arbre peut être cité.
+
+> Remarque: quand un compte n'a qu'un avatar et pas d'accès à des groupes, ce _sous-périmètre_ est le _périmètre_ complet.
+
+Elle récupère les versions requises et les documents dont la version en base est supérieure à celle connue en session.
+
+Avec `optionC` elle **interroge** les versions de **tous** les sous-arbres et les notent en `vc` dans l'objet `dataSync` avec le date-heure `dhc`.
+- l'état en session peut être **incomplet**, les versions `vs` étant différentes des versions `vb`.
+
+En _mode WebSocket_ l'opération inscrit tous les ids des documents / sous-arbres du périmètre auprès de la session WebSocket du compte.
+
+La réponse comporte:
+- **le `dataSync` mis à jour**. Par convention une version de base à -1, signifie _devenu hors périmètre_:
+  - pour un groupe ou un avatar, le sous-arbre n'est plus référencé dans le document `comptes`.
+  - pour `partitions`, le compte n'est plus un compte "O". Remarque: si le compte "O" a changé de délégué à NON délégué, l'objet mis à jour est significativement différent.
+- les documents CCEP `comptes comptas espaces partitions`, pour ceux dont la version est différente de celle citée en `vs`.
+- **des listes de sous-documents _manquants / mis à jour_**, une liste par type de document. 
+
+#### Traitement en retour en session
+Sont initialisées à vide :
+- une liste de mises à jour de la base,
+- une _mémoire tampon_ des documents non compilés.
+
+**Premier appel `Sync` de la session**
+Il peut y avoir sortie en exception sur échec d'authentification.
+
+Le `dataSync` joint à la requête étant vide, les documents CCEP sont toujours présents: ils sont mis en _mémoire tampon_. 
+
+Le document `comptes` est compilé,
+- la clé K est décryptée depuis la phrase secrète de la session.
+- en mode _synchronisé_,
+  - si la base locale n'existait pas elle est créée.
+  - l'item de _boot_ de la base locale est réécrit si la clé secrète a changé. 
+- le `dataSync` de la base locale, s'il y en a un, est lu, décrypté et _fusionné_ avec celui de retour de `Sync`.
+
+**Le traitement en session consiste ensuite à :**
+- remplit la liste de mises à jour de la base.
+  - à supprimer : les sous-arbres devenus hors-périmètre.
+  - à supprimer : le document `partitions` si le compte n'est plus "O".
+  - à ajouter : les documents CCEP apparus comme modifiés.
+- **enregistre les mises à jour dans la base locale**, avec le dataSync et en une seule transaction.
+- **si _NON WebSocket_ se met à l'écoute des mises à jour**:
+  - si c'est le premier appel, de tous les documents et sous-arbres,
+  - sinon: 
+    - des nouveaux **sous-arbres** avatar et groupe apparus dans le périmètre, 
+    - du nouveau document `partitions` en cas de changement de partition ou changement de type O/A,
+- `compilation` des documents en _mémoire tampon_,
+- **mise à jour des _stores_ des documents compilés** en une séquence sans interruption (sans `await`) afin que la vison graphique soit cohérente.
+
+## Phases de connexion
+!!! Liste des fichiers ayant une copie locale à synchroniser. !!!
+
+### Mode _avion_
+Phase unique:
+- lecture de l'item de _boot_ de la base locale:
+  - il permet d'authentifier le compte (et d'acquérir sa clé K),
+  - lecture du `dataSync` de la base locale,
+- mise en _mémoire tampon compilée_ depuis la base locale,
+  - des documents CCEP.
+  - des documents des sous-arbres.
+- **mise à jour des _stores_ des documents compilés** en une séquence sans interruption (sans `await`) afin que la vison graphique soit cohérente.
+
+### Mode _synchronisé_ et _incognito_
+Le traitement de synchronisation au fil de l'eau est _suspendu_:
+- il peut recevoir des avis de mise à jour dès maintenant,
+- ces avis sont stockés dans la queue des mises à jour mais le traitement qui épuise cette queue n'est pas activé.
+
+#### Première phase 
+Elle consiste à soumettre une opération `Sync` avec `optionC` et un `datasync` vide. Voir ci-dessus que le traitement en retour est spécifique pour un premier appel Sync de la session.
+
+#### Seconde phase 
+L'état de `dataSync` est considérée comme une file d'attente de traitements successifs : pour chaque sous-arbre `ida` dont la version `vs` en `dataSync` est inférieure à leur version `vb`, soumission d'une opération `Sync` **sans** `optionC` et **avec** `ida`.
+
+#### Phase finale
+Ouverture du traitement de synchronisation au fil de l'eau.
+
+## Synchronisation au fil de l'eau
+Au fil de l'eau il parvient des notifications de mises à jour de _versions_. 
+
+Une table _queue de traitements_ mémorise pour chaque document CCEP et sous-arbre, son `rds` et la version notifiée par l'avis de mise à jour. Elle regroupe ainsi des événements survenus très proches.
+
+Les avis de mises à jour dont la version est inférieure ou égale à la version déjà détenue dans les _stores_ de la session, sont ignorés.
+
+### Itération pour vider cette queue
+Tant qu'il reste des traitements à effectuer, une opération `Sync` est soumise, sans `optionC`.
+- le `dataSync` est celui courant,
+- L'id du sous-arbre est:
+  - `0` si l'avis de changement concerne un des documents CCEP.
+  - `ida`, l'id du sous-arbre si la notification correspond à un sous-arbre.
+
+Le traitement standard de retour,
+- met la base locale en une transaction,
+- met à jour les _store_ de la session sans interruption (sans `await`).
+
+## Partition courante d'un Comptable
+Une session Comptable peut parcourir toutes les partitions et pas seulement la sienne (#1).
+- à un instant donné il peut avoir une _partition courante_ d'id non 1, celle qu'il consulte et met à jour.
+- la session soumet une requête `GetPartitionC` et récupère le document `comptas` (ou pas). Voir ci-après.
+  
+Traitement du document partitions reçus:
+- mise à jour du _store_ en mémoire.
+- en mode _WebSocket_ SON abonnement spécifique `partitionC` référence le `rds` de cette partition. La session en recevra donc en plus l'avis de mise à jour par `versions`.
+- en mode _NON WebSocket_ la session déclenche un `onSnapshot` spécifique pour `partitionC` (il peut changer souvent).
+- dans les deux cas _pour la session émettrice_ l'avis de mise à jour devrait parvenir _après_ que le document `partitions` ait été enregistré dans le _store_ mémoire, son traitement sera ignoré.
+
+## Le document `comptas` d'une session change quasiment à chaque opération
+Une opération fait en général une lecture MAIS pas obligatoirement: si le document demandé est obtenu de la Cache du _serveur_ la consommation est nulle. Dans ce dernier cas:
+- le document `comptas` n'est pas mis à jour et n'est PAS retourné par l'opération puisqu'inchangé.
+
+**Si l'opération a eu au moins une consommation** et si l'espace n'est pas figé, le document `comptas` retourné en résultat est inscrit dans la _queue de traitement_: il sera intégré un peu plus tard de manière consistante en base locale et état mémoire.
+
+**Quand l'espace est figé**, les mises à jour en base sont strictement prohibées: les consommations ne sont PAS enregistrées (cadeau). Cette situation a pour vocation à être transitoire le temps d'un export de la base et du _storage_.
+
+## Bouton d'information de _cohérence_
+Au fil de l'eau, savoir si l'état est cohérent ou non est coûteux en accès aux versions des sous-arbres (même si en général seul l'index est sollicité), mais surtout a très peu d'intérêt pratique.
+
+L'information d'un état _incomplet_ est plus intéressante et s'affiche comme un voyant: c'est temporaire et n'apparaît qu'entre les phases 2-A et finale (pendant les phases 2-B).
+
+La vérification de _cohérence_ consiste à lancer une phase 2-A / 2-B de synchronisation au fil de l'eau, mais avec une `optionC` sur le `Sync` initial.
+- rien ne garantit qu'à la fin de la phase finale, de nouvelles mises à jour ne seront pas apparues depuis le début du traitement et que l'état _final_ soit _cohérent_.
+- on peut certes reboucler, mais avec beaucoup de sous-arbres très sollicités,
+  - en théorie ça peut ne jamais se terminer,
+  - cet état ne dure que jusqu'à arrivée d'un avis d'une mise à jour du périmètre, soit en général pas bien longtemps pour un périmètre très actif.
+
+Cette opération n'a de sens pratique que,
+- si on interrompt volontairement la synchronisation pendant la recherche d'un état cohérent,
+- qu'on retombe en mode _avion_ ou qu'on se déconnecte dès cet état atteint.
+
+# Annexe I: déclaration des index /VERIF/
+
+## SQL
+`sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
+
+Rien de particulier : sont indexées les colonnes requérant un filtrage ou un accès direct par la valeur de la colonne.
+
+## Firestore
+`firestore.index.json` donne le schéma des index: le désagrément est que pour tous les attributs il faut indiquer s'il y a ou non un index et de quel type, y compris pour ceux pour lesquels il n'y en a pas.
+
+**Les règles génériques** suivantes ont été appliquées:
+
+_data_ n'est jamais indexé.
+
+Il n'y a pas _d'index composite_. Toutefois en fait les attributs `id_v` et `id_vcv` calculés (pour Firestore seulement) avant création / mise à jour d'un document, sont des pseudo index composites mais simplement déclarés comme index:
+- `id_v` est un string `id/v` où `id` est sur 16 chiffres et `v` sur 9 chiffres.
+- `id_vcv` est un string `id/vcv` où `id` est sur 16 chiffres et `vcv` sur 9 chiffres.
+
+Ces attributs apparaissent dans:
+- tous les documents _majeurs_ pour `id_v`,
+- `avatars chats membres` pour `id_vcv`.
+
+En conséquence les attributs `id v vcv` ne sont **pas** indexés dans les documents _majeurs_.
+
+`id` est indexée dans `fpurges` qui n'a pas de version `v` et dont l'`id` doit être indexée pour filtrage par l'utilitaire `export/delete`.
+
+Dans les sous-collections versionnées `notes chats membres sponsorings tickets`: `id ids v` sont indexées. 
+
+Pour `sponsorings` `ids` sert de clé d'accès direct et a donc un index **collection_group**, pour les autres l'index est simple.
+
+Dans la sous-collection non versionnée `transferts`: `id ids` sont indexées mais pas `v` qui n'y existe pas.
+
+`dlv` est indexée,
+- simple sur `versions`,
+- **collection_group** sur les sous-collections `transferts sponsorings membres`.
+
+Autres index:
+- `hXR` sur `comptas`: accès à la connexion par phrase secrète.
+- `hYR` sur `avatars`: accès direct par la phrase de contact.
+- `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
+
+# Annexe II: IndexedDB dans les session UI
+
+Un certain nombre de documents sont stockés en session UI dans la base locale IndexedDB et utilisés en modes _avion_ et _synchronisé_.
+- `compte`: singleton d'`id` vaut '1'.
+  - son contenu est la sérialisation de `{ id:..., k:... }` cryptée par la PBKFD de la phrase secrète complète.
+  - `id` : id du compte (son avatar principal et de comptas).
+  - `k` : 32 bytes de la clé K du compte.
+- `tribus`: 'id',
+- `comptas`: 'id'. De facto un singleton mais avec une clé qui n'est pas 1 (c'était une option plausible).
+- `avatars`: 'id',
+- `chats`: '[id+ids]',
+- `sponsorings`: '[id+ids]',
+- `groupes`: 'id',
+- `membres`: '[id+ids]',
+- `notes`: '[id+ids]',
+- `tickets`: '[id+ids]'.
+
+La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée en base 64 URL.
+
+Les deux termes de clés `id` et `ids` sont chacune en string crypté par la clé K du compte et encodée en base 64 URL.
+
+Le format _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
+
+En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
+
+Il y a donc une stricte identité entre les documents extraits de SQL / Firestore et leurs états stockés en IDB
+
+_**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
+- la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
+- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
+
 @@ L'application UI [uiapp](./uiapp.md)
