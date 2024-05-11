@@ -1,7 +1,7 @@
 @@Index général de la documentation [index](https://raw.githack.com/dsportes/asocial-doc/master/index.md)
 
 # Données persistantes sur le serveur
-Elles son réparties en deux catégories:
+Elles sont réparties en deux catégories:
 - les données stockées dans la _base_,
 - les _fichiers_ présents dans le _Storage_.
 
@@ -21,14 +21,16 @@ La base peut avoir plusieurs implémentations : un _provider_ est la classe logi
 
 On distingue deux classes d'organisation techniques: **SQL** et **NOSQL+Data Sync**.
 
+**Data Sync** : mécanisme permettant de notifier une session UI qu'un document / row a changé sous l'effet d'opérations de mise à jour ou de suppression.
+
 ### SQL
 Les données sont distribuées dans des **tables** `espaces avatars versions notes ...`
-- une base SQL n'implémente pas de **Data Sync**.
+- une base SQL n'implémente pas de **Data Sync**. Il n'y pas de moyens pour une connexion cliente de se mettre en veille de mises à jour de certains rows.
 - il faut un _serveur_ qui, en plus de servir les transactions de lecture / mises à jour, notifient les sessions clientes vivantes abonnées à ces mises à jour:
   - le serveur dispose de la liste des sessions clientes actives et pour chacune sait aux mises à jour de quels documents elle est _abonnée_.
   - le _serveur_ doit être _up_ a minima tant qu'une session cliente est active.
   - une session sans opérations depuis un certain temps est considérée comme disparue.
-  - si le serveur tombe _down_, toutes les sessions en cours sont de facto déconnectées 
+  - si le serveur tombe _down_, toutes les sessions en cours sont de facto déconnectées. 
 - la première implémentation correspond à une base `Sqlite`, un serveur `node` et une notification **Data Sync** par WebSocket.
 
 ### NOSQL-Data Sync
@@ -93,7 +95,7 @@ Il a pour rôle majeur de gérer les espaces:
 - définir leurs quotas à disposition du Comptable de chaque espace: il existe trois quotas,
   - `qn` : nombre maximal autorisé des notes, chats, participations aux groupes,
   - `qv` : volume total autorisé des fichiers attachés aux notes.
-  - `qc` : quota de calcul mensuel total en unité monétaire.
+  - `qc` : quota de calcul mensuel total en unités monétaires.
 - ces quotas sont _indicatifs_ sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
 
 Ses autres rôles sont :
@@ -106,6 +108,7 @@ Ses autres rôles sont :
 ## Comptable de chaque espace
 Pour un espace, `24` par exemple, il existe un compte d'id `2410000000000000` qui est le **Comptable** de l'espace.
 
+## Comptes _normaux_
 Il existe deux catégories de comptes:
 - **les comptes "O", de l'organisation**, bénéficient de ressources _gratuites_ attribuées par la Comptable et ses _délégués_. En contrepartie de cette _gratuité_ un compte "O" peut être _bloqué_ par le Comptable et ses _délégués_ (par exemple en cas départ de l'organisation).
 - **les comptes "A", autonomes**, achètent des ressources sous la forme d'un abonnement et d'une consommation. Tant qu'il est créditeur un compte "A" ne peut pas être bloqué.
@@ -116,8 +119,6 @@ Il existe deux catégories de comptes:
 Le Comptable dispose des quotas globaux de l'espace attribués par l'administrateur technique. 
 - Il définit un certain nombre de **partitions de quotas**.
 - Il confie la gestion de chaque partition à des comptes _délégués_ qui peuvent distribuer des quotas de ressources aux comptes "O" affectés à leur partition.
-
-Tout compte "0" est attaché à une _partition_: ses quotas `qc q1 q2` sont prélevés sur ceux de sa partition.
 
 Un compte "O",
 - est attaché à une _partition_: ses quotas `qc q1 q2` sont prélevés sur ceux de sa partition. 
@@ -132,10 +133,10 @@ Les comptes "0" _délégués_ d'une partition peuvent:
 
 ### Comptes "A"
 Un compte "A" est créé par _sponsoring_,
-- soit d'un compte "A" existant qui à cette occasion fait _cadeau_ au compte sponsorisé d'un montant de son choix prélevé sur le solde monétaire du compte sponsor.
-- soit par un compte "O" _délégué_ ou par le Comptable: un cadeau de bienvenue de 2c est affecté au compte "A" sponsorisé (prélevé chez personne).
+- soit d'un compte "A" existant qui à cette occasion fait _cadeau_ au compte sponsorisé d'un montant de son choix prélevé sur son solde monétaire.
+- soit par un compte "O" _délégué_ ou par le Comptable: un cadeau de bienvenue de 2c est affecté au solde du compte "A" sponsorisé (prélevé chez personne).
 
-Un compta "A" définit lui-même ses quotas `q1` et `q2` (il les paye en tant _qu'abonnement_) et n'a pas de quotas `qc` (il paye sa _consommation_).
+Un compta "A" définit lui-même ses quotas `qn` et `qv` (il les paye en tant _qu'abonnement_) et n'a pas de quotas `qc` (il paye sa _consommation_).
 
 ### Rôles du Comptable
 Le rôle principal d'un _Comptable_ est,
@@ -168,7 +169,7 @@ Ces documents ne sont jamais mis à jour une fois créés, ils sont supprimés,
 - sinon par le GC qui considère qu'un upload ne peut pas techniquement être encore en cours à j+2 de son jour de début.
 
 ## Documents `fpurges`
-- `id` : aléatoire, avec ns en tête,
+- `id` : aléatoire, avec `ns` en tête,
 - `_data_` : liste encodée,
   - soit d'un `id` d'un avatar ou d'un groupe, correspondant à un folder du _Storage_ à supprimer,
   - soit d'un couple `[id, ids]` identifiant UN fichier `ids` dans le folder `id` d'un avatar ou d'un groupe.
@@ -184,36 +185,39 @@ Pour un espace donné, ce sont des singletons:
 - `syntheses` : `id` est le `ns` de l'espace. Le document contenant des données statistiques sur la distribution des quotas aux comptes "O" (par _partition_) et l'utilisation de ceux-ci.
   - Clé primaire : `id`. Path : `syntheses/24`
 
-# Tables / collections _majeures_ : `partitions comptes comptis comptas avatars groupes`
+# Tables / collections _majeures_ : `partitions comptes comptis invits comptas avatars groupes`
 Chaque collection a un document par `id` (clé primaire en SQL, second terme du path en Firestore).
 
 ### `partitions`
 Un document par _partition de quotas_ décrivant la distribution des quotas entre les comptes "O" attachés à cette partition.
-  - `id` (sans le `ns`) est un numéro séquentiel `1..N`.
-  - Clé primaire : `id`. Path : `partitions/0...x`
+- `id` (sans le `ns`) est un numéro séquentiel `1..N`.
+- Clé primaire : `id`. Path : `partitions/0...x`
 
 ### `comptes`
 Un document par compte donnant les clés majeures du compte, la liste de ses avatars et des groupes auxquels un de ses avatars participe. L'`id` courte sur 14 chiffres est le numéro du compte :
-  - `10...0` : pour le Comptable.
-  - `2x...y` : pour les autres comptes, `x...y` est un nombre aléatoire sur 13 chiffres.
-  - Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
+- `10...0` : pour le Comptable.
+- `2x...y` : pour les autres comptes, `x...y` est un nombre aléatoire sur 13 chiffres.
+- Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
 
 ### `comptis`
 Un document _complémentaire_ de `comptes` (même id) qui donne des commentaires et hashtags attachés par le comptes aux avatars et groupes de sa connaissance.
+
+### `ivits`
+Un document _complémentaire_ de `comptes` (même id) qui donne la liste des invitations aux groupes pour les avatars du compte et en attente d'acceptation ou de refus.
 
 ### `comptas`
 Un document par compte donnant ses compteurs de consommation et les quotas.
 
 ### `avatars`
 Un document par avatar donnant les informations d'entête d'un avatar. L'`id` courte sur 14 chiffres est le numéro d'un avatar du compte :
-  - `10...0` : pour l'avatar principal (et unique) du Comptable.
-  - `2x...y` : pour les avatars principaux ou secondaires des autres comptes. `x...y` est un nombre aléatoire sur 13 chiffres.
-  - Clé primaire : `id`. Path : `avatars/10...0` `avatars/2x...y`
+- `10...0` : pour l'avatar principal (et unique) du Comptable.
+- `2x...y` : pour les avatars principaux ou secondaires des autres comptes. `x...y` est un nombre aléatoire sur 13 chiffres.
+- Clé primaire : `id`. Path : `avatars/10...0` `avatars/2x...y`
 
 ### `groupes`
 Un document par groupe donnant les informations d'entête d'un groupe. L'`id` courte sur 14 chiffres est le numéro d'un groupe :
-  - `3x...y` : `x...y` est un nombre aléatoire sur 13 chiffres.
-  - Clé primaire : `id`. Path : `groupes/3x...y`
+- `3x...y` : `x...y` est un nombre aléatoire sur 13 chiffres.
+- Clé primaire : `id`. Path : `groupes/3x...y`
 
 # Tables / sous-collections d'un avatar ou d'un groupe
 - chaque **avatar** a 4 sous-collections de documents: `notes sponsorings chats tickets` (seul l'avatar Comptable a des tickets).
@@ -340,40 +344,24 @@ Un avatar a un couple de clés privée / publique:
 # Périmètre d'un compte
 Le périmètre d'un compte délimite un certain nombre de documents:
 - un compte n'a la visibilité en session UI que des documents de son périmètre.
-- il peut s'abonner à certains ceux-ci dits _synchronisés_: une session d'un compte reçoit des _avis de changement_ (pas le contenu) de sous-ensemble de ces documents qui permettent à l'opération `sync` de tirer les documents ayant changé.
-  - sous-ensembles synchronisés:
-    - `espaces`
-    - `comptes comptis`
-    - `avatars notes sponsorings chats tickets`
-    - `groupes notes membres chatgrs`
-  - documents du périmètre NON _synchronisés_
-    - `syntheses partitions comptas`
+- il peut s'abonner à certains ceux-ci dits _synchronisés_: une session d'un compte reçoit des _avis de changement_ (pas le contenu) de sous-ensemble de ces documents qui permettent à l'opération `Sync` de tirer les documents ayant changé.
+  - sous-arbres synchronisés:
+    - **1 espace** : racine et seul document du sous-arbre, un documents `espaces`.
+    - **1 compte** : ce sous-arbre identifié par l'id du compte comporte trois documents: `comptes comptis invits`.
+    - **N avatars**: il y un sous-arbre _avatar_ par avatar du compte. Le sous-arbre est identifié par l'id de l'avatar racine et comporte les documents `avatars notes sponsorings chats tickets`
+    - **N groupes**: il y un sous-arbres _groupe_ par groupe dans lequel un des avatars du compte est actif. Le sous-arbre est identifié par l'id du groupe racine et comporte les documents`groupes notes membres chatgrs`
+- documents du périmètre NON _synchronisés_
+  - `syntheses partitions`: identifiés par le ns de l'espace.
+  - comptas identifié par l'id du compte.
+  - ces documents sont transmis aux sessions sur demande explicite.
 
-Le _périmètre_ d'un compte ayant une id donnée est le suivant:
-- le document `espaces` portant comme `ns` celui de l'id du compte.
-  - ce document est _synchronisé_ en tant que tel.
-- le document `synthèses` portant comme `ns` celui de l'id du compte.
-  - ce document n'est pas _synchronisé_ mais chargé à la demande.
-- le document `partitions` de la partition d'un compte "O".
-  - ce document n'est pas _synchronisé_ mais chargé à la demande.
-- les documents `comptes comptis`  portant cette id.
-  - ce couple de documents est _synchronisé_.
-- le document `comptas` portant cette id.
-  - ce document n'est pas _synchronisé_ mais chargé à la demande.
-- les documents `avatars` des avatars principaux et secondaires du compte,
-  - les sous-documents `notes sponsorings chats tickets` de ces avatars.
-  - un document avatar et ses sous-documents forme un ensemble _synchronisé_.
-- les documents `groupes` dont un des avatars du compte est membre actif.
-  - les sous-documents `notes membres chatgrs` de ces groupes.
-  - un document groupe et ses sous-documents forme un ensemble _synchronisé_.
-
-Exception pour le Comptable: il peut voir **tous** les documents `partitions` de _son_ espace et pas seulement celui de sa partition.
+Exception pour le Comptable: il peut voir **tous** les documents `partitions` de _son_ espace et pas seulement celui de _sa_ partition.
 
 > Les documents d'un _périmètre_ sont sujet à des évolutions en cours de session suite aux effets des opérations soumises au serveur, 
 - soit par la session elle-même, 
 - soit par n'importe quelle autre, 
 - du même compte ou de n'importe quel autre, et marginalement du GC.
-- ses changements sont, pour l'essentiel, notifiés aux sessions.
+- ses changements sont notifiés aux sessions UI quand ils concernent des documents synchronises d'un des _sous-arbres espace / compte / avatar /groupe_.
 
 ## Disponibilité en session UI
 Une session d'un compte dispose en mémoire de tous les documents synchronisés de son compte:
@@ -381,43 +369,43 @@ Une session d'un compte dispose en mémoire de tous les documents synchronisés 
 - puis à réception des avis de changements, rechargement incrémental sélectif des documents ayant changé.
 
 ### Avis de changement: document `versions`
-Un document _version_ trace une mise à jour, un changement de version d'un document ou ensemble de documents:
+Un document _version_ trace une mise à jour, un changement de version d'un document ou plusieurs documents **d'UN** sous-arbre:
 - (E) le document `espaces` du compte: 
   - son identifiant est celui de l'espace.
-- (C) un des deux documents `comptes comptis` du compte: 
+- (C) un des documents `comptes comptis invits` du sous-arbre _compte_: 
   - l'identifiant de l'avis est la propriété immuable `rds` du document `comptes`.
-- (A) un document `avatars` **et ses sous-documents**:
-  - l'identifiant de l'avis est la propriété immuable `rds` du document `avatars` tête de cet ensemble.
-- (G) un document `groupes` **et ses sous-documents**:
-  - l'identifiant de l'avis est la propriété immuable `rds` du document `groupes` tête de cet ensemble.
+- (A) un ou plusieurs documents d'UN sous-arbre _avatar_: `avatars` **et ses sous-documents** `notes sponsorings chats tickets`.
+  - l'identifiant de l'avis est la propriété immuable `rds` du document `avatars` racine du sous-arbre.
+- (G) un ou plusieurs documents d'UN sous-arbre _groupe_: `groupes` **et ses sous-documents** `notes membres chatgrs`.
+  - l'identifiant de l'avis est la propriété immuable `rds` du document `groupes` racine du sous-arbre.
 
 #### Exemple
 - mise à jour d'un chat #5 de l'avatar #13;
-- le numéro de version associé au sous-ensemble A#13 est incrémenté et passe par exemple de 123 à 124;
+- le numéro de version associé au sous-arbre A#13 est incrémenté et passe par exemple de 123 à 124;
 - le chat #5 prend pour version 124;
-- si une session est synchronisée pour l'avatar #13 sur la version 112 par exemple, elle va obtenir tous les sous-documents de cet avatar (lui même inclus) de versions supérieure à 112 -qui ont donc changé depuis 112-. Désormais la session sera synchronisée sur la version 126 (la plus récente) pour cet avatar #13.
+- si une session UI était synchronisée pour l'avatar #13 sur la version 112 par exemple, elle va obtenir tous les sous-documents de cet avatar (lui même inclus) de versions supérieure à 112 -qui ont donc changé depuis 112-. Désormais la session sera synchronisée sur la version 126 (la plus récente) pour cet avatar #13.
 - elle n'a pas reçu les très nombreux sous-documents ayant une version antérieure à 112 (n'ayant donc pas changé par rapport à l'état connu en mémoire).
 
 ### Remarque
 - (1) **en synchronisation directe par Firestore** des lectures sont toujours en attente `onSnapshot` sur "les documents `versions` dont l'id fait partie de la liste de ceux du périmètre":
   - un _callback_ est invoqué à chaque fois qu'un des documents `versions` de la liste change, son _numéro de version_ ayant été incrémenté par un traitement sur le serveur.
-  - cet avis concerne donc son `espaces`, soit `compte comptis`, soit l'un des documents d'un avatar, soit l'un des documents d'un groupe.
+  - cet avis concerne donc son `espaces`, soit `compte comptis invits`, soit l'un des documents d'un avatar, soit l'un des documents d'un groupe.
 - (2) **en synchronisation par le serveur**, celui-ci transmet par WebSocket un item qui a la forme d'un document `versions`. Le serveur voit passer tous les changements des `versions` et sait quelles sessions sont abonnées à quelles `versions`.
 
 ### Les _référence de synchronisation_ : `rds`
-`rds` est un identifiant aléatoire sur 16 chiffres attribué à la création du document correspondant. 
+`rds` est un identifiant aléatoire sur 16 chiffres attribué à la création du document correspondant racine d'un sous-arbre. 
 - les deux premiers chiffres sont le `ns` de l'espace,
-- le troisième donne le nom du sous-ensemble de documents cible,
-  - 1 : `comptes` (pour `comptes comptis`),
-  - 2 : `avatars` (avatar et ses sous-documents)
-  - 3 : `groupes` (groupe et ses sous-documents). 
+- le troisième donne le nom du sous-arbre de documents cible,
+  - 1 : `compte` (pour `comptes comptis invits`),
+  - 2 : `avatar` (avatar et ses sous-documents)
+  - 3 : `groupe` (groupe et ses sous-documents). 
 - les 13 suivants sont aléatoires.
 
 `rds` est **un identifiant alternatif, en bijection avec l'id** du compte, de l'avatar ou du groupe.
 - **la correspondance entre `rds / id` n'est jamais disponible en session** (les champs `rds` de `comptes avatars groupes` n'y sont pas remontés).
-- **une session ne reçoit du serveur que la stricte liste des `rds` de son périmètre** (sans d'ailleurs savoir à quel avatar / groupe / compte chacun correspond): elle pourra lancer des lecture _onSnapshot_ sur les documents `versions` dont l'identifiant est un des `rds` de cette liste, et reçoit ainsi des avis de changements, savoir savoir _de quoi_. L'opération `sync` transmise au serveur a quant à elle l'information pour corréler `rds` et `id` des comptes / avatars / groupes. 
+- **une session ne reçoit du serveur que la stricte liste des `rds` de son périmètre** (sans d'ailleurs savoir à quel avatar / groupe / compte chacun correspond): elle pourra lancer des lectures _onSnapshot_ sur les documents `versions` dont l'identifiant est un des `rds` de cette liste, et recevoir ainsi des avis de changements, savoir savoir _de quoi_. L'opération `sync` transmise au serveur a quant à elle l'information pour corréler `rds` et `id` des comptes / avatars / groupes. 
 
-Si au lieu des `rds` les versions avaient été identifiées directement par les ids des comptes / avatars / groupes, dans le cas (1) _FireStore_ une session ayant un logiciel malicieux _aurait pu_ poser des lectures _onSnapshot_ sur des `versions` de documents hors de son périmètre:
+**Remarque:** Si au lieu des `rds` les versions avaient été identifiées directement par les ids des comptes / avatars / groupes, dans le cas (1) _Firestore_ une session ayant un logiciel malicieux _aurait pu_ poser des lectures _onSnapshot_ sur des `versions` de documents hors de son périmètre:
 - certes le serveur ne lui aurait délivré aucun document hors de son périmètre,
 - mais la session aurait pu en tirer des informations à propos de l'activité (ou l'absence d'activité) d'autres sessions d'autres comptes.
 - n'ayant aucun moyen d'obtenir l'id alternative `rds` des comptes / avatars / groupes, cette activité d'espionnage est vouée à l'échec.
@@ -426,7 +414,7 @@ Si au lieu des `rds` les versions avaient été identifiées directement par les
 
 **Remarque: `espaces` n'a pas de `rds`**
 - son `versions` est directement identifié par le `ns` de l'espace.
-- donc des sessions _malicieuses_ peuvent obtenir une information d'activité sur des espaces autres que le leur ... ce qui n'a aucune espèce d'intérêt. Les mises à jour de espaces sont fort rares (et de plus les autres espaces que le sien ne sont pas accessibles par une session).
+- donc des sessions _malicieuses_ peuvent obtenir une information sur le taux d'activité des espaces autres que le leur ... ce qui n'a aucune espèce d'intérêt. Les mises à jour de `espaces` sont fort rares (et de plus les autres espaces que le sien ne sont pas accessibles par une session UI).
 
 ## Tracking des créations et mises à jour
 **Remarque:** il n'y a pas à proprement parlé de _suppressions_:
@@ -445,7 +433,7 @@ Les documents `versions` sont chargés du tracking des mises à jour des documen
 > Les documents de tracking versions sont purgés `IDBOBSGC` jours après leur jour de suppression `suppr`.
 
 # Détail des tables / collections _majeures_ et leurs _sous-collections_
-Ce sont les documents faisant partie d'un périmètre d'un compte: `partitions comptes comptas avatars groupes notes sponsorings chats tickets membres chatgrs versions`
+Ce sont les documents faisant partie d'un périmètre d'un compte: `partitions comptes comptas comptis invits avatars groupes notes sponsorings chats tickets membres chatgrs versions`
 
 ## _data_
 Tous les documents, ont une propriété `_data_` qui porte toutes les informations sérialisées du document.
@@ -504,10 +492,11 @@ Cette propriété de `avatars` est indexée de manière à pouvoir accéder à u
 ### `hXR` : hash d'un extrait de la phrase secrète. `comptes`
 Cette propriété de `comptes` est indexée de manière à pouvoir accéder à un compte en connaissant le `hXR` issu de sa phrase secrète.
 
-# Cache locale des `espaces partitions comptes comptis comptas avatars groupes versions` dans un serveur
+# Cache locale des `espaces partitions comptes comptis invits comptas avatars groupes versions` dans un serveur
 Un _serveur_ ou une _Cloud Function_ qui ne se différencient que par leur durée de vie _up_ ont une mémoire cache des documents:
 - `comptes` accédés pour vérifier si les listes des avatars et groupes du compte ont changé.
 - `comptis` accédés pour avoir les commentaires et hashtags attachés à ses avatars et groupes par un compte.
+- `invits` accédé pour avoir les invitations en attente pour un compte.
 - `comptas` accédés à chaque changement de volume ou du nombre de notes / chats / participations aux groupes.
 - `versions` accédés pour gérer le Data Sync..
 - `avatars groupes partitions` également fréquemment accédés.
