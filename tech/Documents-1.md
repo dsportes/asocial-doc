@@ -1939,24 +1939,82 @@ Cet objet sert:
 
 **Les états successifs _de la base_ sont toujours cohérents**: _tous_ les documents de _chaque_ périmètre d'un compte sont cohérents entre eux.
 
-### État courant d'une session
-Cet état en mémoire et le cas échéant base locale, est consigné dans l'objet `DataSync`.
+L'état courant d'une session en mémoire et le cas échéant base locale, est consigné dans l'objet `DataSync` ci-dessous:
+- chaque sous-arbre d'un avatar ou d'un groupe est _cohérent_ (tous les documents sont synchrones sur la même version vs),
+- en revanche il peut y avoir (plus ou moins temporairement) des sous-arbres à jour par rapport à la base et d'autres en retard.
 
-Dans cet état **chaque sous-arbre** d'un avatar ou d'un groupe du périmètre du compte est cohérent en lui-même, la mise à jour d'un sous-arbre a été assurée par une seule transaction: 
-- à chaque `id` d'un sous-arbre correspond une version `vs` (version session) qui est un cliché d'un état cohérent qui a existé (voire existe encore) en base centrale noté `vb`.
+**L'objet `DataSync`:**
+- compte: { vs, vb }
+  - vs : numéro de version de l'image détenue en session
+  - vb : numéro de version de l'image en base centrale
+- avatars: Map des avatars du périmètre. 
+  - Clé: id de l'avatar
+  - Valeur: { vs, vb } 
+- groupes: : Map des groupes du périmètre. 
+  - Clé: id groupe
+  - Valeur: { vs, vb, ms, ns, m, n  } 
+    - vs : numéro de version du sous-arbre détenue en session
+    - vb : numéro de version du sous-arbre en base centrale
+    - ms : true si la session a la liste des membres
+    - ns : true si la session a la liste des notes
+    - m : true si en base centrale le groupe indique que le compte a accès aux membres
+    - n : true si en base centrale le groupe indique que le compte a accès aux membres
+- rdsId: map donnant pour chaque rds l'id correspondant (d'un avatar ou d'un groupe).
+- rdsC: rds du compte.
+
+Remarques:
+- Le couple { rdsId, rdsC } est transmis en session crypté par la clé S di site. Une session ne connaît jamais la correspondance entre ids et rds mais transmet celle-ci au serveur pour usage dans l'opération Sync.
+- un DataSync reflète l'état d'une session, les vs (et ms ns des groupes) indiquent quelles versions sont connues d'une session.
+- Un dataSync reflète aussi l'état en base centrale, les vb (et m n pour les groupes) indiquent quelles versions sont détenues dans l'état courant de la base centrale.
+- Quand tous les vb et vs correspondant sont égales (et les couples ms ns / m n  pour les groupes), l'état en session reflète celui en base centrale: il n'y a plus rien à synchroniser ... jusqu'à ce l'état en base centrale change et que l'existence d'une mise à jour soit signifiée à la session.
+
+Chaque appel de l'opération Sync :
+- transmet le DataSync donnant l'image connue en session,
+- reçoit en retour,
+  - le DataSync donnant le DataSync rafraîchi par le dernier état courant en base centrale.
+  - le dernier état, s'il a changé, des documents comptes comptis du compte,
+  - zéro, un ou plusieurs lots de mises de sous-arbres entiers.
+
+Pas forcément les mises à jour de **tous** les sous-arbres:
+- le volume pourrait être très important,
+- le nombre de sous-arbres mis à jour dépend du volume de la mise à jour.
+- en conséquence si le DataSync indique que tous n'ont pas été transmis, on relance une opération Sync avec le dernier DataSync reçu.
+
+Cas particulier de la connexion, premier appel de Sync de la session:
+- c'est le serveur qui construit le DataSync depuis l'état du compte et les versions des sous-arbres qu'il va tous chercher.
+- au retour, la session, 
+  - lit depuis IDB le DataSync qui était valide lors de la fin de la session précédente et qui donne les versions vs (et ms ns pour les groupes),
+  - lit depuis IDB l'état des sous-arbres connus afin d'éviter un rechargement total: les vs (et ms ns) sont mis à jour dans le DataSync
+
+Appels suivants de Sync
+- le DataSync reçu sur le serveur permet de savoir ce que la session connaît.
+- si des avis de mises à jour sont parvenus, la liste de leur rds est passé à Sync: au lieu de relire toutes les versions de tous les sous-arbres Sync se contente de lire uniquement les versions des sous-arbres changés.
+
+A chaque appel de Sync, les versions de comptes (et comptis) sont vérifiées: en effet avant de transmettre les mises à jour des sous-arbres Sync s'enquiert auprès du document comptes:
+- des sous-arbres n'ayant plus d'intérêt (avatars et groupes hors périmètre,
+- des nouveaux sous-arbres (nouveaux avatars, nouveau groupes apparaissant dans le périmètre,
+- por les groupes si les accès membre et notes ont changé pour le compte.
 
 ### Synchronisation en session
 Après la phase de _connexion_, l'état en mémoire est cohérent et stable, avec une tâche _d'écoute des changements_ active en permanence:
 - en mode _Firebase_ des lectures _onSnapshot_ sont lancées sur tous les documents versions dont l'id est un des rds des documents du périmètre (compte / avatar / groupe):
-  - un callback survient à réception d'un _avis de changement de version_
-    - soit LE document espaces a changé,
-    - soit un ou les deux documents comptes comptis ont changé,
-    - soit un ou plusieurs documents avatars notes sponsorings tickets identifié en majeur par l'id d'un avatar du périmètre ont changé,
-    - soit un ou plusieurs documents groupes notes membres identifié en majeur par l'id d'un groupe du périmètre ont changé,
+  - un _callback_ survient à réception d'un _avis de changement de version_
+    - soit LE document `espaces` a changé,
+    - soit un ou les deux documents `comptes comptis` ont changé,
+    - soit un ou plusieurs documents d'UN sous sous-arbre `avatars notes sponsorings chats tickets` identifié en majeur par l'id d'un avatar du périmètre ont changé,
+    - soit un ou plusieurs documents d'UN sous-arbre `groupes notes membres` identifié en majeur par l'id d'un groupe du périmètre ont changé,
+- en mode _Serveur_ ces avis sont reçus par WebSocket: le serveur voit passer toutes les mises à jour et connaît les périmètres de toutes les sessions.
 
- de fond actives en perm
-- 
- ... du moins tant que les données du pla synchronisation en session 
+Si le mode d'acquisition des avis de mises à jour diffère, le traitement qui s'en suit est identique.
+
+Remarques:
+- les avis de mise à jour des comptes comptis, sous-arbre avatar, sous-arbre groupe peuvent parvenir dans un ordre différent de celui dans lequel les mises à jour sont intervenues;
+- un avis de mise à jour de espaces est décorrélé des autres: il est traité isolément dès son arrivée.
+- en revanche un avis sur comptes peut parvenir après un avis sur un de ses avatars: pour éviter cette discordance, l'état de compte est toujours relu (si nécessaire) à chaque Sync.
+- il se _POURRAIT_ qu'un sous-arbre (complet) _avatar_ soit remis à jour AVANT un sous-arbre _groupe_ dans l'ordre inverses des opérations sur le serveur. Mais cette discordance entre la vue en session et la réalité,
+  - va être temporaire,
+  - est fonctionnellement quasi impossible à discerner,
+  - n'a pas de conséquence sur la cohérence des données.
 
 ### L'opération `Sync`
 Une phase de synchronisation en session

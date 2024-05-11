@@ -1,4 +1,7 @@
 ## Dev
+Avatar / Compte: 
+- idc du compte
+- reporter les invits de avatar dans le compte (ou comptis ?) pour éviter une discordance entre sous-arbres avatar et groupe. Voir un document Invits dans le sous-arbre compte: id: id du compte. ids: hash de idg + '/' + im
 
 Groupes
 - Quand l'invitation est encore _en vote_ (statut 2), les listes `li` sont remises à jour quand un des animateurs cités n'est plus _actif animateur_.
