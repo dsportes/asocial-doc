@@ -401,16 +401,14 @@ Un document _version_ trace une mise à jour, un changement de version d'un docu
   - 3 : `groupe` (groupe et ses sous-documents). 
 - les 13 suivants sont aléatoires.
 
-`rds` est **un identifiant alternatif, en bijection avec l'id** du compte, de l'avatar ou du groupe.
-- **la correspondance entre `rds / id` n'est jamais disponible en session** (les champs `rds` de `comptes avatars groupes` n'y sont pas remontés).
-- **une session ne reçoit du serveur que la stricte liste des `rds` de son périmètre** (sans d'ailleurs savoir à quel avatar / groupe / compte chacun correspond): elle pourra lancer des lectures _onSnapshot_ sur les documents `versions` dont l'identifiant est un des `rds` de cette liste, et recevoir ainsi des avis de changements, savoir savoir _de quoi_. L'opération `sync` transmise au serveur a quant à elle l'information pour corréler `rds` et `id` des comptes / avatars / groupes. 
+> `rds` est **un identifiant alternatif, en bijection avec l'id** du compte, de l'avatar ou du groupe. **Une session ne reçoit du serveur que les `rds` des documents de son périmètre**: elle peut ainsi lancer des lectures _onSnapshot_ sur les documents `versions` dont l'identifiant est un des `rds` de cette liste, et recevoir les avis de changements.
 
 **Remarque:** Si au lieu des `rds` les versions avaient été identifiées directement par les ids des comptes / avatars / groupes, dans le cas (1) _Firestore_ une session ayant un logiciel malicieux _aurait pu_ poser des lectures _onSnapshot_ sur des `versions` de documents hors de son périmètre:
 - certes le serveur ne lui aurait délivré aucun document hors de son périmètre,
 - mais la session aurait pu en tirer des informations à propos de l'activité (ou l'absence d'activité) d'autres sessions d'autres comptes.
 - n'ayant aucun moyen d'obtenir l'id alternative `rds` des comptes / avatars / groupes, cette activité d'espionnage est vouée à l'échec.
 
-> **Les `rds` d'un périmètre sont tous concentrés dans le document `comptes`**: celui du compte et ceux de ses avatars et groupes auxquels un des avatars du compte participe.
+> **Les `rds` d'un périmètre sont tous concentrés dans le document `comptes`**: celui du compte et ceux de ses avatars et groupes auxquels un des avatars du compte participe. Ils sont redondés dans chacun des documents par commodité.
 
 **Remarque: `espaces` n'a pas de `rds`**
 - son `versions` est directement identifié par le `ns` de l'espace.
@@ -852,7 +850,7 @@ _data_ :
 - `hXR` : `ns` + `hXR`, hash du PBKFD d'un extrait de la phrase secrète.
 - `dlv` : dernier jour de validité du compte.
 
-- `rds` : `null` en session.
+- `rds`:
 - `hXC`: hash du PBKFD de la phrase secrète complète (sans son `ns`).
 - `cleKXC` : clé K cryptée par XC (PBKFD de la phrase secrète complète).
 - `cleEK` : pour le Comptable, clé de l'espace cryptée par sa clé K à la création de l'espace pour le Comptable. Permet au comptable de lire les reports créés sur le serveur et cryptés par cette clé E.
@@ -904,6 +902,7 @@ _data_:
 - `id` : id du compte.
 - `v` : version.
 
+- `rds`:
 - `mc` : map des contacts (des avatars) et des groupes _connus_ du compte,
   - _cle_: `id` court de l'avatar ou du groupe,
   - _valeur_ : `{ ht, tx }`. Hashtags et texte attribués par le compte.
@@ -919,6 +918,7 @@ _data_:
 - `id` : id du compte.
 - `v` : version.
 
+- `rds`:
 - `invits`: liste des invitations en cours:
   - _valeur_: `{idg, ida, cleGA, cvG, ivpar, dh}`
     - `idg`: id du groupe,
@@ -1019,6 +1019,7 @@ _data_:
 - `ids` : numéro du ticket
 - `v` : version du ticket.
 
+- `rds`:
 - `dg` : date de génération.
 - `dr`: date de réception. Si 0 le ticket est _en attente_.
 - `ma`: montant déclaré émis par le compte A.
@@ -1132,6 +1133,7 @@ _data_ (de l'exemplaire I):
 - `v`: 1..N.
 - `vcv` : version de la carte de visite de E.
 
+- `rds`:
 - `st` : deux chiffres `I E`
   - I : 0:passif, 1:actif
   - E : 0:passif, 1:actif, 2:disparu
@@ -1201,6 +1203,7 @@ _data_:
 - `v`: 1..N.
 - `dlv` : date limite de validité
 
+- `rds`:
 - `st` : statut. _0: en attente réponse, 1: refusé, 2: accepté, 3: détruit / annulé_
 - `pspK` : texte de la phrase de sponsoring cryptée par la clé K du sponsor.
 - `YCK` : PBKFD de la phrase de sponsoring cryptée par la clé K du sponsor.
@@ -1252,6 +1255,7 @@ _data_:
 - `ids` : identifiant aléatoire relatif à son avatar.
 - `v` : 1..N.
 
+- `rds`:
 - `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
 - `vf` : volume total des fichiers attachés.
 - `ht` : liste des hashtags _personnels_ cryptée par la clé K du compte.
@@ -1495,7 +1499,7 @@ _data_:
 - `v` :  1..N, Par convention, une version à 999999 désigne un **groupe logiquement détruit** mais dont les données sont encore présentes. Le groupe est _en cours de suppression_.
 - `dfh` : date de fin d'hébergement.
 
-- `rds` : pas transmis en session.
+- `rds`: 
 - `nn qn vf qv`: nombres de notes actuel et maximum attribué par l'hébergeur, volume total actuel des fichiers des notes et maximum attribué par l'hébergeur.
 - `idh` : id du compte hébergeur (pas transmise aux sessions).
 - `imh` : indice `im` du membre dont le compte est hébergeur.
@@ -1528,6 +1532,7 @@ _data_:
 - `v` : 
 - `vcv` : version de la carte de visite du membre.
 
+- `rds`:
 - `dpc` : date de premier contact.
 - `ddi` : date de la dernière invitation (envoyée au membre, c'est à dire _votée_).
 - **dates de début de la première et fin de la dernière période...**
@@ -1937,7 +1942,7 @@ Principes:
 - à la fin de la phase de _connexion_, 
   - tous les documents _synchronisés_ du périmètre du compte sont en mémoire et cohérents entre eux. 
     - 1 `espaces`
-    - 1 `comptes comptis invits`
+    - 1 sous-arbre `comptes comptis invits`
     - N sous-arbres `avatars ... notes sponsorings chats tickets`
     - M sous-arbres `groupes ... notes membres`
   - si la session est _synchronisée_ cet état est aussi celui de la base base locale IDB qui a été mise à jour de manière cohérente pour le compte, puis pour chaque avatar, chaque groupe.
@@ -1959,26 +1964,25 @@ L'état courant d'une session en mémoire et le cas échéant base locale, est c
 - en revanche il peut y avoir (plus ou moins temporairement) des sous-arbres à jour par rapport à la base et d'autres en retard.
 
 **L'objet `DataSync`:**
-- compte: `{ vs, vb }`
+- compte: `{ rds, vs, vb }`
   - `vs` : numéro de version de l'image détenue en session
   - `vb` : numéro de version de l'image en base centrale
 - avatars: Map des avatars du périmètre. 
   - Clé: id de l'avatar
-  - Valeur: `{ vs, vb } `
+  - Valeur: `{ rds, chg, vs, vb } `
+    - `chg`: true si l'avatar a été détecté changé en base par le serveur
 - groupes: : Map des groupes du périmètre. 
   - Clé: id groupe
-  - Valeur: `{ vs, vb, ms, ns, m, n }` 
+  - Valeur: `{ rds, chg, vs, vb, ms, ns, m, n }`
+    - `chg`: true si le groupe a été détecté changé en base par le serveur
     - `vs` : numéro de version du sous-arbre détenue en session
     - `vb` : numéro de version du sous-arbre en base centrale
     - `ms` : true si la session a la liste des membres
     - `ns` : true si la session a la liste des notes
     - `m` : true si en base centrale le groupe indique que le compte a accès aux membres
     - `n` : true si en base centrale le groupe indique que le compte a accès aux membres
-- `rdsId`: map donnant pour chaque rds l'id correspondant (d'un avatar ou d'un groupe).
-- `rdsC`: `rds` du compte.
 
 **Remarques:**
-- Le couple `{ rdsId, rdsC }` est transmis en session **crypté par la clé S du site**. Une session ne connaît jamais la correspondance entre `id` et `rds` mais transmet celle-ci au serveur pour usage dans l'opération `Sync`.
 - un `DataSync` reflète l'état d'une session, les `vs` (et `ms ns` des groupes) indiquent quelles versions sont connues d'une session.
 - Un `DataSync` reflète aussi l'état en base centrale, les `vb` (et `m n` pour les groupes) indiquent quelles versions sont détenues dans l'état courant de la base centrale.
 - Quand tous les `vb` et `vs` correspondant sont égales (et les couples `ms ns / m n` pour les groupes), l'état en session reflète celui en base centrale: il n'y a plus rien à synchroniser ... jusqu'à ce l'état en base centrale change et que l'existence d'une mise à jour soit signifiée à la session.
@@ -1997,7 +2001,7 @@ Pas forcément les mises à jour de **tous** les sous-arbres:
 
 **Cas particulier de la connexion,** premier appel de `Sync` de la session:
 - c'est le serveur qui construit le `DataSync` depuis l'état du compte et les versions des sous-arbres **qu'il va tous chercher**.
-- au retour, la session va récupérer (en mode _synchronisé_) le maxim de documents encore valide et présents dans IDB: 
+- au retour, la session va récupérer (en mode _synchronisé_) le `maxim` de documents encore valides et présents dans IDB: 
   - elle lit depuis IDB le `DataSync` qui était valide lors de la fin de la session précédente et qui donne les versions `vs` (et `ms ns` pour les groupes),
   - elle lit depuis IDB l'état des sous-arbres connus afin d'éviter un rechargement total: les `vs` (et `ms ns`) sont mis à jour dans le DataSync.
   - le prochain appel de `Sync` ne provoquera des chargements _que_ de ce qui est nouveau et pas des documents ayant une version déjà à jour en session UI.
