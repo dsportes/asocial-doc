@@ -1026,7 +1026,7 @@ _data_:
 - `mc` : montant déclaré reçu par le Comptable.
 - `refa` : code court (32c) facultatif du compte A à l'émission.
 - `refc` : code court (32c) facultatif du Comptable à la réception.
-- `di`: date d'incorporation du crédit par le compte A dans son solde.
+- `disp`: true si le compte était disparu lors de la réception.
 - `idc`: id du compte générateur. Cette donnée n'est pas transmise aux sessions.
 
 ## Cycle de vie
