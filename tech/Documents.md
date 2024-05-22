@@ -931,6 +931,13 @@ _data_:
       - `cvA` : carte de visite de l'invitant (photo et texte sont cryptés par la clé G du groupe). 
     - `msgG` : message de bienvenue / invitation émis par l'invitant.
 
+Pour un simple contact:
+- `flags` est à 0
+- `msgG` est null
+- `invpar` reflète dans le cas des invitations unanimes, la liste des votants _pour_ à cet instant.
+
+Un _contact_ peut se faire effacer des contacts du groupe et s'inscrire en liste noire.
+
 # Documents `comptas`
 **Ces documents de même id que leur compte est lu à chaque début d'opération et mis à jour par l'opération.**
 - si ses compteurs `pcc, pcn, pcv, nbj` _ont changé d'ordre de grandeur_ (5% / 5j) ils sont reportés dans le document `comptes`: ce dernier ne devrait, statistiquement, n'être mis à jour que rarement en fin d'opération.
@@ -2135,5 +2142,155 @@ Il y a donc une stricte identité entre les documents extraits de SQL / Firestor
 _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
+
+# Tâches différées (_triggers_)
+Une opération effectue dans sa transaction les mises à jour immédiates de manière à ce que la cohérence des données soient garantie. En conséquence de ces transactions il peut rester des activités d'optimisation et / ou de nettoyage à exécuter qui peuvent être _différées_.
+
+Exemple:
+- transaction principale: un groupe est supprimé. Dès cet instant toute opération tentant d'agir sur le groupe sortira en exception parce que le groupe n'existe plus.
+- tâche différée: supprimer les invitations enregistrées dans le groupe des comptes dont un avatar était invité. Ceci évitera à ces comptes de récupérer une exception en acceptant / refusant une de ces invitations. Certes la cohérence aurait été conservée mais du point de vue de l'autre compte il apparaît une liste d'invitations dont certaines ne sont plus d'actualité.
+
+Un document `taches` enregistre toutes ces tâches différées:
+- une opération _principale_ peut enregistrer des tâches sous contrôle transactionnel.
+- un _démon_ est lancé s'il n'était pas en cours, qui va scruter `taches`, 
+  - en extraire la plus ancienne,
+  - la traiter en une transaction, possiblement en ajoutant d'autres tâches,
+  - in fine la retirer de `tâches`.
+  - puis rechercher la tâche suivante à exécuter et en cas d'absence se rendormir.
+
+Une tâche:
+- a une id:
+  - soit fixe pour les tâches _périodiques_,
+  - soit aléatoire.
+- a un code opération (celle qui la traite),
+- a un objet sérialisé d'argument comme toute opération,
+- associée à un espace, elle ne s'exécute pas si l'espace est figé ou clos.
+- n'enregistre pas ses consommations,
+- se déroule sous privilège administrateur.
+- a une date-heure au plus tôt: quand une tâche a rencontré une exception, son numéro de reprise est incrémenté et sa date-heure au plus tôt permet de laisser s'écouler un certain délai avant une nouvelle exécution.
+
+Une tâche périodique:
+- se réinscrit systématiquement pour plus tard en **début** de tâche afin de ne pas être lancée par deux démons de deux _serveurs / cloud function_ parallèle,
+- est identifiée par id en bijection avec son code opération.
+
+## Articulation avec le GC
+Le GC pourrait _presque_ disparaître en étant remplacé par un ensemble de tâches identifiées, par exemple TRA pour le traitement des transferts perdus.
+- en début d'exécution, elle met à jour sa date-heure au plus tôt pour le lendemain à une heure donnée.
+
+**L'administrateur dispose d'un accès aux tâches, et peut:**
+- voir la liste des tâches et leurs arguments,
+- voir le dernier compte-rendu d'exécution / exception (le cas échéant) d'une tâche,
+- mettre à jour certains paramètres d'une tâche, 
+- ajouter ou supprimer une tâche,
+- réveiller le démon.
+
+Au fil des opérations, les tâches _immédiates_ conséquences de l'opération sont activées sur l'instant après l'opération par réveil (s'il ne l'était pas) du démon, mais:
+- le démon s'arrête quand il n'a plus rien à faire.
+- les tâches _périodiques_ ne seraient activées que quand une opération déclenchant une tâche s'exécutera.
+- le _GC_ serait alors juste une URL sollicitée de l'extérieur une fois par jour ayant pour effet de réveiller le démon.
+
+**Réveiller le _démon_ au démarrage du serveur ?**
+- pour un _serveur_ ça fait sens,
+- pour une _cloud function_ ça fait un overhead de lecture systématique de `taches`.
+- se pose la question de disposer en permanence de la liste des espaces maintenue à jour, en particulier pour leur statut _figé / clos_.
+
+**Multi serveur / cloud function**: comment empêcher 2 serveurs de lancer la même tâche ?
+- début de tâche : mise à jour de la date-heure au plus tôt. _Comme si_ la relance de la tâche était déjà planifiée.
+- fin de tâche: purge de la tâche. Pour une tâche _périodique_ (identifiée), la tâche n'est pas purgée.
+
+_data_
+- `id` : aléatoire pour tâche standard, fixe pour une périodique.
+- `ns` : 0 pour une tâche périodique, sinon le ns de la tâche.
+- `dh` : date-heure au plus tôt (tri).
+- `op` : code de l'opération.
+
+- `args` : arguments sérialisés.
+- `report` : dernier rapport d'exécution / exception.
+
+Tâche candidate:
+- la plus récente par dh avec dh supérieure à l'instant présent.
+- dont le ns est 0 OU dans la liste des ns _ouverts_ (existants, non figé, non clos).
+
+## Opérations inscrivant des tâches
+### Suppression d'un groupe
+- immédiatement:
+  - mise à jour de la comptabilité du compte hébergeur (si besoin).
+  - pour toutes les invitations en cours (et contacts), annule l'invitation dans invits du compte dont un avatar est invité / contact.
+  - pour tous les membres actifs, supprime le groupe du `mpg` du compte.
+  - purge des documents `comptes chatgrs`
+  - `suppr` de `versions` du groupe.
+- tâches différées:
+  - `GRM`
+  - `AGN AGF`
+
+### Résiliation d'un avatar
+- immédiatement:
+  - mise à jour des statuts dans les groupes ou l'avatar est actif / invité / contact.
+  - s'il était hébergeur, récupération des volumes dans la compta de son compte.
+  - purge des `membres` correspondants.
+  - le cas échéant, traitement immédiat de _suppression du groupe_.
+  - purges des `sponsorings`
+  - purge du document `avatars`
+  - `suppr` de `versions` de l'avatar.
+- tâches différées:
+  - `AVC` : gestion et purges des chats de l'avatar.
+  - `AGN AGF`
+
+### Résiliation d'un compte
+- immédiatement:
+  - mise à jour des statuts dans les groupes ou un des avatars est actif / invité / contact.
+  - s'il était hébergeur, récupération des volumes dans la `comptas` de son compte.
+  - purge des `membres` correspondants.
+  - le cas échéant, traitement immédiat de _suppression du groupe_.
+  - purges des `sponsorings`
+  - purge des documents `comptes avatars`
+  - `suppr` de `versions` du compte et des avatars.
+- tâches différées:
+  - `AVC` : Une tâche par avatar: gestion et purges des chats de l'avatar.
+  - `AGN AGF` : Une tâche par avatar
+
+## Liste des tâches standard
+
+### GRM : purge des membres d'un groupe supprimé
+Arguments:
+- `idg` : id du groupe.
+
+### AGN : purge des notes d'un groupe ou avatar supprimé
+Arguments:
+- `id` : id du groupe / avatar.
+
+### AGF : purge d'un fichier supprimé OU des fichiers attachés aux notes d'un groupe ou avatar supprimé
+Arguments:
+- `id` : id du groupe / avatar.
+- `ids` : ids du fichier si la suppression ne concerne que ce fichier.
+
+### AVC : gestion et purges des chats de l'avatar
+Arguments:
+- `ida` : id de l'avatar.
+
+Liste les chats de l'avatar et pour chacun:
+- met à jour le statut / cv du chatE correspondant.
+- purge le chatI
+
+## Liste des tâches périodiques
+
+### DFH : détection d'une fin d'hébergement
+Filtre les groupes dont la `dfh` est dépassée:
+- immédiatement pour chaque groupe _suppression du groupe_.
+
+### DLV : détection d'une résiliation de compte
+Filtre les comptes dont la `dlv` est dépassée:
+- immédiatement pour chaque compte _suppression du compte_.
+
+### TRA : traitement des transferts perdus
+Filtre les transferts par dlv:
+- immédiatement pour chaque transfert, purge dans le _Storage_
+
+### VER : purge des versions supprimées depuis longtemps
+
+### STC : statistique "mensuelle" des comptas (avec purges)
+
+### STT : statistique "mensuelle" des tickets (avec purges)
+
 
 @@ L'application UI [uiapp](./uiapp.md)
