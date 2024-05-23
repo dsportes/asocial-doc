@@ -8,6 +8,8 @@ traiter l'exception 8001 "Avatar disparu"
 - InvitationGroupe
 - AcceptInvitation
 
+PageEspace : gestion des dlvat à reprendre de zéro
+
 Groupes
 - Quand l'invitation est encore _en vote_ (statut 2), les listes `li` sont remises à jour quand un des animateurs cités n'est plus _actif animateur_.
 - hébergement
