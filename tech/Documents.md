@@ -2143,72 +2143,76 @@ _**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB po
 - la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
 - la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
 
-# Tâches différées (_triggers_)
+# Tâches différées (_triggers_) et périodiques
 Une opération effectue dans sa transaction les mises à jour immédiates de manière à ce que la cohérence des données soient garantie. En conséquence de ces transactions il peut rester des activités d'optimisation et / ou de nettoyage à exécuter qui peuvent être _différées_.
 
-Exemple:
-- transaction principale: un groupe est supprimé. Dès cet instant toute opération tentant d'agir sur le groupe sortira en exception parce que le groupe n'existe plus.
-- tâche différée: supprimer les invitations enregistrées dans le groupe des comptes dont un avatar était invité. Ceci évitera à ces comptes de récupérer une exception en acceptant / refusant une de ces invitations. Certes la cohérence aurait été conservée mais du point de vue de l'autre compte il apparaît une liste d'invitations dont certaines ne sont plus d'actualité.
+**Une tâche périodique** a pour objectif de détecter les changements d'états liés au simple passage du temps:
+- compte résilié en raison d'une non-utilisation prolongée,
+- sponsorings ayant dépassé leur date limite,
+- production d'états mensuels.
+
+**_Exemple:_**
+- _transaction principale_: un groupe est supprimé. Dès cet instant toute opération tentant d'agir sur le groupe sortira en exception parce que le groupe n'existe plus.
+- _tâche différée_: supprimer les invitations enregistrées dans le groupe des comptes dont un avatar était invité. Ceci évitera à ces comptes de récupérer une exception en acceptant / refusant une de ces invitations. Certes la cohérence aurait été conservée mais du point de vue de l'autre compte il apparaît une liste d'invitations dont certaines ne sont plus d'actualité, cette incohérence a intér^et à être la plus courte possible.
 
 Un document `taches` enregistre toutes ces tâches différées:
 - une opération _principale_ peut enregistrer des tâches sous contrôle transactionnel.
 - un _démon_ est lancé s'il n'était pas en cours, qui va scruter `taches`, 
-  - en extraire la plus ancienne,
-  - la traiter en une transaction, possiblement en ajoutant d'autres tâches,
-  - in fine la retirer de `tâches`.
+  - en extraire la plus ancienne en attente de traitement,
+  - la traiter en une transaction, ce qui peut le cas échéant ajouter d'autres tâches,
+  - in fine la retirer de `tâches`, ou pour une tâche périodique la réinscrire pour le lendemain typiquement.
   - puis rechercher la tâche suivante à exécuter et en cas d'absence se rendormir.
 
-Une tâche:
-- a une id:
-  - soit fixe pour les tâches _périodiques_,
-  - soit aléatoire.
-- a un code opération (celle qui la traite),
-- a un objet sérialisé d'argument comme toute opération,
-- associée à un espace, elle ne s'exécute pas si l'espace est figé ou clos.
-- n'enregistre pas ses consommations,
-- se déroule sous privilège administrateur.
-- a une date-heure au plus tôt: quand une tâche a rencontré une exception, son numéro de reprise est incrémenté et sa date-heure au plus tôt permet de laisser s'écouler un certain délai avant une nouvelle exécution.
+**Une tâche non périodique:**
+- a un code opération (celle de son traitement),
+- est associée à un espace: elle n'est pas candidate à l'exécution si son espace est figé ou clos.
+- a un document cible identifié par id ou id / ids.
+- est exécutée sous privilège administrateur et n'enregistre pas ses consommations,
+- a une date-heure au plus tôt: quand une tâche a rencontré une exception, sa date-heure au plus tôt permet de laisser s'écouler un certain délai avant une nouvelle exécution.
+- n'a pas de rapport de bonne exécution, la tâche étant détruite.
+- elle a un rapport d'exception décrivant l'exception qui a interrompu sa dernière exécution.
 
-Une tâche périodique:
+**Une tâche périodique:**
+- a un code opération (celle de son traitement),
 - se réinscrit systématiquement pour plus tard en **début** de tâche afin de ne pas être lancée par deux démons de deux _serveurs / cloud function_ parallèle,
-- est identifiée par id en bijection avec son code opération.
+- est exécutée sous privilège administrateur et n'enregistre pas ses consommations.
+- elle a un rapport d'exécution contient quelques compteurs informatifs.
+- elle a un rapport d'exception décrivant l'exception qui a interrompu sa dernière exécution.
 
-## Articulation avec le GC
-Le GC pourrait _presque_ disparaître en étant remplacé par un ensemble de tâches identifiées, par exemple TRA pour le traitement des transferts perdus.
-- en début d'exécution, elle met à jour sa date-heure au plus tôt pour le lendemain à une heure donnée.
+**Espace clos / figé**
+- **une tâche non périodique n'est pas lancée** si son espace est clos ou figé.
+- une tâche périodique teste dans son exécution l'état des espaces en fonction de chaque document qu'elle a à traiter, et ne traite que ceux dont l'espace n'est ni clos ni figé.
 
-**L'administrateur dispose d'un accès aux tâches, et peut:**
-- voir la liste des tâches et leurs arguments,
-- voir le dernier compte-rendu d'exécution / exception (le cas échéant) d'une tâche,
-- mettre à jour certains paramètres d'une tâche, 
+**Multi serveur / cloud function**: empêcher 2 serveurs de lancer la même tâche
+- _début de tâche_: mise à jour de la date-heure au plus tôt. _Comme si_ la relance de la tâche était déjà planifiée.
+- _fin de tâche_: purge de la tâche pour une tâche _non périodique_ et changement de l'heure de relance pour une tâche périodique.
+
+**Articulation avec le GC**
+- le GC est une pseudo-opération sollicitée de l'extérieur par une URL qui réveille le _démon_.
+- en effet en l'absence de trafic, en l'absence du réveil du GC, des tâches non périodiques en exception pourraient n'être relancées que tardivement, des rapports mensuels ne pas être calculés à temps.
+
+### L'administrateur dispose d'un accès aux tâches, et peut:
+- voir la liste des tâches,
+  - soit les tâches périodiques,
+  - soit les tâches non périodiques _d'un espace_.
+- voir le dernier compte-rendu d'exécution / exception d'une tâche.
 - ajouter ou supprimer une tâche,
 - réveiller le démon.
 
-Au fil des opérations, les tâches _immédiates_ conséquences de l'opération sont activées sur l'instant après l'opération par réveil (s'il ne l'était pas) du démon, mais:
-- le démon s'arrête quand il n'a plus rien à faire.
-- les tâches _périodiques_ ne seraient activées que quand une opération déclenchant une tâche s'exécutera.
-- le _GC_ serait alors juste une URL sollicitée de l'extérieur une fois par jour ayant pour effet de réveiller le démon.
-
-**Réveiller le _démon_ au démarrage du serveur ?**
+### Réveiller le _démon_ au démarrage du serveur ?
 - pour un _serveur_ ça fait sens,
-- pour une _cloud function_ ça fait un overhead de lecture systématique de `taches`.
-- se pose la question de disposer en permanence de la liste des espaces maintenue à jour, en particulier pour leur statut _figé / clos_.
+- pour une _cloud function_ c'est un overhead de lecture systématique de `taches`.
 
-**Multi serveur / cloud function**: comment empêcher 2 serveurs de lancer la même tâche ?
-- début de tâche : mise à jour de la date-heure au plus tôt. _Comme si_ la relance de la tâche était déjà planifiée.
-- fin de tâche: purge de la tâche. Pour une tâche _périodique_ (identifiée), la tâche n'est pas purgée.
 
 _data_
-- `id` : aléatoire pour tâche standard, fixe pour une périodique.
 - `ns` : 0 pour une tâche périodique, sinon le ns de la tâche.
-- `dh` : date-heure au plus tôt (tri).
+- `dh` : date-heure au plus tôt d'exécution.
 - `op` : code de l'opération.
-
-- `args` : arguments sérialisés.
-- `report` : dernier rapport d'exécution / exception.
+- `id / ids` : id de l'objet principal concerné, 0 pour un périodique.
+- `report` : sérialisation du dernier rapport d'exécution / exception.
 
 Tâche candidate:
-- la plus récente par dh avec dh supérieure à l'instant présent.
+- la plus petite dh avec dh supérieure à l'instant présent.
 - dont le ns est 0 OU dans la liste des ns _ouverts_ (existants, non figé, non clos).
 
 ## Opérations inscrivant des tâches
@@ -2238,7 +2242,7 @@ Tâche candidate:
 
 ### Résiliation d'un compte
 - immédiatement:
-  - mise à jour des statuts dans les groupes ou un des avatars est actif / invité / contact.
+  - mise à jour des statuts dans les groupes où un des avatars est actif / invité / contact.
   - s'il était hébergeur, récupération des volumes dans la `comptas` de son compte.
   - purge des `membres` correspondants.
   - le cas échéant, traitement immédiat de _suppression du groupe_.
@@ -2249,11 +2253,11 @@ Tâche candidate:
   - `AVC` : Une tâche par avatar: gestion et purges des chats de l'avatar.
   - `AGN AGF` : Une tâche par avatar
 
-## Liste des tâches standard
+## Liste des tâches non périodiques
 
 ### GRM : purge des membres d'un groupe supprimé
 Arguments:
-- `idg` : id du groupe.
+- `id` : id du groupe.
 
 ### AGN : purge des notes d'un groupe ou avatar supprimé
 Arguments:
@@ -2264,13 +2268,17 @@ Arguments:
 - `id` : id du groupe / avatar.
 - `ids` : ids du fichier si la suppression ne concerne que ce fichier.
 
+_Remarque_: pour la suppression _d'un_ fichier, l'opération principale,
+- en phase 2, inscrit la tâche AGF pour le fichier à supprimer,
+- en phase 3 essaie de supprimer le fichier du _Storage_ et en cas de succès supprime la tâche AGF inscrite en phase 2. La tâche est, dans le cas favorable, supprimée _avant_ que le démon n'ait pu être réveillé (en fin de l'opération).
+
 ### AVC : gestion et purges des chats de l'avatar
 Arguments:
-- `ida` : id de l'avatar.
+- `id` : id de l'avatar.
 
 Liste les chats de l'avatar et pour chacun:
-- met à jour le statut / cv du chatE correspondant.
-- purge le chatI
+- met à jour le statut / cv du `chatE` correspondant.
+- purge le `chatI`
 
 ## Liste des tâches périodiques
 
@@ -2283,7 +2291,7 @@ Filtre les comptes dont la `dlv` est dépassée:
 - immédiatement pour chaque compte _suppression du compte_.
 
 ### TRA : traitement des transferts perdus
-Filtre les transferts par dlv:
+Filtre les transferts par `dlv`:
 - immédiatement pour chaque transfert, purge dans le _Storage_
 
 ### VER : purge des versions supprimées depuis longtemps
@@ -2291,6 +2299,5 @@ Filtre les transferts par dlv:
 ### STC : statistique "mensuelle" des comptas (avec purges)
 
 ### STT : statistique "mensuelle" des tickets (avec purges)
-
 
 @@ L'application UI [uiapp](./uiapp.md)
