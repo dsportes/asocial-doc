@@ -1,20 +1,10 @@
 ## Dev
-traiter l'exception 8001 "Avatar disparu"
-- Retour de RafraichirCvsAv : 
-- ApercuChat : ajouter un "Rafraichir CV" du seul chat et traiter l'exception 8001 "Avatar disparu"
-- NouveauGroupe
-- NouveauContact: et 8002 Groupe disparu
-- ModeSimple
-- InvitationGroupe
-- AcceptInvitation
 
 Tâche de gestion des dlvat
 
 Groupes
 - Quand l'invitation est encore _en vote_ (statut 2), les listes `li` sont remises à jour quand un des animateurs cités n'est plus _actif animateur_.
 - hébergement
-- rafraîchir CV des membres
-- ApercuChatgr
 
 Notes
 
