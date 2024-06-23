@@ -2,19 +2,13 @@
 
 Tâche de gestion des dlvat
 
-Groupes: hébergement
-
 Notes
 
 Fichiers
 
-Reports
-
 Barre People : muter A <->E
 
-Suppression avatar : vérifier les invitations si statut anim (checkAnimInvitants)
-
-GC
+GC: finaliser
 
 Firebase
 
