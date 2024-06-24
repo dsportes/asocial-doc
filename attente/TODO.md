@@ -1,12 +1,12 @@
 ## Dev
 
+PageCompte: muter en compte A, PageEspace opt
+
 Tâche de gestion des dlvat
 
 Notes
 
 Fichiers
-
-Barre People : muter A <->E
 
 GC: finaliser
 
