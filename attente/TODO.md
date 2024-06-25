@@ -1,12 +1,7 @@
 ## Dev
-
-PageCompte: muter en compte A, PageEspace opt
+Notes et Fichiers
 
 Tâche de gestion des dlvat
-
-Notes
-
-Fichiers
 
 GC: finaliser
 
