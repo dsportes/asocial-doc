@@ -1266,6 +1266,7 @@ _data_:
 - `im` : exclusivité dans un groupe. L'écriture est restreinte au membre du groupe dont `im` est `ids`. 
 - `vf` : volume total des fichiers attachés.
 - `ht` : liste des hashtags _personnels_ cryptée par la clé K du compte.
+  - En session, pour une note de groupe, `ht` est le terme de `htm` relatif au compte de la session.
 - `htg` : note de groupe : liste des hashtags cryptée par la clé du groupe.
 - `htm` : note de groupe seulement, hashtags des membres. Map:
     - _clé_ : id courte du compte de l'auteur,
@@ -1275,9 +1276,25 @@ _data_:
 - `d` : date-heure de dernière modification du texte.
 - `texte` : texte (gzippé) crypté par la clé de la note.
 - `mfa` : map des fichiers attachés.
-- `ref` : triplet `[id_court, ids, nomp]` crypté par la clé de la note, référence de sa note _parent_.
+- `ref` : triplet `[id, ids]` référence de sa note _parent_:
 
-`nomp` /VERIF/
+**A propos de `ref`**:
+- Pour un note de groupe:
+  - absent: rattachement _virtuel_ au groupe lui-même.
+  - `[id, ids]` : 
+    - `id`: du groupe (de la note), 
+    - `ids`: de la note du groupe à laquelle elle est rattachée (possiblement supprimée)
+- Pour un note personnelle:
+  - absent: rattachement _virtuel_ à l'avatar de la note.
+  - `[id, ids]` : 
+    - `id`: de l'avatar (de la note), 
+    - `ids`: de la note de l'avatar à laquelle elle est rattachée (possiblement supprimée).
+  - `[id, 0]` : 
+    - `id`: d'UN GROUPE, 
+    - rattachement _virtuel_ au groupe lui-même, possiblement disparu / radié.
+  - `[id, ids]` : 
+    - `id`: d'UN GROUPE, possiblement disparu / radié.
+    - `ids`: de la note de ce groupe à laquelle elle est rattachée (possiblement supprimée).
 
 **Une note peut être logiquement supprimée**. Afin de synchroniser cette forme particulière de mise à jour le document est conservé _zombi_ (sa _data_ est `null`). La note sera purgée un jour avec son avatar / groupe.
 
