@@ -7,31 +7,6 @@ GC: finaliser
 
 Firebase
 
-### Meta-données sur le serveur
-Certaines opérations sur le serveur, voient passer des _meta-liens_ temporairement à l'occasion d'une opération: un serveur pirate _pourrait_ les tracer au fil de l'eau.
-
-Ça semble se limiter à l'enregistrement de dlv ou quelques opérations voit passer groupées des avatars et des membres.
-- AvGrSignatures
-- SetQuotas : ça change la dlv du compte A
-- MuterCompte
-- MajChat: quand il y a un don associé
-- AjoutSponsoring: quand le sponsor est un compte A (don)
-- MajCredits: le compte qui reçoit ses crédits à sa dlv qui change
-
-## Doc
-UI
-
-Présentation ...
-
-Aide en ligne
-
-## Tests
-Retester Firestore / Gc
-
-Retester GAE
-
-Retester S3
-
 ## Conversion de MD en HTML
 
   yarn add showdown
@@ -143,3 +118,29 @@ Section build
     }
 
 Debug classique depuis `Run>>>Start Debugging`
+
+# Fichiers accessibles en mode avion
+
+## Note.mfa : map des fichiers attachés à une note
+- _clé_: `idf` - identifiant absolu aléatoire du fichier.
+- _valeur_: `{ nom, dh, info, type, gz, lg, sha }`
+
+Plusieurs fichiers peuvent avoir le même nom: ils sont considérés comme des versions successives, l'identifiant de la version est dh, la date-heure de l'opération l'ayant créé.
+- dans la map, `nom/dh` est une clé.
+- `info` est un code court facultatif qualifiant la version.
+- l'item d'un `idf` donné est invariant après création.
+
+## Class Ficav
+Un document par fichier devant être accessible en mode avion:
+- stockés en table `ficav` de IDB (inconnus du serveur).
+
+- `id` : id du fichier (`idf` clé de `Note.mfa`)
+- `dhdc` : date-heure de demande de chargement du fichier. Si 0, le fichier est chargé.
+- `nbr` : nombre de ré-essai de chargement. 0 en cas de succès initial (exc est absent).
+- `exc` : code de l'exception rencontrée lors de la dernière tentative de téléchargement.
+- `key` : `id/ids` identifiant de la note à laquelle le fichier est ou était attaché.
+- `nom` : nom du fichier dans son entrée dans Note.mfa
+- `st` : statut
+  - `0`: ne garder que cette version
+  - `1`: supprimer ce fichier s'il existe un fichier de la même note plus récent de même nom.
+  - `2`: garder cette version ET garder le fichier de la même note le plus récent de même nom. 
