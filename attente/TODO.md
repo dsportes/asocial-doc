@@ -135,12 +135,64 @@ Un document par fichier devant être accessible en mode avion:
 - stockés en table `ficav` de IDB (inconnus du serveur).
 
 - `id` : id du fichier (`idf` clé de `Note.mfa`)
-- `dhdc` : date-heure de demande de chargement du fichier. Si 0, le fichier est chargé.
-- `nbr` : nombre de ré-essai de chargement. 0 en cas de succès initial (exc est absent).
-- `exc` : code de l'exception rencontrée lors de la dernière tentative de téléchargement.
+- `dhdc` : date-heure de demande de chargement du fichier: ne pas tenter de le charger avant cette heure. Si 0, le fichier est chargé (nbr et exc sont absents).
+- `nbr` : nombre d'essai de chargement. 
+- `exc` : exception rencontrée lors de la dernière tentative de téléchargement.
 - `key` : `id/ids` identifiant de la note à laquelle le fichier est ou était attaché.
 - `nom` : nom du fichier dans son entrée dans Note.mfa
-- `st` : statut
-  - `0`: ne garder que cette version
-  - `1`: supprimer ce fichier s'il existe un fichier de la même note plus récent de même nom.
-  - `2`: garder cette version ET garder le fichier de la même note le plus récent de même nom. 
+- `av` : `true` - garder cette version spécifiquement
+- `avn` : `true` - garder la version la plus récente du fichier ayant ce nom
+
+
+/* OP_TestRSA: 'Test encryption RSA'
+args.token
+args.id
+args.data
+Retour:
+- data: args.data crypré RSA par la clé publique de l'avatar
+
+export class TestRSA extends Operation {
+  constructor () { super('TestRSA') }
+
+  async run (id, data) { 
+    try {
+      const session = stores.session
+      const args = { token: session.authToken, id, data }
+      const ret = this.tr(await post(this, 'TestRSA', args))
+      return this.finOK(ret.data)
+    } catch (e) {
+      await this.finKO(e)
+    }
+  }
+}
+
+OP_CrypterRaw: 'Test d\'encryptage serveur d\'un buffer long',
+Le serveur créé un binaire dont,
+- les 256 premiers bytes crypte en RSA, la clé AES, IV et l'indicateur gz
+- les suivants sont le texte du buffer long crypté par la clé AES générée.
+args.token
+args.id
+args.data
+args.gz
+Retour:
+- data: "fichier" binaire auto-décryptable en ayant la clé privée RSA
+OU la clé du site
+
+export class CrypterRaw extends Operation {
+  constructor () { super('CrypterRaw') }
+
+  async run (id, data, gz, clesite) { 
+    try {
+      const session = stores.session
+      const aSt = stores.avatar
+      const args = { token: session.authToken, id, data, gz }
+      const ret = this.tr(await post(this, 'CrypterRaw', args))
+      const priv = clesite ? null : aSt.getAvatar(id).priv
+      const res = await decrypterRaw(priv, clesite, ret.data, gz)
+      return this.finOK(res)
+    } catch (e) {
+      await this.finKO(e)
+    }
+  }
+}
+*/

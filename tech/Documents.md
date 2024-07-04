@@ -162,7 +162,7 @@ L'écriture et la suppression de fichiers du _Storage_ ne sont pas soumises à l
 ## Documents `transferts`
 - `id` : identifiant _majeur_ du fichier, une id d'avatar ou de groupe.
 - `ids` : identifiant du fichier relativement à son id majeure, son _numéro de fichier_.
-- `v` : jour d'écriture, du début de _l'upload_.
+- `dlv` : jour d'écriture, du début de _l'upload_ + 1
 
 Ces documents ne sont jamais mis à jour une fois créés, ils sont supprimés,
 - en général quasi instantanément dès que _l'upload_ est physiquement terminé,
@@ -1302,7 +1302,7 @@ _data_:
 
 ## Map des fichiers attachés
 - _clé_ `idf`: numéro aléatoire généré à la création. L'identifiant _externe_ est `id_court` du groupe / avatar, `idf`
-- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé de la note.
+- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` 
 
 **Identifiant de stockage :** `org/id_court/idf`
 - `org` : code de l'organisation.
