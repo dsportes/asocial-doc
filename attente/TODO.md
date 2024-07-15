@@ -1,9 +1,7 @@
 ## Dev
 Ralentissement des DL
 
-Tâche de gestion des dlvat
-
-GC: finaliser
+GC: finaliser / vérifier
 
 Firebase
 
