@@ -9,7 +9,7 @@ Elles sont réparties en deux catégories:
 Il est à 3 niveaux `org/id/nf` :
 - `org` : code l'organisation détentrice,
 - `id` : id de l'avatar ou du groupe à qui appartient le fichier.
-- `nf` : numéro (aléatoire) du fichier par rapport à son avatar / groupe.
+- `idf` : identifiant aléatoire (universel) du fichier.
 
 Trois implémentations ont été développées:
 - **File-System** : pour le test, les fichiers sont stockés dans un répertoire local.
@@ -57,24 +57,6 @@ C'est un traitement de nettoyage qui est lancé une fois par jour. Il a plusieur
 - calcul de _rapports / archivages_ mensuels pouvant conduire à purger des données vivantes de la base.
 
 En général c'est un service externe de **CRON** qui envoie journellement une requête de GC. Sur option ce peut être un déclenchement interne au serveur.
-
-# Table / collection technique `singletons`
-Ces quelques documents sont _purement techniques_:
-- ils n'ont d'intérêt que d'audit par l'administrateur technique,
-- ils sont _à la racine_ de la base, ne dépendent d'aucun espace,
-- ils ne sont pas exportés,
-- ils sont écrits, écrasés, jamais relus ni détruits.
-- ils sont facultatifs: la base est opérationnelle sans leur présence et c'est effectivement le cas pour une base _neuve_.
-
-La collection `singletons` a un nombre fixe de documents représentant les derniers _rapports de GC_: /VERIF/
-- `id` :
-  - `1` : rapport du dernier _ping_ effectué sur la base.
-  - `10-19` : rapports des phases du GC,
-  - `20-29` : rapports de la dernière génération de rapports par le GC.
-- `v` : estampille d'écriture en ms.
-- `_data_` : sérialisation non cryptée des données traçant l'exécution d'une phase du dernier traitement journalier de GC ou trace du _ping_.
-
-Par exemple le _path_ en Firestore du dernier _ping_ est `singletons/1`.
 
 # Espaces
 Tous les autres documents comportent une colonne / attribut `id` dont la valeur détermine un partitionnement en _espaces_ cloisonnés : dans chaque espace aucun document ne référence un document d'un autre espace.
@@ -249,6 +231,10 @@ Un document par ticket de crédit généré par un compte A. `ids` est un nombre
 
 # Clés de cryptage
 ## Phrases
+### Phrase de création du comptable
+- CC : PBKFD de la phrase complète - hCC son hash.
+- CR : PBKFD d'un extrait de la phrase - hCR son hash.
+
 ### Phrase secrète d'accès à un compte
 - XC : PBKFD de la phrase complète - hXC son hash.
 - XR : PBKFD d'un extrait de la phrase - hXR son hash.
@@ -2316,5 +2302,37 @@ Filtre les transferts par `dlv`:
 ### STC : statistique "mensuelle" des comptas (avec purges)
 
 ### STT : statistique "mensuelle" des tickets (avec purges)
+
+## Protocole de création d'un espace et de son Comptable
+**Par l'Administrateur Technique**: création d'un espace:
+- choix du code de l'espace `ns` et de l'organisation org
+- acquisition de la phrase de sponsoring du comptable T -> `TC` (son PBKFD) -> `hTC` (son hash)
+- **Opération** `CreationEspace`
+  - Arguments: `ns org TC hTC`
+  - Traitement:
+    - OK si: 
+      - soit espace n'existe pas, 
+      - soit espace existe et a un `hTC` : re-création avec une nouvelle phrase de sponsoring.
+    - génération de la `cleE` de l'espace: -> `cleET` (par TC) et `cleES` (par clé système).
+    - stocke dans l'espace: `hTC cleES cleET`. Il est _à demi_ créé, son Comptable n'a pas encore créer son compte.
+
+**Par le Comptable**: création de son compte
+- saisie de la phrase de sponsoring T -> `hTC TC`
+- **Opération** `GetCleET`:
+  - argument: `org hTC` (pour vérification)
+  - retour: `cleET`
+- saisie phrase secrète du compte: X -> `XC` -> `hXR hXC`
+- génération de la clé K: -> `cleKXC` -> `cleEK`
+- génération pub/priv: -> `privK pub`
+- génération de la clé P de la partition 1: `clePK` -> `ck` `{cleP, code}` crypté par clé K
+- **Opération** `CreationComptable`:
+  - arguments: `org hTC` (pour vérification) `hXR hXC cleK clePK privK pub cleAP cleAK cleKXC clePA ck`
+    - implicite: `id` du Comptable, génération `rds` du compte et de son avatar principal 
+  - Traitement:
+    - création de `compte compti compta` du Comptable
+    - création de la `partition` 1 ne comprenant que le Comptable
+    - création de son `avatar` principal (et pour toujours unique)
+    - _dans son `espace`_: suppression de `hTC`
+
 
 @@ L'application UI [uiapp](./uiapp.md)
