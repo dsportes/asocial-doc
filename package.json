@@ -1,0 +1,17 @@
+{
+  "name": "serviceworker-cookbook",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {},
+  "author": "Daniel Sportes",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "express": "^4.13.3",
+    "web-push": "^3.2.2"
+  },
+  "engines": {
+    "node": "20"
+  }
+}
