@@ -2334,5 +2334,159 @@ Filtre les transferts par `dlv`:
     - création de son `avatar` principal (et pour toujours unique)
     - _dans son `espace`_: suppression de `hTC`
 
+# Architecture
+
+### APP: l'application
+- **C'est une page Web téléchargeable depuis une URL** d'un site statique en délivrant son contenu. Le _service worker_ de l'application permet à chaque browser ayant chargé une fois l'application d'en conserver dans sa mémoire la page principale et ses ressources (scripts, etc.),
+  - ceci évite lors d'une nouveau chargement de l'application de recharger les ressources inchangés depuis l'exécution précédente dans le même browser,
+  - permet une exécution _offline_, sans connexion avec le site délivrant l'application, en utilisant la pge et ses ressources chargées antérieurement sur ce browser.
+- **Chaque onglet d'un browser peut héberger une exécution de l'application,** une _session_, délimitée entre, 
+  - le chargement / initialisation de sa page par le browser: il est attribué à ce moment un identifiant universel aléatoire `rnd`.
+  - la fermeture de l'onglet ou sa navigation vers une autre page.
+  - au cours de cette session, l'utilisateur peut se connecter et se déconnecter _successivement_ à un ou des comptes. 
+    - Chaque connexion est numérotée `nc` en séquence de 1 à N à l'intérieur d'une session donnée de l'application dans un browser.
+    - `sessionId` est le string `rnd.nc` qui identifie exactement la vie d'une connexion à un compte entre sa connexion et sa déconnexion.
+- `subscription`: ce _token_ est généré par le browser en début d'une session de l'application (par l'intermédiaire du _service worker_):
+  - il est strictement relatif à l'application.
+  - il est spécifique de l'instance du browser.
+  - plusieurs sessions de la même application dans le même browser ont le même jeton  `subscription`.
+  - **une application externe au browser peut pousser des messages de _notification_** en ayant connaissance du jeton `subscription`:
+    - _mais_ tous les onglets du même browser ouvert sur la même application vont recevoir les notifications ainsi poussées. Chaque message est porteur d'un `sessionId` (`rnd.nc`) afin que seule la connexion en cours ainsi identifiée le traite (les autres reçoivent la notification, l'ouvre, en lise le contenu et l'ignore).
+
+### OP: service des opérations - SES instances
+- **Chaque instance de OP est un serveur HTTP traitant les opérations de mise à jour des données ou de lecture des données soumises par les sessions de l'application**,.
+  - une instance de OP est lancée dès qu'une requête désignant son URL est émise.
+  - elle vit _un certain temps_, pouvant traiter d'autres requêtes,
+  - elle s'arrête au bout d'un certain temps d'inactivité, c'est à dire _sans_ recevoir de requêtes.
+- **Plusieurs instances de OP peuvent être actives**, à l'écoute de requêtes, à un instant donné.
+- Une session de connexion à un compte de l'application peut émettre des requêtes qui peuvent être traitées par n'importe laquelle des instances de OP actives à cet instant:
+  - une instance de OP ne garde pas en mémoire un contexte propre à chaque session.
+  - une instance de OP ne peut pas avoir connaissance de toutes les sessions actives.
+- **Les instances de OP accèdent à LA base données de l'application**, en consultation et mise à jour. Elles ne _poussent_ pas de messages de notification aux sessions.
+- A chaque transaction de mise à jour exécutée par une instance de OP:
+  - un `trlog` de la transaction est construit avec:
+    - l'identifiant du compte sous lequel la transaction est effectuée,
+    - le `sessionId` de la session émettrice de l'opération,
+    - la liste des IDs des documents modifiés / créés / supprimés et leur version correspondante,
+    - la liste des IDs des comptes dont le périmètre a été impacté avec le nouveau périmètre.
+  - le `trlog` (raccourci, sans les comptes de périmètre impacté) est retourné à la session appelante: elle peut ainsi invoquer une requête de synchronisation `Sync` afin d'en obtenir les mises à jour.
+  - le `trlog` est transmis par une requête HTTP à PUBSUB pour notifier les autres sessions actives.
+
+### PUBSUB: service de gestion des sessions actives - UNE SEULE instance active à tout instant
+- L'instance **unique à un instant donné** est un serveur HTTP en charge:
+  - de garder en mémoire la liste des sessions actives (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents auxquels elle peut accéder.
+  - d'émettre des _messages de notification_ à toutes les sessions enregistrées dont un des documents de leur périmètre a évolué.
+- Les instances de OP envoient une requête à chaque connexion (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
+- Chaque session _active_ dans un browser émet toutes les 2 minutes un _heartbeat_, une requête à PUBSUB passant ces mêmes informations:
+  - un _heartbeat_ spécial de déconnexion est émis à la clôture de la connexion.
+  - au bout de 2 minutes sans avoir reçu un _heartbeat_ PUBSUB détruit le contexte de la session (considérée comme inactive).
+- Quand l'instance PUBSUB n'a pas reçu de requêtes depuis un certain temps, c'est qu'elle n'a plus connaissance de sessions actives, elle peut être arrêtée, une nouvelle instance étant alors lancée lors de la prochaine connexion à un compte reçue.
+- A chaque transaction de mise à jour exécutée par une instance de OP:
+  - une requête est émise à PUBSUB portant un `trlog` de la transaction. PUSUB est ainsi en mesure,
+    - de détecter toutes les sessions actives ayant un document de leur périmètre impacté (en ignorant la session origine de la transaction informée directement par OP),
+    - de mettre à jour le cas échéant les périmètres des comptes impactés.
+    - d'émettre, de manière désynchronisée, à chacune de celles-ci la liste des IDs des documents mis à jour la concernant avec leurs versions,
+  - Chaque session _notifiée_ sait ainsi quels documents de son périmètre a changé et peut demander au service OP la synchronisation associée.
+- PUBSUB n'a aucune mémoire persistante et n'accède pas à la base de données: c'est un service de calcul purement en mémoire.
+
+### SRV: CF + PUBSUB - UNE SEULE instance active à tout instant
+SRV traite les deux services CF et PUBSUB dans une seule instance de serveur HTTP:
+- utilisation en test local,
+- utilisable dans une VM en contrôlant qu'il y n'y a bien qu'une seule instance active au plus à tout instant,
+- utilisable dans une _Cloud Function_ ou _Server géré_ avec un trafic suffisamment faible pour qu'il n'y ait jamais plus d'une instance active à un moment donné. 
+
+### PUBSUB _down_ : conséquences
+L'application est fonctionnelle sans service PUBSUB:
+- une session ne sera pas notifiée des mises à jours opérées par une autre session.
+- les sessions devront sur demande explicite de l'utilisateur (ou périodique automatique mais sur une fréquence faible) opérer des synchronisations _complètes_, vérifiant la version de tous les documents de son périmètre.
+- chaque transaction gérée par le service OP ne pourra pas joindre PUBSUB: le retour de la requête indiquera cette indisponibilité pour information de la session qu'elle est en mode dégradé _sans notification continue_ des effets des opérations des autres sessions impactant son périmètre.
+
+# Service PUBSUB
+
+Ce service est constitué:
+- d'une mémoire non persistante,
+- de requêtes POST déclenchant ses opérations et de la fonction correspondante pour les appels en structure SRV depuis le service OP.
+
+### Objet `perimetre`
+Cet objet décrit le périmètre d'un compte et est construit depuis un objet de classe Compte (`get perimetre ()` des classes `Compte` dans APP et `Comptes` dans OP).
+- `id`: ID du compte
+- `vp`: version du périmètre. C'est la version du compte à laquelle le périmètre a été changé pour la dernière fois (un compte pouvant changer sans que son _périmètre_ ne change).
+- `partid`: ID de la partition du compte si c'est un compte "O" ou '' sinon.
+- `lavgr`: liste des IDs des avatars du compte et des groupes accédés, triée par IDs croissante.
+
+`function equal(p1, p2)`
+- retourne `true` si `p1` et `p2` (du même compte) ont même liste `partid` +  `lavgr`.
+
+#### Méthode / requête `connexion`
+Elle est invoquée par un requête HTTP ayant un objet argument ou paramètre crypté par la clé du site:
+- `sessionId`: `rnd.nc` identifiant la connexion dans la session appelante.
+- `subscription`: token de suscription généré à l'initialisation de la session (en base 64).
+- `perimetre`: liste les IDs des objets du périmètre.
+
+En déploiement OP distinct de PUBSUB, OP effectue une requête HTTP: si cette requête échoue (PUBSUB non disponible) la requête Sync aura un statut indiquant que la session n'est pas _notifiée_.
+
+En déploiement SRV, la méthode est directement invoquée, sans avoir besoin de passer par une requête HTTP.
+
+#### Requête `heartbeat`
+Elle est invoquée en session toutes les deux minutes pour informer PUBSUB que la session est toujours active:
+- `sessionId`: `rnd.nc` identifiant la connexion dans la session appelante.
+- `nhb`: numéro séquentiel du heartbeat.
+  - 1..N: numéro d'appel successif. émis par la session.
+  - 0: par convention, indique une déconnexion de la session émise par la session.
+
+Retour: `KO`
+- détection d'un heartbeat manquant, le précédent enregistré n'est pas nhb - 1 (ou n'existe pas). La session n'est plus _notifiée_, elle est supprimée (si elle existait). 
+
+Ces deux opérations:
+- mettent à jour l'état mémoire de PUBSUB immédiatement et de manière atomique (non interruptible).
+- n'émettent pas de message de _notification_.
+
+#### Fin d'opération de mise à jour de OP
+Lorsqu'une opération de mise à jour de s'exécute dans OP, un certain nombre de documents ont évolué, leur version a changé: un objet trlog est créé.
+- cet objet a une forme _longue_ qui est transmis à PUBSUB sur la méthode / requête notif.
+  - le traitement par PUSUB a une première phase _synchrone_ qui,
+    - met à jour l'état mémoire des sessions dans PUBSUB,
+    - prépare la liste des messages de notifications à envoyer: chaque message a pour structure un trlog en forme raccourcie.
+  - la second phase est asynchrone et consiste à émettre tous les messages de notification préparés en phase 1.
+  - la méthode / requête notif est courte vu du côté de l'appelant OP et ne diffère que de peu le retour de l'opération.
+- l'objet trlog a une forme raccourcie quand il parvient dans les sessions:
+  - la session appelante de l'opération, les mises à jour ayant concerné au moins un document du périmètre du compte (sauf exception ?).
+  - les autres sessions enregistrées par PUBSUB_impactées_ c'est à dire ayant au moins des documents de leur périmètre mis à jour par l'opération (possiblement aucune session). Chaque session recevra en message de notification un trlog raccourci, comme s'il résultait d'une opération issue de la session impacté.
+- il a une forme _raccourcie_ qui est transmis en tant que résultat de l'opération.
+
+En session on peut ainsi recevoir des trlog depuis deux sources:
+- en résultat d'une opération de mise à jour soumise par la session elle-même,
+- par suite d'une opération de mise à jour déclenchée par une autre session et parvenue en _notification_.
+
+Le traitement ensuite est identique: une opération Sync sera émise vers OP afin d'obtenir les mises à jour des documents modifiés / créés / supprimés. 
+
+### Objet `trlog`
+- `sessionId`: `rnd.nc`. Permet de s'assurer que ce n'est pas une notification obsolète d'une connexion antérieure.
+- `partId`: ID de la partition si c'est un compte "0", sinon ''.
+- `vpa`: version de cette partition ou 0 si inchangée ou absente.
+- `vce`: version du compte. (inutile ?)
+- `vci`: version du document compti s'il a changé, sinon 0.
+- `lavgr`: liste `[ [idi, vi], ...]`. Couples des IDs des avatars et groupes ayant été impactés avec leur version.
+- `lper`: **format long seulement**. `liste [ {...}, ...]` des `perimetre` des comptes ayant été impactés par l'opération (sauf celui de l'opération initiatrice).
+
+### Mémore de PUBSUB
+Map `sessions`: clé: `rnd` de `sessionID`
+- `nc`: nc de sessionID.
+- `cid`: ID du compte.
+- `nhb`: numéro d'ordre du dernier heartbeat.
+- `dhhb`: date-heure du dernier heartbeat. Permet de purger les sessions inactives n'ayant pas émises de déconnexion explicite.
+- `subscription`: token de subscription de la session.
+
+Map `comptes`: clé: ID du compte
+- `perimetre`: plus récent périmètre connu.
+- `sessions`: set des rnd identifiant les sessions ayant pour `cid` celui de ce compte.
+
+Map `xref`: clé : ID d'un avatar / groupe / partition
+- `comptes`: set des IDs des comptes référençant cette ID.
+
+Règles de gestion:
+- les `comptes` dont le set des sessions est vide sont supprimés.
+- les `xref` dont le set des comptes est vide sont supprimés.
+- les `sessions` dont le `dhhb` + 2 minutes est dépassé sont supprimés (et en cascade potentiellement leur entrée dans comptes et les `xref` associés).
 
 @@ L'application UI [uiapp](./uiapp.md)
