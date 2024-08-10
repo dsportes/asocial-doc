@@ -1,7 +1,9 @@
 ## Dev
-Ralentissement des DL
+Suppression d'espace
 
-GC: finaliser / vérifier
+Suppression d'une partition
+
+Ralentissement des DL ???
 
 Firebase
 
