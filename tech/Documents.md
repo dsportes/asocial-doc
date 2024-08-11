@@ -2374,7 +2374,7 @@ Filtre les transferts par `dlv`:
 - L'instance **unique à un instant donné** est un serveur HTTP en charge:
   - de garder en mémoire la liste des sessions actives (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents auxquels elle peut accéder.
   - d'émettre des _messages de notification_ à toutes les sessions enregistrées dont un des documents de leur périmètre a évolué suite à une opération effectuée dans un instance OP.
-- **Les instances de OP envoient une requête `cnx` à chaque connexion** (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
+- **Les instances de OP envoient une requête `login` à chaque connexion** (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
 - **Chaque session _active_ dans un browser émet toutes les 2 minutes un _heartbeat_,** une requête à PUBSUB avec son `sessionId`:
   - un _heartbeat_ spécial de déconnexion est émis à la clôture de la connexion.
   - au bout de 2 minutes sans avoir reçu un _heartbeat_ PUBSUB détruit le contexte de la session (considérée comme inactive).
@@ -2409,14 +2409,13 @@ Ce service est constitué:
 ### Objet `perimetre`
 Cet objet décrit le périmètre d'un compte et est construit depuis un _compte_ (`get perimetre ()` des classes `Compte` dans APP et `Comptes` dans OP).
 - `id`: ID du compte
-- `vp`: version du périmètre. C'est la version du compte à laquelle le périmètre a été changé pour la dernière fois, un compte pouvant changer sans que son _périmètre_ ne change.
-- `partid`: ID de la partition du compte si c'est un compte "O" ou '' sinon.
+- `vpe`: version du périmètre. C'est la version du compte à laquelle le périmètre a été changé pour la dernière fois, un compte pouvant changer sans que son _périmètre_ ne change.
 - `lavgr`: liste des IDs des avatars du compte et des groupes accédés par le compte, triée par IDs croissantes.
 
 `function equal(p1, p2)`
-- retourne `true` si `p1` et `p2` (du même compte) ont même liste `partid` +  `lavgr`.
+- retourne `true` si `p1` et `p2` (du même compte) ont même liste `lavgr`.
 
-#### Méthode / requête `cnx`
+#### Méthode / requête `login`
 Elle est invoquée par un requête HTTP ayant un objet argument ou paramètre crypté par la clé du site:
 - `sessionId`: `rnd.nc` identifiant de la connexion dans la session appelante.
 - `subscription`: token de suscription généré à l'initialisation de la session (en base 64).
