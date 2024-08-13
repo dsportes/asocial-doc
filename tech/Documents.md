@@ -2475,6 +2475,7 @@ Map `sessions`: clé: `rnd` de `sessionID`
 - `subscription`: token de subscription de la session.
 
 Map `comptes`: clé: ID du compte
+- `cid` : ID du compte
 - `perimetre`: plus récent périmètre connu.
 - `sessions`: set des `rnd` identifiant les sessions ayant pour `cid` celui de ce compte.
 
