@@ -196,3 +196,31 @@ export class CrypterRaw extends Operation {
   }
 }
 */
+
+# Ngrok : tunnel pour accéder au `localhost` d'un site de DEV
+
+Sur le site de DEV, un serveur HTTP peut être lancé et écouter le port 8443 par exemple.
+
+Préalablement dans un terminal ou aura lancé les commandes:
+
+    ngrok config add-authtoken MONTOKEN
+    ngrok http http://localhost:8443
+
+En retour il apparaît une URL https://...
+
+Cette URL peut être utilisée n'importe où, en particulier depuis un mobile, pour joindre le serveur sur le localhost du site de DEV, grâce à un tunnel établi par Ngrok.
+
+### Token d'authentification
+Il a été généré à l'inscription sur le site Ngrok:
+- login:
+- pwd:
+
+Le token est disponible sur le site.
+
+De plus il est sauvé dans un fichier local lors de l'authentification.
+
+Authtoken saved to configuration file: /home/daniel/snap/ngrok/179/.config/ngrok/ngrok.yml
+
+____________________________________________
+
+npx update-browserslist-db@latest
