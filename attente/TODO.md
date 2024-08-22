@@ -1,5 +1,6 @@
+## Bug
+
 ## Dev
-Suppression d'espace
 
 Suppression d'une partition
 
@@ -205,6 +206,7 @@ Préalablement dans un terminal ou aura lancé les commandes:
 
     ngrok config add-authtoken MONTOKEN
     ngrok http http://localhost:8443
+    ngrok http --domain=exactly-humble-cod.ngrok-free.app 8443
 
 En retour il apparaît une URL https://...
 
