@@ -1,77 +1,163 @@
 @@Index général de la documentation [index](https://raw.githack.com/dsportes/asocial-doc/master/index.md)
 
-# Données persistantes sur le serveur
-Elles sont réparties en deux catégories:
-- les données stockées dans la _base_,
-- les _fichiers_ présents dans le _Storage_.
+# Architecture
+Elle est composée de:
+- **APP**: c'est une page Web téléchargeable depuis un site statique et s'exécutant dans un browser. **Il y a autant d'instances de APP en exécution que de de pages ouvertes par les utilisateurs dans leur(s) browser(s)**. L'application,
+  - gère l'interface utilisateur, la présentation à l'écran et la saisie des données.
+  - soumet des _opérations_ au service **OP**, une requête HTTP POST par opération.
+  - reçoit (par le browser) les notifications _push_ émises par le service **PUBSUB**. Chaque notification indique qu'un ou des documents de la session de l'application ont changé (une _opération_ `Sync` se chargeant de récupérer les nouveaux contenus).
+- **OP**: service des opérations. **Il peut y avoir plusieurs instances s’exécutant à un instant donné**. 
+  - Chacune est un serveur HTTP traitant les opérations de lecture et de mise à jour des données soumises par les sessions de l'application.
+  - Les instances accèdent à LA base de données de l'application.
+- **PUBSUB**: service de gestion des sessions actives. UNE SEULE instance au plus est active à un instant donné. C'est un serveur HTTP en charge:
+  - de garder en mémoire la liste des sessions actives (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents auxquels elle peut accéder.
+  - d'émettre des _messages de notification_ aux browsers de toutes les sessions enregistrées dont un des documents de leur périmètre a évolué suite à une opération effectuée dans une instance OP.
 
-## _Storage_
-Il est à 3 niveaux `org/id/nf` :
-- `org` : code l'organisation détentrice,
-- `id` : id de l'avatar ou du groupe à qui appartient le fichier.
-- `idf` : identifiant aléatoire (universel) du fichier.
+**Les données persistantes** sont réparties en deux catégories:
+- **Base de données** : ces données sont stockées à l'occasion des opérations de mises à jour effectuées par une instance de service **OP**. Trois implémentations interchangeables (classes _providers_) sont disponibles:
+  - **SQLite**: principalement pour les tests, ou pour une production de faible puissance sur un serveur géré.
+  - **PostgreSQL**: supportant plusieurs instances de services OP et pouvant être hébergé par un service géré.
+  - **Firstore** (Firebase), base NOSQL en service hébergé par Google Cloud Platform.
+- **Storage** : un service de stockage de fichiers dont trois implémentations interchangeables (classes _providers_) ont été développées:
+  - **File-System** : pour le test, les fichiers sont stockés dans un répertoire local.
+  - **Google Cloud Storage** : a priori il n'y a pas d'autres providers que Google qui propose ce service.
+  - **AWS/S3** : S3 est le nom de l'interface, plusieurs fournisseurs en plus d'Amazon le propose.
 
-Trois implémentations ont été développées:
-- **File-System** : pour le test, les fichiers sont stockés dans un répertoire local.
-- **Google Cloud Storage** : a priori il n'y a pas d'autres providers que Google qui propose ce service.
-- **AWS/S3** : S3 est le nom de l'interface, plusieurs fournisseurs en plus d'Amazon le propose.
+### APP: l'application
+**C'est une page Web téléchargeable depuis une URL** d'un site Web statique. Le script _service worker_ de l'application permet à chaque browser ayant chargé une fois l'application d'en conserver dans sa mémoire la page principale `index.html` et ses ressources (scripts, etc.). Lors d'une nouvelle ouverture de la page de l'application le browser,
+- si le site Web statique est joignable, ne recharge que les ressources changées par rapport à celles qu'il a en mémoire,
+- sinon utilise la page et ses ressources chargées antérieurement sans utiliser le réseau (mode _avion_).
 
-## _Base_
-La base peut avoir plusieurs implémentations : un _provider_ est la classe logicielle qui gère l'accès à sa base selon sa technologie.
+**Chaque onglet d'un browser ouvre une nouvelle _session_ de l'application,** en chargeant cette page. La session dure jusqu'à clôture de l'onglet ou chargement d'une autre page Web. 
+- une session est universellement identifiée par l'attribution d'un identifiant aléatoire `rnd`.
+- un _token_ `subscription` est récupéré / généré à l'ouverture de la session par le script _service worker_:
+  - il est doublement spécifique de l'application et du browser du poste.
+  - sur un poste donné plusieurs sessions de l'application peuvent cohabiter dans le même browser: elles ont en conséquence le même jeton `subscription`.
 
-On distingue deux classes d'organisation techniques: **SQL** et **NOSQL+Data Sync**.
+**Au cours d'une session, l'utilisateur peut se connecter et se déconnecter _successivement_ à un ou des comptes.** 
+- chaque _connexion_ est numérotée `nc` en séquence de 1 à N dans sa session.
+- `sessionId` est le string `rnd.nc` qui identifie exactement la vie d'une connexion à un compte entre sa connexion et sa déconnexion.
 
-**Data Sync** : mécanisme permettant de notifier une session UI qu'un document / row a changé sous l'effet d'opérations de mise à jour ou de suppression.
+**Le service PUBSUB peut _pousser_ des messages de _notification_** en ayant connaissance du jeton `subscription`:
+- le browser transmet à tous ses onglets ouverts sur l'application les notifications ainsi poussées. Chacune est porteuse du `sessionId` (`rnd.nc`) de la connexion concernée: seule la session concernée la traite, les autres la reçoive, l'ouvre, en lise le `sessionId` du contenu et l'ignore.
 
-### SQL
-Les données sont distribuées dans des **tables** `espaces avatars versions notes ...`
-- une base SQL n'implémente pas de **Data Sync**. Il n'y pas de moyens pour une connexion cliente de se mettre en veille de mises à jour de certains rows.
-- il faut un _serveur_ qui, en plus de servir les transactions de lecture / mises à jour, notifient les sessions clientes vivantes abonnées à ces mises à jour:
-  - le serveur dispose de la liste des sessions clientes actives et pour chacune sait aux mises à jour de quels documents elle est _abonnée_.
-  - le _serveur_ doit être _up_ a minima tant qu'une session cliente est active.
-  - une session sans opérations depuis un certain temps est considérée comme disparue.
-  - si le serveur tombe _down_, toutes les sessions en cours sont de facto déconnectées. 
-- la première implémentation correspond à une base `Sqlite`, un serveur `node` et une notification **Data Sync** par WebSocket.
+### OP: service des opérations - SES instances
+**Chaque instance de OP est un serveur HTTP traitant les opérations de lecture et de mise à jour des données soumises par les sessions de l'application**.
+- une instance de OP est susceptible d'être lancée dès qu'une requête désignant son URL est émise.
+- elle vit _un certain temps_, pouvant traiter d'autres requêtes,
+- elle s'arrête au bout d'un certain temps d'inactivité, c'est à dire _sans_ recevoir de requêtes.
 
-### NOSQL-Data Sync
-Chaque table SQL correspond à une **collection de documents**, chaque document est équivalent à un **row** de la table SQL de même nom que la collection.
-- la base implémente un mécanisme de **Data Sync** par lequel une session peut directement demander à la base de lui notifier les mises à jour des documents qui l'intéresse, sans passer par un _serveur_ intermédiaire pour ce service.
-- il faut a minima une _Cloud Function_ pour gérer les transactions de lecture / mises à jour de type REST:
-  - le service correspondant peut être _up_ juste le temps d'une transaction et repasser _down_ en l'absence de sollicitation.
-  - il peut aussi de fait être assuré par un serveur qui reste _up_ en continu (du moins sur une longue durée).
-- les sessions clientes sont insensibles à la tombée _down_ de la Cloud Function (ou du serveur). Les _abonnements_ ne sont gérés que par les sessions clientes (une _Cloud Function_ ne gère pas de _sessions clientes_). 
-- la première implémentation correspond à une base Firestore et à une Google Cloud Function.
+**Plusieurs instances de OP peuvent être actives**, à l'écoute de requêtes, à un instant donné. Les requêtes émises par une session de l'application peuvent être traitées par n'importe laquelle des instances de **OP** actives avec deux conséquences:
+- une instance de **OP** ne peut pas conserver en mémoire un historique fiable des requêtes précédentes issues de la même session.
+- une instance de **OP** ne peut pas avoir connaissance de toutes les sessions actives.
 
-> **Remarque:** entre une implémentation GCP Function et AWS Lambda, il n'y a a priori qu'une poignée de lignes de code de différence dans la configuration de l'amorce du service mais une procédure de déploiement spécifique.
+**Les instances de OP accèdent à LA base données de l'application**, en consultation et mise à jour (mais ne _poussent_ pas de messages de notification aux sessions). A chaque transaction de mise à jour exécutée par une instance de OP:
+- un `trlog` de la transaction est construit avec:
+  - l'identifiant du compte sous lequel la transaction est effectuée,
+  - le `sessionId` de la session émettrice de l'opération,
+  - la liste des IDs des documents modifiés / créés / supprimés et leur version correspondante,
+  - la liste des périmètres des comptes (en général 0 ou 1) mis à jour par l'opération.
+- le `trlog` (raccourci, sans les périmètres mis à jour) est retourné à la session appelante qui peut ainsi invoquer une requête de synchronisation `Sync` afin d'en obtenir les mises à jour de son état interne.
+- le `trlog` (complet) est transmis par une requête HTTP au service **PUBSUB** afin de notifier les autres sessions actives.
 
-## Équivalence SQL et NOSQL
-Les _colonnes_ d'une table SQL correspondent aux _attributs / propriétés_ d'un document.
-- en SQL la _clé primaire_ est une propriété attribut ou un couple de propriétés,
-- en Firestore le _path_ d'un document contient cette propriété ou couple de propriétés.
+### PUBSUB: service de gestion des sessions actives - UNE SEULE instance active
+L'instance **unique à un instant donné** est un serveur HTTP en charge:
+- de garder en mémoire la liste des sessions actives (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents auxquels elle peut accéder.
+- d'émettre des _messages de notification_ à toutes les sessions enregistrées dont un des documents de leur périmètre a évolué suite à une opération effectuée dans un instance OP.
 
-## GC _garbage collector_
-C'est un traitement de nettoyage qui est lancé une fois par jour. Il a plusieurs phases techniques:
-- suppression de rows / documents obsolètes,
-- détection des comptes à détruire par inutilisation,
-- nettoyage des fichiers fantômes sur _Storage_,
-- calcul de _rapports / archivages_ mensuels pouvant conduire à purger des données vivantes de la base.
+**Les instances de OP envoient une requête `login` à chaque connexion** (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
 
-En général c'est un service externe de **CRON** qui envoie journellement une requête de GC. Sur option ce peut être un déclenchement interne au serveur.
+**Chaque session _active_ dans un browser émet périodiquement (toutes les 2 minutes) un _heartbeat_,** une requête à PUBSUB avec son `sessionId`:
+- un _heartbeat_ spécial de déconnexion est émis à la clôture de la connexion à un compte.
+- au bout de 2 minutes sans avoir reçu un _heartbeat_ PUBSUB détruit le contexte de la session (considérée comme fermée).
+- quand l'instance PUBSUB n'a pas reçu de requêtes depuis un certain temps, c'est qu'elle n'a plus connaissance de sessions actives: elle peut s'arrêter (avec un état interne vierge). Une nouvelle instance sera lancée lors de la prochaine connexion à un compte (requête `login` émise par une instance de service OP).
+  
+L'instance PUBSUB n'est donc pas _permanente_: il y en a une (seule) active dès lors qu'une session s'est connectée à un compte et le reste jusqu'à déconnexion de la dernière session active.
 
-# Espaces
-Tous les autres documents comportent une colonne / attribut `id` dont la valeur détermine un partitionnement en _espaces_ cloisonnés : dans chaque espace aucun document ne référence un document d'un autre espace.
+**A chaque transaction de mise à jour exécutée par une instance du service OP:** une requête `notif` au service PUBSUB est émise lui transmettant le `trlog` de la transaction. PUSUB est ainsi en mesure,
+- d'identifier toutes les sessions actives ayant un document de leur périmètre impacté (en ignorant la session origine de la transaction informée directement par OP),
+- de mettre à jour le cas échéant les périmètres des comptes modifiés.
+- d'émettre, de manière désynchronisée, à chacune de celles-ci la liste des IDs des documents mis à jour la concernant avec leurs versions (un `trlog` _raccourci_ construit spécifiquement pour chaque session),
+- Chaque session ainsi _notifiée_ sait quels documents de son périmètre a changé et peut demander au service OP par une requête `Sync` les mises à jour associées.
 
-Un espace est identifié par `ns`, **un entier de 10 à 89**. Chaque espace à ses données réparties dans les collections / tables suivantes:
-- `espaces syntheses` : un seul document / row par espace. Leur attribut `id` (clé primaire en SQL) a pour valeur le `ns` de l'espace. Path Firestore pour le `ns` 24 par exemple : `espaces/24` `syntheses/24`.
-- tous les autres documents ont un attribut / colonne `id` de 16 chiffres dont les 2 premiers sont le `ns` de leur espace. Les propriétés des documents peuvent citer l'id _courte_ (sans les deux premiers chiffres) d'autres documents.
+**PUBSUB n'a aucune mémoire persistante** et n'accède pas à la base de données: c'est un service de calcul purement en mémoire maintenant l'état des sessions actives.
 
-## Code organisation attaché à un espace
+**Quand PUBSUB est _down_:** L'application reste fonctionnelle, mais:
+- les sessions ne sont pas _notifiées_ des mises à jours opérées par les autre sessions.
+- les sessions doivent, sur action explicite de l'utilisateur, demander des synchronisations _complètes_, vérifiant la version de tous les documents de leur périmètre.
+- chaque transaction gérée par le service OP ne pourra pas joindre PUBSUB: le retour de la requête indiquera cette indisponibilité pour information de la session qu'elle est en mode dégradé _sans notification continue_ des effets des opérations des autres sessions impactant son périmètre.
+
+## Variantes de mise en œuvre de l'architecture
+**L'application** est buildée par Webpack puis est distribuée dans un service comme **GitHub Pages**, ou tout autre site Web ayant une URL d'accès et un accès HTTPS.
+
+### Hébergement NON géré des services OP et PUBSUB
+Typiquement, une, voire plusieurs VMs, héberge les services OP et PUBSUB:
+- pour PUBSUB, une seule instance doit être en exécution. Si la puissance requise devient trop forte, il faut procéder à un développement complémentaire sommairement décrit en Annexe.
+- pour OP, plusieurs instances peuvent être lancées avec un front-end de distribution du traffic, typiquement NGINX. Toutefois le provider SQLite n'est plus possible, il faut choisir l'un des 2 autres (PostgreSQL ou Firestore).
+
+Le fait d'être NON géré impose de consacrer de l'énergie à surveiller le bon fonctionnement et à relancer les services tombés. Toutefois la base de données peut être gérée, même si OP+PUBSUB ne l'est pas et dispenser ainsi de la charge de sauvegarde / restauration / redémarrage.
+
+### Hébergement géré par Cloud Functions de OP
+Google et Amazon proposent ce service: une _function_ est lancée dès qu'une requête fait appel à une opération de OP.
+
+Sur Google, l'option Google App Engine (GAE) est également possible mais n'a pas vraiment d'intérêt pour le seul service OP.
+
+### Hébergement géré par Cloud Functions de PUBSUB
+Google et Amazon proposent ce service qui **DOIT** être configuré pour n'avoir qu'une instance AU PLUS en exécution.
+
+GAE est une option chez Google avec un paramétrage avec une instance au plus.
+
+### SRV: CF + PUBSUB - UNE SEULE instance active à tout instant
+SRV traite les deux services OP et PUBSUB dans une seule instance de serveur HTTP. Cette option est pertinente dans les cas suivants:
+- en test local,
+- dans une VM en contrôlant qu'il y n'y a bien qu'une seule instance active au plus à tout instant,
+- dans une _Cloud Function_ ou _Server géré_ avec un trafic suffisamment faible pour supporter une configuration garantissant qu'il n'y a jamais plus d'une instance active à un moment donné. Un déploement GAE avec un faible traffic est probablement en dessous du seuil de facturation.
+
+### Augmentation de la puissance
+Pour le site hébergeant APP, pas de souci, les services gérés sur le marché sont tous assez puissants.
+
+L'augmentation de puissance pour OP se fait en service géré en autorisant un plus grand nombre d'instances.
+
+Concernant PUBSUB, si la puissance demandée excède ce que peut supportant une instance NodeJS, voir les possibilités de développement indiquées en annexe. Toutefois, PUBSUB n'effectue sur requête POST entrante QUE du travail en mémoire et des requêtes POST sortantes pour les notifications. Il faut vraiment un très gros traffic pour atteindre cette limite. 
+
+### Service de base de données
+Firestore est un service de Google, géré et de puissance extensible: la limite n'a pas pu être mesurée. Pour un traffic faible, le seuil de facturation peut ne pas être atteint.
+
+Il existe une offre de PostgreSQL géré mais son coût de départ est élevé (de l'ordre de 20€ mensuels): mais si le traffic est très important, c'est un coût à comparer avec celui de Firestore.
+
+### Service de Storage
+L'offre est importante entre Google et Amazon, mais aussi toutes les offres compatibles S3. Il n'apparaît pas concevable d'atteindre la limite de puissance de ses offres. Les sessions accèdent directement au service de Storage: le service OP se limite à fournir pour chaque échange une URL d'accès temporaire et spécifique du fichier concerné, le lourd échange est ensuite directement opéré entre le browser de l'utilisateur et le service de Storage.
+
+Si le volume est faible, le seuil de facturation chez Google peut ne pas être atteint.
+
+# Concepts structurants: espaces, comptes, GC
+
+## Espaces
+Une base de données / service OP, héberge plusieurs espaces étanches entre eux. Un espace est identifié par `ns`, **un seule signe 0-9 a-z A-Z**.
+
+Tous les documents comportent:
+- soit une colonne / attribut `id` identifiant unique du document,
+- soit un couple de colonnes / attributs `id / ids` identifiant un sous-document `ids` d'un document `id`.
+
+Les clés / paths _externes_, techniquement gérés par la base de données sont des clés **longues**, c'est à dire la clé _courte_ précédée du `ns` de l'espace.
+- à l'intérieur du document id / ids sont des id _courtes_. Les références à d'autres documents sont toujours considérés comme ceux du même espace.
+- ce n'est qu'à l'écriture en base ou en lecture depuis la base, que la clé longue est construite en préfixant la clé _courte_ par le ns.
+- dans l'application, seules les IDs _courtes_ sont connues.
+- seule la page d'administration technique des espaces de l'application a perception de l'existence de plusieurs espaces, toutes les autres ne se rapportent qu'à _leur_ espace.
+
+Les documents `espaces syntheses` ont pour ID _courte_ '' un string vide: vis à vis d'un espace ce sont des singletons, vis à vis de la base de données, il y a un document par espace. Leurs paths Firestore pour le `ns` `A` par exemple : `espaces/A` `syntheses/A`.
+
+Tous les autres documents ont une colonne / propriété `id` string NON vide, et le cas échéant une colonne / propriété `ids` string NON vide. 
+
+### Code organisation attaché à un espace
 A la déclaration d'un espace sur un serveur, l'administrateur technique déclare un **code organisation**:
-- ce code ne peut plus changer: lors d'une _exportation_ d'un espace on peut définir un autre code d'espace pour la cible de l'exportation.
+- ce code ne peut plus changer: lors d'une _exportation_ d'un espace on peut définir un autre code d'espace pour la cible de l'importation.
 - le Storage de fichiers comporte un _folder_ racine portant ce code d'organisation ce qui partitionne le stockage de fichiers.
 - les connexions aux comptes citent ce _code organisation_.
 
-## L'administrateur technique
+## Comptes
+
+### L'administrateur technique
 Il a pour rôle majeur de gérer les espaces:
 - les créer / les détruire,
 - définir leurs quotas à disposition du Comptable de chaque espace: il existe trois quotas,
@@ -80,17 +166,17 @@ Il a pour rôle majeur de gérer les espaces:
   - `qc` : quota de calcul mensuel total en unités monétaires.
 - ces quotas sont _indicatifs_ sans blocage opérationnel et servent de prévention à un crash technique pour excès de consommation de ressources.
 
-Ses autres rôles sont :
+Ses autres rôles fonctionnels sont :
 - la gestion d'une _notification / blocage_ par espace, 
   - soit pour information technique importante, 
   - soit pour _figer_ un espace avant sa migration vers un autre (ou sa destruction).
 - l'export de la _base_ d'un espace vers une autre,
 - l'export des fichiers d'un espace d'un _Storage_ à un autre.
 
-## Comptable de chaque espace
-Pour un espace, `24` par exemple, il existe un compte d'id `2410000000000000` qui est le **Comptable** de l'espace.
+### LE Comptable de chaque espace
+Pour chaque espace, il existe un compte d'id `300000000000` qui est le **Comptable** de l'espace.
 
-## Comptes _normaux_
+### Comptes _normaux_
 Il existe deux catégories de comptes:
 - **les comptes "O", de l'organisation**, bénéficient de ressources _gratuites_ attribuées par la Comptable et ses _délégués_. En contrepartie de cette _gratuité_ un compte "O" peut être _bloqué_ par le Comptable et ses _délégués_ (par exemple en cas départ de l'organisation).
 - **les comptes "A", autonomes**, achètent des ressources sous la forme d'un abonnement et d'une consommation. Tant qu'il est créditeur un compte "A" ne peut pas être bloqué.
@@ -103,7 +189,7 @@ Le Comptable dispose des quotas globaux de l'espace attribués par l'administrat
 - Il confie la gestion de chaque partition à des comptes _délégués_ qui peuvent distribuer des quotas de ressources aux comptes "O" affectés à leur partition.
 
 Un compte "O",
-- est attaché à une _partition_: ses quotas `qc q1 q2` sont prélevés sur ceux de sa partition. 
+- est attaché à un instant donné, à une seule _partition_: ses quotas `qc q1 q2` sont prélevés sur ceux de sa partition. 
 - est créé par _sponsoring_,
   - soit d'un compte "O" existant _délégué_,
   - soit du Comptable qui a choisi de quelle partition il relève.
@@ -122,7 +208,7 @@ Un compta "A" définit lui-même ses quotas `qn` et `qv` (il les paye en tant _q
 
 ### Rôles du Comptable
 Le rôle principal d'un _Comptable_ est,
-- de partitionner les quotas attribués aux comptes "O" de quotas et d'en ajuster les quotas,
+- de partitionner les quotas globaux attribuables aux comptes "O" et d'ajuster les quotas de chaque partition,
 - de désigner les _délégués_ de chaque partition, le cas échéant de retirer ou d'ajouter la qualité de _délégué_ a un compte "O" de la partition.
 - de changer un compte "O" de partition.
 - de gérer des _notifications / blocages_ s'appliquant à des comptes "O" spécifiques ou à tous les comptes d'une partition.
@@ -131,9 +217,28 @@ Le rôle principal d'un _Comptable_ est,
 
 Le Comptable est un compte "O" qui:
 - ne peut pas se résilier lui-même,
-- ne peut pas changer de partition de quotas, il est rattaché à la partition 1 de son espace qui ne peut pas être supprimée.
+- ne peut pas changer de partition de quotas, il est rattaché à la première partition de son espace qui ne peut pas être supprimée.
 - ne peut pas supprimer son propre attribut _délégué_,
 - accepte l'ouverture de **chats** avec n'importe quel compte "O" ou "A" qui en prend l'initiative.
+
+## GC _garbage collector_** 
+C'est un traitement de nettoyage qui est lancé une fois par jour. Il a plusieurs fonctionnalités techniques:
+- suppression de rows / documents obsolètes,
+- détection des comptes à détruire par inutilisation,
+- nettoyage des fichiers fantômes sur _Storage_,
+- calcul de _rapports / archivages_ mensuels pouvant conduire à purger des données vivantes de la base.
+
+En général c'est un service externe de **CRON** qui envoie journellement une requête de GC à une instance de service OP. Sur option ce peut être un déclenchement interne au serveur.
+
+# Données persistantes accédées par le service OP
+
+L'organisation diffère entre bases SQL (SQLite, PostgrSQL) et NOSQL (Firestore).
+- **SQL** - Les données sont distribuées dans des **tables** `espaces avatars versions notes ...` contenant des **rows**, chacun ayant plusieurs colonnes.
+- **NOSQL** - Chaque table SQL correspond à une **collection de documents**, chaque document est équivalent à un **row** de la table SQL de même nom que la collection.
+
+Les _colonnes_ d'une table SQL correspondent aux _attributs / propriétés_ d'un document.
+- en SQL la _clé primaire_ est une propriété attribut ou un couple de propriétés,
+- en Firestore le _path_ d'un document contient cette propriété ou couple de propriétés.
 
 # Tables / collections _techniques_ de nettoyage du _Storage_
 
@@ -142,8 +247,8 @@ L'écriture et la suppression de fichiers du _Storage_ ne sont pas soumises à l
 - **considérés comme _logiquement_ détruits dans la base**, mais n'ayant pas encore été physiquement purgés du _Storage_. Il faudra, un jour, achever d'effectuer ces _purges_ physiques du _Storage_. C'est l'objet des documents `fpurges`.
 
 ## Documents `transferts`
-- `id` : identifiant _majeur_ du fichier, une id d'avatar ou de groupe.
-- `ids` : identifiant du fichier relativement à son id majeure, son _numéro de fichier_.
+- `id` : identifiant _majeur_ du fichier, une ID d'avatar ou de groupe.
+- `ids` : identifiant du fichier relativement à son ID majeure (mais de facto universels).
 - `dlv` : jour d'écriture, du début de _l'upload_ + 1
 
 Ces documents ne sont jamais mis à jour une fois créés, ils sont supprimés,
@@ -151,55 +256,52 @@ Ces documents ne sont jamais mis à jour une fois créés, ils sont supprimés,
 - sinon par le GC qui considère qu'un upload ne peut pas techniquement être encore en cours à j+2 de son jour de début.
 
 ## Documents `fpurges`
-- `id` : aléatoire, avec `ns` en tête,
+- `id` : aléatoire,
 - `_data_` : liste encodée,
   - soit d'un `id` d'un avatar ou d'un groupe, correspondant à un folder du _Storage_ à supprimer,
   - soit d'un couple `[id, ids]` identifiant UN fichier `ids` dans le folder `id` d'un avatar ou d'un groupe.
 
 Ces documents ne sont jamais mis à jour une fois créés, ils sont supprimés par le prochain GC après qu'il ait purgé du _Storage_ tous les fichiers cités dans _data_.
 
-# Table / documents d'un espace
-
-## Entête d'un espace: `espaces syntheses`
-Pour un espace donné, ce sont des singletons:
-- `espaces` : `id` est le `ns` (par exemple `24`) de l'espace. Le document contient quelques données générales de l'espace.
-  - Clé primaire : `id`. Path : `espaces/24`
-- `syntheses` : `id` est le `ns` de l'espace. Le document contenant des données statistiques sur la distribution des quotas aux comptes "O" (par _partition_) et l'utilisation de ceux-ci.
-  - Clé primaire : `id`. Path : `syntheses/24`
+# Table / documents entête d'un espace: `espaces syntheses`
+Pour un espace donné, `A`, ce sont des singletons:
+- `espaces` : `id` est un string vide (le `ns` est une propriété). Le document contient quelques données générales de l'espace.
+  - Clé primaire : `A`. Path : `espaces/A`
+- `syntheses` : `id` est est un string vide. Le document contient des données statistiques sur la distribution des quotas aux comptes "O" (par _partition_) et l'utilisation de ceux-ci.
+  - Clé primaire : `A`. Path : `syntheses/A`
 
 # Tables / collections _majeures_ : `partitions comptes comptis invits comptas avatars groupes`
-Chaque collection a un document par `id` (clé primaire en SQL, second terme du path en Firestore).
+Chaque collection a un document par `id` (clé primaire en SQL, second terme du path en Firestore). Ci-dessous le `ns` est `A`.
 
 ### `partitions`
 Un document par _partition de quotas_ décrivant la distribution des quotas entre les comptes "O" attachés à cette partition.
-- `id` (sans le `ns`) est un numéro séquentiel `1..N`.
-- Clé primaire : `id`. Path : `partitions/0...x`
+- `id` est un string aléatoire `2...`.
+- Clé primaire : `A2...`. Path : `partitions/A2...`
 
 ### `comptes`
-Un document par compte donnant les clés majeures du compte, la liste de ses avatars et des groupes auxquels un de ses avatars participe. L'`id` courte sur 14 chiffres est le numéro du compte :
-- `10...0` : pour le Comptable.
-- `2x...y` : pour les autres comptes, `x...y` est un nombre aléatoire sur 13 chiffres.
-- Clé primaire : `id`. Path : `comptas/10...0` `comptas/2x...y`
+Un document par compte donnant les clés majeures du compte, la liste de ses avatars et des groupes auxquels un de ses avatars participe. `id`, le numéro du compte, est un string aléatoire commençant par `3` :
+- `300000000000` : pour le Comptable.
+- `3...` : pour les autres comptes.
+- Clé primaire : `A`. Path : `comptes/A3...` 
 
 ### `comptis`
 Un document _complémentaire_ de `comptes` (même id) qui donne des commentaires et hashtags attachés par le comptes aux avatars et groupes de sa connaissance.
 
-### `ivits`
+### `invits`
 Un document _complémentaire_ de `comptes` (même id) qui donne la liste des invitations aux groupes pour les avatars du compte et en attente d'acceptation ou de refus.
 
 ### `comptas`
 Un document par compte donnant ses compteurs de consommation et les quotas.
 
 ### `avatars`
-Un document par avatar donnant les informations d'entête d'un avatar. L'`id` courte sur 14 chiffres est le numéro d'un avatar du compte :
-- `10...0` : pour l'avatar principal (et unique) du Comptable.
-- `2x...y` : pour les avatars principaux ou secondaires des autres comptes. `x...y` est un nombre aléatoire sur 13 chiffres.
-- Clé primaire : `id`. Path : `avatars/10...0` `avatars/2x...y`
+Un document par avatar donnant les informations d'entête d'un avatar. 
+`id` est un string aléatoire commençant par `4` si c'est un avatar secondaire, par 3 si c'est l'avatar principal du compte de même `id`
+- Clé primaire : `A`. Path : `avatars/A4...` `avatars/A3...`
 
 ### `groupes`
-Un document par groupe donnant les informations d'entête d'un groupe. L'`id` courte sur 14 chiffres est le numéro d'un groupe :
-- `3x...y` : `x...y` est un nombre aléatoire sur 13 chiffres.
-- Clé primaire : `id`. Path : `groupes/3x...y`
+Un document par groupe donnant les informations d'entête d'un groupe. 
+`id` est un string aléatoire commençant par `5`.
+- Clé primaire : `A`. Path : `groupes/A5...`
 
 # Tables / sous-collections d'un avatar ou d'un groupe
 - chaque **avatar** a 4 sous-collections de documents: `notes sponsorings chats tickets` (seul l'avatar Comptable a des tickets).
@@ -207,18 +309,18 @@ Un document par groupe donnant les informations d'entête d'un groupe. L'`id` co
 
 Dans chaque sous-collection, `ids` est un identifiant relatif à `id`. 
 - en SQL les clés primaires sont `id,ids`
-- en Firestore les paths sont (par exemple pour la sous-collection `notes`) : `versions/2.../notes/z...t`, `id` est le second terme du path, `ids` le quatrième.
+- en Firestore les paths sont (par exemple pour la sous-collection `notes`) : `versions/A4.../notes/Axy...`, `id` est le second terme du path, `ids` le quatrième.
 
 ### `notes`
-Un document représente une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un nombre aléatoire.
+Un document représente une note d'un avatar ou d'un groupe. L'identifiant relatif `ids` est un string aléatoire.
 
 ### `sponsorings`
-Un document représente un sponsoring d'un avatar. Son identifiant relatif est _ns +  hash de la phrase_ de sponsoring entre le sponsor et son sponsorisé.
+Un document représente un sponsoring d'un avatar. Son identifiant relatif `ids` est _hash de la phrase_ de sponsoring entre le sponsor et son sponsorisé (précédée du `ns` en clé de base / path).
 
 ### `chats`
-Un chat entre 2 avatars A et B se traduit en deux documents : 
-  - l'un sous-document de A a pour identifiant secondaire `ids` un nombre aléatoire.
-  - l'autre sous-document de B a pour identifiant secondaire `ids` un autre nombre aléatoire.
+Un chat entre 2 avatars I et E se traduit en deux documents : 
+- l'un sous-document de I a pour identifiant secondaire `ids` un string formé depuis le cryptage des IDs de I et E.
+- l'autre sous-document de E a pour identifiant secondaire `ids` un string formé depuis le cryptage des IDs de E et I.
 
 ### `membres`
 Un document par membre avatar participant à un groupe. L'identifiant secondaire `ids` est l'indice membre `1..N`, ordre d'enregistrement dans le groupe.
@@ -2334,71 +2436,13 @@ Filtre les transferts par `dlv`:
     - création de son `avatar` principal (et pour toujours unique)
     - _dans son `espace`_: suppression de `hTC`
 
-# Architecture
+# Bribes
 
-### APP: l'application
-- **C'est une page Web téléchargeable depuis une URL** d'un site Web statique. Le script _service worker_ de l'application permet à chaque browser ayant chargé une fois l'application d'en conserver dans sa mémoire la page principale `index.html` et ses ressources (scripts, etc.). Lors d'une nouvelle ouverture de la page de l'application le browser,
-  - si le site Web statique est joignable, ne recharge que les ressources changés par rapport à celles qu'il a en mémoire,
-  - sinon utilise la pge et ses ressources chargées antérieurement sans utiliser le réseau (mode _avion_).
-- **Chaque onglet d'un browser ouvre une nouvelle _session_ de l'application,** en chargeant cette page. La session dure jusqu'à clôture de l'onglet ou chargement d'une autre page Web. 
-  - une session est universellement identifiée par l'attribution d'un identifiant aléatoire `rnd`.
-  - un _token_ `subscription` est récupéré (ou généré) à l'ouverture de la session par le script _service worker_:
-    - il est doublement spécifique de l'application et du browser du poste.
-    - sur un poste donné plusieurs sessions de l'application dans le même browser ont en conséquence le même jeton `subscription`.
-- **Au cours de cette session, l'utilisateur peut se connecter et se déconnecter _successivement_ à un ou des comptes.** 
-  - chaque connexion est numérotée `nc` en séquence de 1 à N dans sa session.
-  - `sessionId` est le string `rnd.nc` qui identifie exactement la vie d'une connexion à un compte entre sa connexion et sa déconnexion.
-- **Une application externe au browser peut _pousser_ des messages de _notification_** en ayant connaissance du jeton `subscription`:
-  - tous les onglets du même browser ouverts sur l'application reçoivent les notifications ainsi poussées. Chacune est porteuse du `sessionId` (`rnd.nc`) de la connexion concernée: seule celle-ci la traite, les autres la reçoive, l'ouvre, en lise le `sessionId` du contenu et l'ignore.
-
-### OP: service des opérations - SES instances
-- **Chaque instance de OP est un serveur HTTP traitant les opérations de lecture et de mise à jour des données soumises par les sessions de l'application**,.
-  - une instance de OP est lancée dès qu'une requête désignant son URL est émise.
-  - elle vit _un certain temps_, pouvant traiter d'autres requêtes,
-  - elle s'arrête au bout d'un certain temps d'inactivité, c'est à dire _sans_ recevoir de requêtes.
-- **Plusieurs instances de OP peuvent être actives**, à l'écoute de requêtes, à un instant donné.
-- Les requêtes émises par une session de l'application peuvent être traitées par n'importe laquelle des instances de OP actives avec deux conséquences:
-  - une instance de OP ne peut pas conserver en mémoire un historique fiable des requêtes précédentes issues de la même session.
-  - une instance de OP ne peut pas avoir connaissance de toutes les sessions actives.
-- **Les instances de OP accèdent à LA base données de l'application**, en consultation et mise à jour. Elles ne _poussent_ pas de messages de notification aux sessions.
-- A chaque transaction de mise à jour exécutée par une instance de OP:
-  - un `trlog` de la transaction est construit avec:
-    - l'identifiant du compte sous lequel la transaction est effectuée,
-    - le `sessionId` de la session émettrice de l'opération,
-    - la liste des IDs des documents modifiés / créés / supprimés et leur version correspondante,
-    - la liste des périmètre des comptes impactés.
-  - le `trlog` (raccourci, sans les périmètres impactés) est retourné à la session appelante qui peut ainsi invoquer une requête de synchronisation `Sync` afin d'en obtenir les mises à jour de son état interne.
-  - le `trlog` (complet) est transmis par une requête HTTP au service PUBSUB afin de notifier les autres sessions actives.
-
-### PUBSUB: service de gestion des sessions actives - UNE SEULE instance active
-- L'instance **unique à un instant donné** est un serveur HTTP en charge:
-  - de garder en mémoire la liste des sessions actives (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents auxquels elle peut accéder.
-  - d'émettre des _messages de notification_ à toutes les sessions enregistrées dont un des documents de leur périmètre a évolué suite à une opération effectuée dans un instance OP.
-- **Les instances de OP envoient une requête `login` à chaque connexion** (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
-- **Chaque session _active_ dans un browser émet toutes les 2 minutes un _heartbeat_,** une requête à PUBSUB avec son `sessionId`:
-  - un _heartbeat_ spécial de déconnexion est émis à la clôture de la connexion.
-  - au bout de 2 minutes sans avoir reçu un _heartbeat_ PUBSUB détruit le contexte de la session (considérée comme inactive).
-- Quand l'instance PUBSUB n'a pas reçu de requêtes depuis un certain temps, c'est qu'elle n'a plus connaissance de sessions actives: elle peut être arrêtée (avec un état interne vierge). Une nouvelle instance sera lancée lors de la prochaine connexion à un compte reçue.
-  - l'instance PUBSUB n'est donc pas _permanente_: il y en a une (seule) active dès lors qu'une session s'est connectée à un compte et le reste jusqu'à déconnexion de la dernière session active.
-- **A chaque transaction de mise à jour exécutée par une instance de OP:**
-  - une requête `notif` au service PUBSUB est émise lui transmettant le `trlog` de la transaction. PUSUB est ainsi en mesure,
-    - d'identifier toutes les sessions actives ayant un document de leur périmètre impacté (en ignorant la session origine de la transaction informée directement par OP),
-    - de mettre à jour le cas échéant les périmètres des comptes impactés.
-    - d'émettre, de manière désynchronisée, à chacune de celles-ci la liste des IDs des documents mis à jour la concernant avec leurs versions (un `trlog` _raccourci_ construit spécifiquement pour chaque session),
-  - Chaque session ainsi _notifiée_ sait quels documents de son périmètre a changé et peut demander au service OP par une requête `Sync` les mises à jour associées.
-- **PUBSUB n'a aucune mémoire persistante**, n'accède pas à la base de données: c'est un service de calcul purement en mémoire maintenant l'état des sessions actives.
-
-### SRV: CF + PUBSUB - UNE SEULE instance active à tout instant
-SRV traite les deux services CF et PUBSUB dans une seule instance de serveur HTTP. Cette option est pertinente dans les cas suivants:
-- en test local,
-- dans une VM en contrôlant qu'il y n'y a bien qu'une seule instance active au plus à tout instant,
-- dans une _Cloud Function_ ou _Server géré_ avec un trafic suffisamment faible pour supporter une configuration garantissant qu'il n'y a jamais plus d'une instance active à un moment donné. 
-
-### PUBSUB _down_ : conséquences
-L'application est fonctionnelle sans service PUBSUB:
-- les sessions ne seront pas _notifiées_ des mises à jours opérées par les autre sessions.
-- les sessions devront sur demande explicite de l'utilisateur (ou périodique automatique à une fréquence faible) opérer des synchronisations _complètes_, vérifiant la version de tous les documents de leur périmètre.
-- chaque transaction gérée par le service OP ne pourra pas joindre PUBSUB: le retour de la requête indiquera cette indisponibilité pour information de la session qu'elle est en mode dégradée _sans notification continue_ des effets des opérations des autres sessions impactant son périmètre.
+## _Storage_
+Il est à 3 niveaux `org/id/nf` :
+- `org` : code de l'organisation détentrice,
+- `id` : ID de l'avatar ou du groupe à qui appartient le fichier.
+- `idf` : identifiant aléatoire (universel) du fichier.
 
 # Service PUBSUB
 
@@ -2486,5 +2530,6 @@ Règles de gestion:
 - les `comptes` dont le set des sessions est vide sont supprimés.
 - les `xref` dont le set des comptes est vide sont supprimés.
 - les `sessions` dont le `dhhb` + 2 minutes est dépassé sont supprimés (et en cascade potentiellement leur entrée dans comptes et les `xref` associés).
+
 
 @@ L'application UI [uiapp](./uiapp.md)
