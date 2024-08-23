@@ -1,6 +1,7 @@
 ## Bug
 
 ## Dev
+Changement des ID dans api.mjs
 
 Suppression d'une partition
 
