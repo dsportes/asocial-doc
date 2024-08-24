@@ -1,14 +1,200 @@
 # Architecture générale
 
-L'application est une application Web, une **_PWA Progressive Web App_**: 
-- elle est doit être invoquée au moins une première fois depuis un navigateur connecté à Internet,
-- elle pourra ensuite l'être depuis ce même navigateur sans connexion à Internet (en mode _avion_, consultation seulement).
+L'ensemble est architecturé de la façon suivante.
 
-Quatre grands composants contribuent à ce service :
-- **un serveur HTTPS joignable sur Internet** par exemple sur l'URL https://asocial.demo.net.
-- **une application UI d'interface utilisateur s'exécutant dans un navigateur** qui a été ouverte par l'URL https://asocial.demo.net (ou https://asocial.demo.net/app/index.html).
-- **un site Web statique** principalement documentaire accessible depuis le navigateur à l'URL https://asocial.demo.net/www. Dépôt git `asocial-doc`.
-- **un programme utilitaire de chargement local de fichiers** dans un répertoire local pouvant être téléchargé par Internet sous l'URL https://asocial.demo.net/upload (`upload.exe` pour la version Windows). 
+### Une application Web
+C'est une page Web téléchargeable depuis un site statique et s'exécutant dans un browser. 
+
+A un instant donné il y a autant de **sessions** en exécution que de pages ouvertes par les utilisateurs dans leur(s) browser(s).
+
+_Technologie_: HTML / CSS / Javascript s'appuyant sur _vue.js_ et _quasar_ (au dessus de vue.js).
+
+### Un service OP central
+C'est un service HTTP pouvant avoir une ou plusieurs instances en exécution à un instant donné. 
+
+Le service OP traite les opérations requises par les **sessions** de l'application Web en lisant / mettant à jour la base de données.
+
+_Technologie_: Javascript avec _Node.js_
+
+### Un service PUBSUB central
+C'est un service HTTP n'ayant au plus qu'une instance en exécution. 
+
+Le service PUBSUB est chargé de _pousser_ vers chacune des **sessions** de l'application les avis de modification des données qui la concerne afin de maintenir à jour ses données affichées.
+
+_Technologie_: Javascript avec _Node.js_
+
+### Une base de données centrale**
+Ses données sont stockées à l'occasion des opérations de mises à jour effectuées par une instance de service **OP**, qui est le seul à pouvoir accéder à la base.
+
+Une base de données est virtuellement _partitionnée_ en une à 60 espaces, étanches entre eux, afin d'héberger techniquement plusieurs organisations dans une même base.
+
+_Technologies_: SQL (SqLite et PostgreSQL) et NOSQL (Firestore de Google).
+
+### Un service de Storage
+C'est un service HTTP externe chargé de stocker les fichiers cryptés attachés aux notes. 
+
+Le service OP effectue certes quelques transferts de fichiers mais est surtout chargé de délivrer aux sessions des URLs encodées / sécurisées de _download_ / _upload_ aux **sessions**. 
+
+Les sessions accèdent directement au Storage pour tous leurs transferts de fichiers en utilisant les URLs générés par le service OP.
+
+La structure du Storage est également partitionné en **espaces**, le niveau 1 de la structure de fichiers.
+
+_Technologies_: File-System, Google Cloud Storage, Amazon S3.
+
+### Un programme utilitaire de chargement local de fichiers
+Les sessions peuvent télécharger cet utilitaire qui va s'exécuter localement sur leur poste: il permet de charger dans un répertoire local du poste le contenu, non crypté, d'une sélection de notes et de leurs fichiers attachés pour tout usage que l'utilisateur souhaite en faire.
+
+### Un programme d'administration d'EXPORT d'un espace
+L'export d'un espace de la base se fait en l'important dans une autre, locale au poste de l'administrateur.
+
+L'export d'un espace du Storage se fait en l'important dans un autre Storage, le cas échéant un répertoire du File-System local au poste de l'administrateur.
+
+# L'application Web
+C'est une _page Web index.html_ standard, plus précisément une **_PWA Progressive Web App_** disponible depuis un site statique de type CDN par une URL comme:
+
+  https://asocialapp.github.io/s2
+ 
+Quand la page a été chargée une première fois, avec toutes les ressources requises par la page _index.html_, depuis un browser connecté à Internet par son URL, le browser en conserve l'image dans une mémoire dédiée au browser sur le poste (assuré par le script _service worker_ de l'application).
+
+Lors des prochains appels depuis ce même browser à cette URL, le browser,
+- obtiendra du site CDN les seuls éléments nouveaux depuis le chargement précédent,
+- si le browser n'est pas connecté à Internet, il utilisera la version la plus récente obtenue antérieurement permettant un fonctionnement _offline_(en mode _avion_, en consultation seulement).
+
+L'application Web,
+- gère l'interface utilisateur, la présentation à l'écran et la saisie des données.
+- soumet des _opérations_ au service **OP**, une requête HTTP POST par opération.
+- reçoit (par le browser) les avis _poussés_ émis par le service **PUBSUB**. Chaque avis déclare qu'un ou des documents de la session de l'application ont changé (une _opération_ `Sync` se chargeant ensuite de récupérer les _nouveaux_ contenus).
+
+### Sessions de l'application dans UN browser donné
+En chargeant la page de l'application dans un de ses onglets, **le browser ouvre une nouvelle _session_ de l'application**.
+
+Cette session dure jusqu'à clôture de l'onglet ou chargement d'une autre page Web. 
+- une session est universellement identifiée par l'attribution d'un identifiant aléatoire `rnd`.
+- un _token_ `subscription` est récupéré / généré à l'ouverture de la session par le script _service worker_:
+  - le token est doublement spécifique de l'application et du browser du poste.
+  - sur un poste donné plusieurs sessions de l'application peuvent cohabiter dans le même browser: elles ont en conséquence le même jeton `subscription`.
+
+### Connexions successives à un compte dans une session
+Au cours d'une session, l'utilisateur peut se connecter et se déconnecter _successivement_ à un ou des comptes. 
+- chaque _connexion_ est numérotée `nc` en séquence de 1 à N dans sa session.
+- `sessionId` est le string `rnd.nc` qui identifie exactement la vie d'une connexion à un compte entre sa connexion et sa déconnexion.
+
+### Documents du compte, base locale IDB du compte (pour le browser)
+A la connexion à un compte, l'application charge depuis le service OP (opération `Sync`) **tous** les documents de son périmètre:
+- _presque_ tous, quelques documents ne sont chargés que quand un dialogue spécifique en a besoin.
+- en mode _synchronisé_ ces documents ont été stockés dans une base IDB du browser lors d'une connexion antérieure: ceci évite de recharger depuis la base centrale les documents dont la dernière version est déjà disponible sur le poste.
+- au retour de chaque opération, la session récupère les avis de changements de _ses_ documents et les fait recharger par une requête `Sync` ce qui mettra à jour la base IDB locale du compte.
+- en mode _avion_, la mémoire des documents du compte est rechargée depuis la base IDB locale du compte: l'utilisateur voit tous ses documents dans l'état de sa dernière déconnexion à ce compte sur ce browser.
+
+**Le service PUBSUB peut _pousser_ au browser des messages de _notification_** en ayant connaissance de son jeton `subscription`:
+- le browser transmet à tous ses onglets ouverts sur l'application les notifications ainsi poussées. Chacune est porteuse du `sessionId` (`rnd.nc`) de la connexion concernée: seule la session concernée la traite, les autres la reçoive, l'ouvre, en lise le `sessionId` du contenu et l'ignore.
+
+# Le service OP des opérations - SES instances
+
+Chaque instance de OP est un service HTTP traitant les opérations soumises par les sessions de l'application.
+- une instance de OP est susceptible d'être lancée dès qu'une requête désignant son URL est émise.
+- elle vit _un certain temps_, pouvant traiter d'autres requêtes,
+- elle s'arrête au bout d'un certain temps d'inactivité, c'est à dire _sans_ recevoir de requêtes.
+
+**Plusieurs instances de OP peuvent être actives**, à l'écoute de requêtes, à un instant donné. Les requêtes émises par une session de l'application peuvent être traitées par n'importe laquelle des instances de **OP** actives avec deux conséquences:
+- une instance de **OP** ne peut pas conserver en mémoire un historique fiable des requêtes précédentes issues de la même session.
+- une instance de **OP** ne peut pas avoir connaissance de toutes les sessions actives.
+
+**Les instances de OP accèdent à la base données de l'application**, en consultation et mise à jour (mais ne _poussent_ pas de messages de notification aux sessions). A chaque transaction de mise à jour exécutée par une instance de OP:
+- un objet `trlog` de la transaction est construit avec:
+  - l'identifiant du compte sous lequel la transaction est effectuée,
+  - le `sessionId` de la session émettrice de l'opération,
+  - la liste des IDs des documents modifiés / créés / supprimés et leur version correspondante,
+  - la liste des périmètres des comptes (en général 0 ou 1) mis à jour par l'opération.
+- l'objet `trlog` (raccourci, sans les périmètres mis à jour) est retourné à la session appelante qui peut ainsi invoquer une requête de synchronisation `Sync` afin d'en obtenir les mises à jour de son état interne.
+- l'objet `trlog` (complet) est transmis par une requête HTTP au service **PUBSUB** afin de notifier les autres sessions actives des effets de l'opération sur les documents qui les concernent.
+
+# Le service PUBSUB de gestion des sessions actives - UNE SEULE instance active
+
+L'instance **unique à un instant donné** est un serveur HTTP en charge:
+- de garder en mémoire la liste des sessions _actives_ (connectées à un compte) de l'application et de conserver pour chacune d'elle son _périmètre_: la liste des IDs des documents qui l'intéresse.
+- d'émettre des _messages de notification_ à toutes les sessions enregistrées dont un des documents de leur périmètre a évolué suite à une opération effectuée dans un instance OP.
+
+**Les instances de OP envoient une requête `login` à chaque connexion** (réussie) à un compte d'une session en lui donnant les informations techniques de `subscription` (permettant à PUBSUB d'émettre des notifications à la session correspondante) ainsi que son _périmètre_.
+
+**Chaque session _active_ dans un browser émet périodiquement (toutes les 2 minutes) un _heartbeat_,** une requête à PUBSUB avec son `sessionId`:
+- un _heartbeat_ spécial de déconnexion est émis à la clôture de la connexion à un compte.
+- au bout de 2 minutes sans avoir reçu un _heartbeat_ PUBSUB détruit le contexte de la session (considérée comme fermée).
+- quand l'instance PUBSUB n'a pas reçu de requêtes depuis un certain temps, c'est qu'elle n'a plus connaissance de sessions actives: elle _peut_ s'arrêter (avec un état interne vierge). Une nouvelle instance sera lancée lors de la prochaine connexion à un compte (requête `login` émise par une instance de service OP).
+  
+L'instance PUBSUB n'est pas forcément _permanente_: il y en a une (seule) active dès lors qu'une session s'est connectée à un compte et le reste jusqu'à déconnexion de la dernière session active.
+
+**A chaque transaction de mise à jour exécutée par une instance du service OP:** une requête `notif` au service PUBSUB est émise lui transmettant l'objet `trlog` de la transaction. PUSUB est ainsi en mesure,
+- d'identifier toutes les sessions actives ayant un document de leur périmètre impacté (en ignorant la session origine de la transaction informée directement par OP),
+- de mettre à jour le cas échéant les périmètres des comptes modifiés.
+- d'émettre, de manière désynchronisée, à chacune de celles-ci la liste des IDs des documents mis à jour la concernant avec leurs versions (un objet `trlog` _raccourci_ construit spécifiquement pour chaque session),
+- Chaque session ainsi _notifiée_ sait quels documents de son périmètre a changé et peut demander au service OP par une requête `Sync` les mises à jour associées.
+
+**Le service PUBSUB n'a aucune mémoire persistante** et n'accède pas à la base de données: c'est un service de calcul purement en mémoire maintenant l'état des sessions actives.
+
+**Quand le service PUBSUB est _down_** l'application reste fonctionnelle, mais:
+- les sessions ne sont pas _notifiées_ des mises à jours opérées par les autres sessions.
+- les sessions doivent, sur action explicite de l'utilisateur, demander des synchronisations _complètes_, vérifiant la version de tous les documents de leur périmètre.
+- chaque transaction gérée par le service OP ne pourra pas joindre le service PUBSUB: le retour de la requête indiquera cette indisponibilité pour information de la session qu'elle est en mode dégradé _sans notification continue_ des effets des opérations des autres sessions impactant son périmètre.
+
+# La base de données centrale 
+Ses données sont stockées à l'occasion des opérations de mises à jour effectuées par une instance de service **OP**. 
+
+Trois implémentations interchangeables correspondent à trois classes _providers_ présentant le même API, sont disponibles:
+- **SQLite**: principalement pour les tests, ou pour une production de faible puissance sur un serveur géré.
+- **PostgreSQL**: supportant plusieurs instances de services OP et pouvant être hébergé par un service géré.
+- **Firestore** (Firebase), base NOSQL en service hébergé par Google Cloud Platform.
+
+# Le Storage
+C'est un service _externe_ de stockage de fichiers dont trois implémentations interchangeables ont été développées:
+- **File-System** : pour le test, les fichiers sont stockés dans un répertoire local.
+- **Google Cloud Storage** : a priori il n'y a pas d'autres providers que Google qui propose ce service.
+- **AWS/S3** : S3 est le nom de l'interface, plusieurs fournisseurs en plus d'Amazon le propose.
+
+# Variantes de mise en œuvre
+**L'application** est buildée par Webpack puis est distribuée dans un service comme **GitHub Pages**, ou tout autre site Web ayant une URL d'accès et un accès HTTPS.
+
+## Hébergement NON géré des services OP et PUBSUB
+Typiquement, une VM, voire plusieurs VMs, hébergent les services OP et PUBSUB:
+- pour PUBSUB, une seule instance doit être en exécution. Si la puissance requise devient trop forte, il faut procéder à un développement complémentaire sommairement décrit en Annexe.
+- pour OP, plusieurs instances peuvent être lancées avec un front-end de distribution du traffic, typiquement NGINX. Toutefois le provider SQLite n'est plus possible, il faut choisir l'un des 2 autres (PostgreSQL ou Firestore).
+
+Le fait d'être NON géré impose de consacrer de l'énergie à surveiller le bon fonctionnement et à relancer les services tombés. Toutefois la base de données peut être gérée, même si OP+PUBSUB ne l'est pas et dispenser ainsi de la charge de sauvegarde / restauration / redémarrage.
+
+## Hébergement géré par Cloud Functions de OP
+Google et Amazon proposent ce service: une _cloud function_ est lancée dès qu'une requête fait appel à une opération de OP.
+
+Sur Google, l'option Google App Engine (GAE) est également possible mais n'a pas vraiment d'intérêt pour le seul service OP.
+
+## Hébergement géré par Cloud Functions de PUBSUB
+Google et Amazon proposent ce service qui **DOIT** être configuré pour n'avoir qu'une instance AU PLUS en exécution.
+
+GAE est une option chez Google avec un paramétrage avec une instance au plus.
+
+## SRV: OP + PUBSUB - UNE SEULE instance active à tout instant
+SRV traite les deux services OP et PUBSUB dans une seule instance de serveur HTTP. Cette option est pertinente dans les cas suivants:
+- en test local,
+- dans une VM en contrôlant qu'il y n'y a bien qu'une seule instance active au plus à tout instant,
+- dans une _Cloud Function_ ou _Server géré (GAE)_ avec un trafic suffisamment faible pour supporter une configuration garantissant qu'il n'y a jamais plus d'une instance active à un moment donné. 
+
+Un déploiement GAE avec un faible trafic est probablement en dessous du seuil de facturation.
+
+## Augmentation de la puissance
+Pour le site distribuant l'application, pas de souci, les services gérés sur le marché sont tous assez puissants.
+
+L'augmentation de puissance pour OP se fait en service géré en autorisant un plus grand nombre d'instances.
+
+Concernant PUBSUB, si la puissance demandée excède ce que peut supporter une instance NodeJS, voir les possibilités de développement indiquées en annexe. Toutefois, PUBSUB n'effectue sur requête POST entrante QUE du travail en mémoire et des requêtes POST sortantes pour les notifications. Il faut vraiment un très gros traffic pour atteindre cette limite. 
+
+## Service de base de données
+Firestore est un service de Google, géré et de puissance extensible: la limite n'a pas pu être mesurée. Pour un trafic faible, le seuil de facturation peut ne pas être atteint.
+
+Il existe sur le marché des offres de PostgreSQL géré mais leur coût de départ est élevé (de l'ordre de 20€ mensuels): si le trafic est très important, c'est un coût à comparer avec celui de Firestore.
+
+## Service de Storage
+L'offre du marché est importante entre Google et Amazon, mais aussi toutes les offres compatibles S3. Il n'apparaît pas concevable d'atteindre la limite de puissance de ses offres. Les sessions accèdent directement au service de Storage: le service OP se limite à fournir pour chaque échange une URL d'accès temporaire et spécifique du fichier concerné, le lourd échange est ensuite directement opéré entre le browser de l'utilisateur et le service de Storage.
+
+Si le volume est faible, le seuil de facturation chez Google peut ne pas être atteint.
 
 ### Principe de cryptage
 Bien que le protocole de communication soit HTTPS, les données des comptes, les textes et fichiers de leurs notes, etc. sont **cryptées** dans l'application UI :
