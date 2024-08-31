@@ -1,11 +1,18 @@
 ## Bug
 
 ## Dev
+Firestore
+
+Tests firestore gc s3
+
 Suppression d'une partition
 
 Ralentissement des DL ???
 
-Firebase
+Déploiements:
+- GAE
+- CF OP
+- CF PUBSUB
 
 ## Conversion de MD en HTML
 

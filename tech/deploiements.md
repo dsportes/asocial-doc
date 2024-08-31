@@ -240,7 +240,7 @@ Ce folder,
   - une partie _fonctionnelle_ qui peut avoir une valeur commune pour tous les déploiements du site.
   - une partie _technique_ spécifique de chaque déploiement et détaillée ci-après.
 
-Il comporte des lignes donnant les _configuration_ des _providers_ de DB et de Storage:
+Il comporte des lignes donnant les _configurations_ des _providers_ de DB et de Storage:
 - pouvant être cités dans la section run
 - pouvant être cité sur les lignes de commande: `node src/tool.mjs ...`
 
@@ -252,6 +252,33 @@ Il comporte des lignes donnant les _configuration_ des _providers_ de DB et de S
     sqlite_a: { path: './sqlite/test.db3' },
     sqlite_b: { path: './sqlite/testb.db3' },
     firestore_a: { },
+
+#### Configuration des _providers_
+Chaque nom de configuration comporte: le `nom du provider`, `_`, `lettre d'identification`. Les noms sont:
+- Base données:
+  - `sqlite`: accès à une base de données SQLite. Options:
+    - `{ path: '...' }` Path du fichier .db3 de la base données.
+  - `firestore`: accès à Google Firestore. Options: `{ }`
+- Storage:
+  - `fs`: accès à un folder du File-System local. Options:
+    - `{ rootpath: '...' }` Path de la racine
+  - `gc`: accès au Google Cloud Storage. Options:
+    - `{ bucket: '...' }` identifiant du bucket réservé à cet usage
+  - `s3`: accès à un Storage Amazon S3. Options:
+    - `{ bucket: '...' }` identifiant du bucket réservé à cet usage
+
+#### La section env: {...}
+_Certains_ paramètres **doivent** figurer en variables d'environnement. On les déclare dans la section env.
+Cas identifiés:
+- `STORAGE_EMULATOR_HOST`: pour EMULATOR de Google Storage
+- `FIRESTORE_EMULATOR_HOST`: pour EMULATOR de Google Firestore
+
+    env: {
+      STORAGE_EMULATOR_HOST: 'http://127.0.0.1:9199', // 'http://' est REQUIS
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080'
+    }
+
+Toutes les entrées de cette section seront converties en _variable d'environnement_.
 
 # Déploiements _Serveur_
 
@@ -286,11 +313,6 @@ Le certificat du domaine est requis.
 
     export const config = {
       // Paramètres fonctionnels
-      tarifs: [
-        { am: 202201, cu: [0.45, 0.10, 80, 200, 15, 15] },
-        { am: 202305, cu: [0.45, 0.10, 80, 200, 15, 15] },
-        { am: 202309, cu: [0.45, 0.10, 80, 200, 15, 15] }
-      ],
       allocComptable: [8, 2, 8],
       allocPrimitive: [256, 256, 256],
       heuregc: [3, 30], // Heure du jour des tâches GC
@@ -493,11 +515,6 @@ Le certificat du domaine est requis.
 
     export const config = {
       // Paramètres fonctionnels
-      tarifs: [
-        { am: 202201, cu: [0.45, 0.10, 80, 200, 15, 15] },
-        { am: 202305, cu: [0.45, 0.10, 80, 200, 15, 15] },
-        { am: 202309, cu: [0.45, 0.10, 80, 200, 15, 15] }
-      ],
       allocComptable: [8, 2, 8],
       allocPrimitive: [256, 256, 256],
       heuregc: [3, 30], // Heure du jour des tâches GC
@@ -603,6 +620,87 @@ Exécution:
 
 > **Attention:** `srv.js` est le _vrai_ exécutable et écrit vraiment dans la _vraie_ base et le _vrai_ storage.
 
+# Déploiements de  _tools_
+### Fichier `src/keys.mjs`
+`export const app_keys = {`
+- les clés vapid... sont inutiles (mais ne nuisent pas).
+
+`export const service_account = {`
+- uniquement si le _provider_ de base de données est firestore.
+
+`export const s3_config = {`
+- uniquement si le _provider_ de Storage est S3.
+
+### Folder `keys`
+Non utilisé.
+
+### Fichier `src/config.mjs`
+
+    export const config = {
+      // Configuration du déploiement
+      env: { },
+
+      fs_a: { rootpath: './fsstorage' },
+      gc_a: { bucket: 'asocial-test1.appspot.com' */ },
+
+      sqlite_a: { path: './sqlite/test.db3' },
+      firestore_a: { },
+
+      run: {
+      }
+    }
+
+**Commentaires**
+- `gc_a:` configuration du provider Google Cloud Storage. Par commodité on peut en décrire plusieurs (gc_a gc_b etc.)
+- `sqlite_a:` configuration du provider DB SQLite. Par Par commodité on peut en décrire plusieurs (sqlite_a sqlite_b etc.)
+- `firestore_a:` configuration du provider DB Firestore. Par Par commodité on peut en décrire plusieurs (firestore_a firestore_b etc.)
+
+### Build par `webpack`
+
+Fichier `webpack.config.mjs` :
+
+    import path from 'path'
+    export default {
+      entry: './src/tools.mjs', 
+      target: 'node',
+      mode: 'production',
+      output: {
+        filename: 'tools.js',
+        path: path.resolve('dist/tools')
+      }
+    }
+
+Le _résultat du _build_ par webpack ira dans le folder `dist/tools` et son .js principal y sera `tools.js`
+
+#### Gestion de `package.json` et `build`
+En développement il y a une ligne:
+
+    "type": "module",
+
+Pour effectuer un _build_ **il faut renommer cette directive** "typeX" (ou la supprimer).
+
+Commande dans un terminal (à la racine du projet):
+- `npx webpack`
+- durée de 30s à 1 minute: être patient, rien ne s'affiche avant la fin.
+
+**Il faut renommer la directive ""typeX" en "type"** sinon le développement ne marche plus.
+
+Dans le folder `dist/tools` insérer un fichier package.json ne contenant que `{}`:
+
+    echo "{}" > dist/op/package.json
+
+### Exécution de test dans dist/op
+Les providers qui seront cités dans la ligne de commande doivent être déclarés.
+
+Exécution:
+
+    cd dist/tools
+    node tools.js ... arguments
+
+Voir en annexe les arguments de `tools`.
+
+> **Attention:** `tools.js` est le _vrai_ exécutable et écrit vraiment dans la _vraie_ base et le _vrai_ storage.
+
 # Déploiement _GAE_
 
 # Déploiements _Cloud Function_ des services OP et PUBSUB
@@ -610,3 +708,93 @@ Exécution:
 ## Déploiement du service OP
 
 ## Déploiement du service PUBSUB
+
+# L'utilitaire `upload`
+
+Un _browser_ ne peut pas écrire dans le _file-system_ de son poste. L'application Web offre la possibilité du _download_ d'une sélection de notes et de leurs fichiers attachés. Pour ce faire elle invoque l'URL http://localhost:33666
+
+upload est un micro serveur Web qui, une fois lancé, écoute ce port: il reçoit des requêtes PUT émises par l'application Web, une par _fichier_ à écrire localement, et en écrit le contenu sur le répertoire local:
+- **le path du fichier 'abcd...'** en relatif au directory courant d'exécution, est donné dans l'URL en base64 URL: http://localhost:33666/abcd...
+- le contenu du fichier est dans le body de la requête.
+
+Un _build + packaging_ délivre deux exécutables, un pour Linux `upload`, l'autre Windows `upload.exe`, autonomes: ils embarquent un runtime `node.js` qui dispense l'utilisateur d'une installation un peu technique de `node.js`.
+
+Les fichiers envoyés par PUT sont installés dans le répertoire courant ou s'exécute `upload`. Argument optionnel: numéro de port d'écoute.
+
+    cd ...
+    upload 33666
+    upload
+
+### Build
+Depuis le folder où a été installé `upload` depuis git:
+
+    npm run build
+    npx webpack // devrait aussi fonctionner.
+
+### Packaging
+_Installation de pkg_
+
+    npm install -g pkg
+
+_Génération des exécutables_
+
+    cd dist 
+    pkg -t node14-win upload.js
+    pkg -t node14-linux upload.js
+
+Créé des exécutables pour linux `upload` et windows (en x64) `upload.exe`.
+
+_Remarque_: problème avec node16 sous windows 10.
+
+# Annexe I: CLI `tools`
+
+`tools` est invoqué depuis son folder d'installation.
+
+    node tools.js commande arguments
+
+> `tools` a été _buildé_ avec un fichier de configuration `src/config.mjs` qui en général comporte des _paths_ relatifs ou absolus. S'assurer de la validité de ceux-ci depuis le folder d'exécution de `tools`.
+
+Les commandes sont:
+- `export-db`: exporter un _espace_ d'une base de données sur un autre _espace_ d'une autre base de données.
+- `export-st`: exporter un _espace_ d'un Storage sur un autre _espace_ d'un autre Storage.
+- `purge-db`: purge d'un _espace_ d'une base de données.
+- `vapid`: génération d'un nouveau couple de clés privée / publique VAPID. Pas d'arguments, résultat dans `./vapid.json`.
+
+### `export-db -s --in ... --out ...`
+- `-s` : optionnel. Simulation, rien n'est écrit.
+- `--in N,org,prov_x,S` - Espace _source_
+  - `N`: lettre / chiffre de l'espace `0..9 a..z A..Z`
+  - `org`: code de l'organisation
+  - `prov`: nom du provider: `sqlite firestore`
+  - `x`: le provider `prov_x` doit être décrit dans la configuration.
+  - `S`: lettre du site dans la liste des sites de la configuration.
+- `--out N,org,prov_x,S` - Espace _cible_
+
+### `purge-db --in ...`
+- `--in N,org,prov_x,S` - Espace à purger
+  - `N`: lettre / chiffre de l'espace `0..9 a..z A..Z`
+  - `org`: code de l'organisation
+  - `prov`: nom du provider: `sqlite firestore`
+  - `x`: le provider `prov_x` doit être décrit dans la configuration.
+  - `S`: lettre du site dans la liste des sites de la configuration.
+
+### `export-st -s --in ... --out ...`
+- `-s` : optionnel. Simulation, rien n'est écrit.
+- `--in org,prov_x` - Storage _source_
+  - `org`: code de l'organisation
+  - `prov`: nom du provider: `fs gc s3`
+  - `x`: le provider `prov_x` doit être décrit dans la configuration.
+- `--out org,prov_x` - Cible
+
+### Exemples:
+
+    node tools export-db --in 1,doda,sqlite_a,A --out 2,coltes,sqlite_b,B
+    node tools export-db --in 32,doda,sqlite_a,A --out 32,doda,firestore_a,A
+    node tools export-db --in 32,doda,firestore_a,A --out 32,doda,sqlite_b,A
+
+    Exemple export-st:
+    node tools export-db --in doda,fs_a --out doda,gc_a
+
+    Exemple purge-db
+    node tools purge-db --in 2,coltes,firebase_b,A
+    node tools purge-db --in 2,coltes,sqlite_b,B
