@@ -41,6 +41,42 @@ Les fichiers sont:
     Export des index dans firestore.indexes.json
     firebase firestore:indexes > firestore.indexes.EXP.json
 
+### Emulator
+Dans src/config.mjs remplir la section env:
+
+    env: {
+       // On utilise env pour EMULATOR
+      STORAGE_EMULATOR_HOST: 'http://127.0.0.1:9199', // 'http://' est REQUIS
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080'
+    },
+
+Remarques:
+- Pour storage: 
+  - le nom de variable a changé au cours du temps. C'est bien STORAGE_...
+  - il faut `http://` devant le host sinon il tente https
+- Pour Firestore il choisit le port 8080. Conflit éventuel avec app par exemple.
+- En cas de message `cannot determine the project_id ...`
+  `export GOOGLE_CLOUD_PROJECT="asocial-test1"`
+
+**Commandes usuelles:**
+
+    Lancement avec mémoire vide:
+    firebase emulators:start --project asocial-test1
+
+    Lancement avec chargée depuis un import:
+    firebase emulators:start --import=./emulators/bk1
+
+    Le terminal reste ouvert. Arrêt par CTRL-C (la mémoire est perdue)
+
+En cours d'exécution, on peut faire un export depuis un autre terminal:
+
+    firebase emulators:export ./emulators/bk2 -f
+
+**Consoles Web sur les données:**
+
+    http://127.0.0.1:4000/firestore
+    http://127.0.0.1:4000/storage
+
 ### Création d'un `service_account` Google
 https://cloud.google.com/iam/docs/service-accounts-create
 
@@ -84,3 +120,18 @@ OU : ça marche aussi, différence avec au-dessus ? ca dure encore moins longtem
     Windows:
     %APPDATA%\gcloud\application_default_credentials.json
 
+Déploiement gcloud:
+- gcloud app deploy --verbosity debug
+- gcloud app logs tail
+
+Variables env:
+export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
+
+export GOOGLE_APPLICATION_CREDENTIALS="$HOME/git/asocial-test1/config/service_account.json"
+
+Powershell
+$env:FIRESTORE_EMULATOR_HOST="[::1]:8680"
+$env:FIRESTORE_EMULATOR_HOST="localhost:8080"
+
+Linux
+export FIRESTORE_EMULATOR_HOST="localhost:8080"

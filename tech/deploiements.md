@@ -789,7 +789,7 @@ Les commandes sont:
 ### Exemples:
 
     node tools export-db --in 1,doda,sqlite_a,A --out 2,coltes,sqlite_b,B
-    node tools export-db --in 32,doda,sqlite_a,A --out 32,doda,firestore_a,A
+    node tools export-db --in 1,doda,sqlite_a,A --out 1,doda,firestore_a,A
     node tools export-db --in 32,doda,firestore_a,A --out 32,doda,sqlite_b,A
 
     Exemple export-st:
