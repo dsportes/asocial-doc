@@ -27,14 +27,6 @@ Déploiements:
 
 
 ## Remarques diverses
-Dans `src/boot/i18.js` 
-- ajouter `legacy: false,` sinon choix-langue ne s'initialise pas bien
-- importer configStore pour récupérer la valeur initiale de la locale
-
-choix-langue
-- la liste des localeOptions est récupéré de configStore
-- le modèle locale est la locale de i18n
-
 
 {
   // Use IntelliSense to learn about possible attributes.
