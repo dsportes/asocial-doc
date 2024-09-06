@@ -790,10 +790,10 @@ Les commandes sont:
 
     node tools export-db --in 1,doda,sqlite_a,A --out 2,coltes,sqlite_b,B
     node tools export-db --in 1,doda,sqlite_a,A --out 1,doda,firestore_a,A
-    node tools export-db --in 32,doda,firestore_a,A --out 32,doda,sqlite_b,A
+    node tools export-db --in A,doda,firestore_a,A --out A,doda,sqlite_b,A
 
     Exemple export-st:
-    node tools export-db --in doda,fs_a --out doda,gc_a
+    node tools export-st --in doda,fs_a --out doda,gc_a
 
     Exemple purge-db
     node tools purge-db --in 2,coltes,firebase_b,A
