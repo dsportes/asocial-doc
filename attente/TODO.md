@@ -1,9 +1,7 @@
 ## Bug
 
 ## Dev
-Firestore
-
-Tests firestore gc s3
+Tests s3
 
 Suppression d'une partition
 

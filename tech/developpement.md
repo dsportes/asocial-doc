@@ -17,13 +17,14 @@ Les _services_ sont du pur `Node.js` (Javascript), ainsi que l'utilitaire _uploa
 Le versioning est assuré sur github.com et par yarn
 
 # Développement de l'application Web
+Il s'effectue depuis le projet `asocial-app`.
 Installer quasar CLI:
 
     yarn global add @quasar/cli
 
 L'application est une **PWA** (Progressive Web App) avec gestion d'un service_worker.
 
-Principaux modules requis:
+### Principaux modules requis
 - `core-js`
 - `animate.css`
 - `msgpack` : sérialisation / désérialisation d'bjets Javascript.
@@ -76,7 +77,68 @@ Le build de test et le serveur de test se lancent par: `quasar dev -m pwa`
 
 Voir le détail dans le document `applicationWeb.md`
 
+# Développement des services
+
+Le développement des services OP, PUBSUB, OP+PUBSUB et des _tools_ (export-db ...) se fait dans le même projet `asocial-srv`.
+
+Les services sont à la base des serveurs HHTP même quand ils sont déployés en _cloud functions_. L'outil _tools_ est de facto une application locale nodejs.
+
+### Principaux modules requis
+- `@aws-sdk...` : 5 modules implémentant l'interface AWS S3.
+- `@google-cloud...` : 3 modules requis pour accès à firestore, storage et d'interfaçage du logging Winston.
+- `@open-wc/webpack-import-meta-loader` : Webpack loader for supporting import.meta in webpack.
+- `msgpack` : sérialisation / désérialisation d'bjets Javascript.
+- `js-sha256` : hash SHA256 synchrone. Invoqué depuis LE module commun à l'applicationWeb (qui ne dépend pas de nodejs) et les services.
+- `express` : serveur HTTP.
+- `better-sqlite3` : accès à la base SQLite.
+- `node-args` : pour lire les arguments de la ligne de commande pour _tools_.
+- `node-fetch` : pour le service OP quand il doit soumettre des requêtes à PUBSUB.
+- `web-push` : envoi de notifications aux browsers des sessions Web.
+- `winston` : gestionnaire de logs.
+
+### Serveur de test
+Depuis l'environnement de développement on peut lancer:
+- `node src/server.js` : service OP ou OP+PUBSUB selon la configuration de src/config.mjs
+- `node src/pubsub.js` : service PUBSUB (seul).
+- `node src/tools.mjs ...` : outils de _tools_.
+
+Selon la configuration src/config.js il faut mettre en place des folders / fichers pour supporter la base de données et l'espace de stockage.
+
+**En cas de test en HTTPS**, les deux fichiers `fullchain.pem privkey.pem` doivent être présents dans le folder `keys`.
+
+#### Base de données SQLite
+L'outil DB Browser for SQLite est utilisé pour déclarer le schéma (voir le visualiser / modifier) et parcourir les données.
+
+Le folder `sqlite` contient : 
+- schema.sql : le schéma de la base qui peut être traité par DB Browser for SQLite.
+- delete.sql : rest des données d'une base.
+- test.db3 : la base de données _courante_ de test.
+- test1.bk : _backup_ #1 d'une base SQLite.
+
+**Le mode WAL de SQLite**
+
+Ce mode implique que deux fichiers test.db3-shm et test.db3-wal existent après exécution d'un test et sont requis.
+
+La commende `./bk.sh 2` effectue un backup de la base courante dans le fichier `test2.bk`. On peut ainsi avoir plusieurs _backups_ de base pris à des instants différents. Ce fichier est _propre_ et a intégré les transactions en cours dans le WAL.
+
+La commande `./rst.sh 2` restaure le backup `test2.bk` sur la base courante et à ce moment il n'y a ni `-wal` ni `-shm`. A la limite le fichier `test.db3` peut, dans ce cas, être stocké et diffusé.
+
+#### Storage `fs` (file-system)
+Le folder déclaré à la configuration (`fstorage` `fstorageb` ...) doit exister.
+
+#### Storage `gc` (Google Cloud)
+Il est géré par l'émulateur (voir ci-après) et n'a pas à être déclaré ailleurs. 
+- les _backups_ exportés de l'émulateur sont stockés dans emulators.
+- keys.mjs doit contenir l'entrée `service_account`. 
+
+#### Storage `s3` (AWS S3)
+En test installer minio (https://min.io/).
+- son fichier de configuration est `minio.json`.
+- sa _base_ de fichiers est localisée à l'installation de minio (typiquement ~minio/).
+- son _token_ est déclaré dans `keys.mjs` dans `s3_config`.
+
 # Développement Firestore
+
 Il y a une dualité entre Firebase et Google Cloud Platform:
 - `firestore, storage, functions et hostings` sont effectivement hébergés sur Google.
 - la console Firebase propose une vue et des fonctions plus simples d'accès mais moins complètes.
@@ -110,8 +172,8 @@ Aide: firebase firestore:delete -
 
 ### Déploiement des index et rules
 Les fichiers sont:
-- firestore.indexes.json
-- firestore.rules
+- `firestore.indexes.json`
+- `firestore.rules`
 
     Déploiement (import)
     firebase deploy --only firestore:indexes
@@ -120,7 +182,7 @@ Les fichiers sont:
     firebase firestore:indexes > firestore.indexes.EXP.json
 
 ### Emulator
-Dans src/config.mjs remplir la section env:
+Dans `src/config.mjs` remplir la section `env:`
 
     env: {
        // On utilise env pour EMULATOR
@@ -155,12 +217,16 @@ En cours d'exécution, on peut faire un export depuis un autre terminal:
     http://127.0.0.1:4000/firestore
     http://127.0.0.1:4000/storage
 
+# Création / gestion d'un `Google account`
+
+(todo)
+
 ### Création d'un `service_account` Google
 https://cloud.google.com/iam/docs/service-accounts-create
 
 https://cloud.google.com/iam/docs/keys-create-delete#creating
 
-Accéder au(x) service_account depuis la console
+Accéder au(x) `service_account` depuis la console
 - `menu hamburger >> IAM & Admin >> Service Accounts`
 - il y a 4 onglets. C'est l'onglet KEYS qui permet d'en générer un.
 - Bouton `ADD KEY` et choisir `Create New Key`
