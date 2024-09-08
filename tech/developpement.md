@@ -20,7 +20,7 @@ Le versioning est assuré sur github.com et par yarn
 Il s'effectue depuis le projet `asocial-app`.
 Installer quasar CLI:
 
-    yarn global add @quasar/cli
+    npm install -g quasar-cli
 
 L'application est une **PWA** (Progressive Web App) avec gestion d'un service_worker.
 
