@@ -18,14 +18,34 @@ Le versioning est assuré sur github.com et par yarn
 
 # Développement de l'application Web
 Il s'effectue depuis le projet `asocial-app`.
-Installer quasar CLI:
 
-    npm install -g quasar-cli
+Installation complexe et difficile à comprendre de quasar-cli. Ci-dessous fonctionne sous Ubuntu 24.04 et yarn 4.4.1 :
+- hors projet: `npm i -g quasar-cli`
+- puis, une première fois dans le projet:
+
+    npm install
+    // puis enlever package.json.lock
+    yarn install
+
+    // ultérieurement on peut utiliser: yarn install
+
+Le _mélange_ honni npm/yarn apparaît bien nécessaire, au moins temporairement, ici. La commande directe `quasar dev ...` ne fonctionne pas (il faut yarn devant).
+
+Lancement du serveur de test:
+
+    yarn quasar dev     // oui yarn ...
+
+Build et test de la build:
+
+    yarn quasar build -m pwa
+
+    quasar serve dist/pwa --http --port 8080
+
 
 L'application est une **PWA** (Progressive Web App) avec gestion d'un service_worker.
 
 ### Principaux modules requis
-- `core-js`
+- `core-js` : vue3
 - `animate.css`
 - `msgpack` : sérialisation / désérialisation d'bjets Javascript.
 - `axios` : accès HTTP.
