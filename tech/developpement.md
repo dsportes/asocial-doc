@@ -93,7 +93,7 @@ Elle se fait dans `launch.json`.
     ]
     }
 
-Le build de test et le serveur de test se lancent par: `quasar dev -m pwa`
+Le build de test et le serveur de test se lancent par: `yarn quasar dev -m pwa`
 
 Voir le détail dans le document `applicationWeb.md`
 
@@ -130,16 +130,16 @@ Selon la configuration src/config.js il faut mettre en place des folders / fiche
 L'outil DB Browser for SQLite est utilisé pour déclarer le schéma (voir le visualiser / modifier) et parcourir les données.
 
 Le folder `sqlite` contient : 
-- schema.sql : le schéma de la base qui peut être traité par DB Browser for SQLite.
-- delete.sql : rest des données d'une base.
-- test.db3 : la base de données _courante_ de test.
-- test1.bk : _backup_ #1 d'une base SQLite.
+- `schema.sql` : le schéma de la base qui peut être traité par DB Browser for SQLite.
+- `delete.sql` : rest des données d'une base.
+- `test.db3` : la base de données _courante_ de test.
+- `test1.bk` : _backup_ #1 d'une base SQLite.
 
 **Le mode WAL de SQLite**
 
 Ce mode implique que deux fichiers test.db3-shm et test.db3-wal existent après exécution d'un test et sont requis.
 
-La commende `./bk.sh 2` effectue un backup de la base courante dans le fichier `test2.bk`. On peut ainsi avoir plusieurs _backups_ de base pris à des instants différents. Ce fichier est _propre_ et a intégré les transactions en cours dans le WAL.
+La commende `./bk.sh 2` effectue  dans `sqlite` un backup de la base courante dans le fichier `test2.bk`. On peut ainsi avoir plusieurs _backups_ de base pris à des instants différents. Ce fichier est _propre_ et a intégré les transactions en cours dans le WAL.
 
 La commande `./rst.sh 2` restaure le backup `test2.bk` sur la base courante et à ce moment il n'y a ni `-wal` ni `-shm`. A la limite le fichier `test.db3` peut, dans ce cas, être stocké et diffusé.
 
@@ -152,9 +152,9 @@ Il est géré par l'émulateur (voir ci-après) et n'a pas à être déclaré ai
 - keys.mjs doit contenir l'entrée `service_account`. 
 
 #### Storage `s3` (AWS S3)
-En test installer minio (https://min.io/).
+En test installer `minio` (https://min.io/).
 - son fichier de configuration est `minio.json`.
-- sa _base_ de fichiers est localisée à l'installation de minio (typiquement ~minio/).
+- sa _base_ de fichiers est localisée à l'installation de `minio` (typiquement `~minio/`).
 - son _token_ est déclaré dans `keys.mjs` dans `s3_config`.
 
 # Développement Firestore
