@@ -1,6 +1,6 @@
 # Architecture générale
 
-L'ensemble est architecturé de la façon suivante.
+L'ensemble est architecturé de la façon suivante. 
 
 ### Une application Web
 C'est une page Web téléchargeable depuis un site statique et s'exécutant dans un browser. 
