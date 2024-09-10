@@ -6,7 +6,6 @@ Plusieurs principes ont été mis en œuvre:
 - tous les textes humainement intelligibles et les images sont cryptées.
 - toutes les clés de cryptage pour chaque compte sont cryptées par la clé majeure K du compte, elle-même cryptée par la phrase secrète du compte.
 - aucune clé de cryptage n'est transmise au serveur.
-- la quasi totalité des _meta-liens_ entre documents sont cryptés.
 
 # Technologies de cryptage / hash employées
 ## Hash: SHA256
@@ -32,10 +31,7 @@ PBKFD est utilisé pour hacher les phrases secrètes et de rencontre:
 Une phrase secrète de 24 signes qui évite les répétitions d'un code court, qui parsème le texte de séparateurs en chiffres, etc. ne sera pas trouvée par usage de dictionnaires.
 
 ## Hash court
-Il est fréquemment utilisé un _hash court_ qui tient sur un entier _safe_ en Javascript:
-- bien entendu en terme cryptographique ce hash est épouvantable avec un nombre important de collisions.
-- mais la probabilité de collision reste humainement très faible (2 ** 53 est un **très** grand nombre).
-- il est employé en _complément / filtre_: si le hash court d'un code déjà n'est pas bon, on a évité un test avec un PBKFD ou SHA256.
+C'est seulement un repliement d'un SHA256 sur 9 bytes, soit 12 caractères chiffres ou lettres miniscules / majuscules.
 
 ## Cryptage symétrique AES256
 La même clé de 32 bytes est employée pour crypter et décrypter un texte.
@@ -47,8 +43,8 @@ Il n'a pas été rendu public qu'un texte source (long) ait pu être retrouvé p
 
 Le premier byte d'une chaîne cryptée est le numéro du _SALT_ employé au cryptage:
 - il suffit donc que les logiciels cryptant / décryptant utilisent la même liste de _SALT_.
-- en tirant au hasard ce premier byte, une même source cryptées deux fois aura des cryptages différents 255 fois sur 256: ainsi la comparaison entre deux chaînes cryptées n'indiquent pas si la source est la même ou non.
-- toutefois quand une chaîne cryptée sert d'identifiant externe, il faut à l'inverse que la même source donne toujours le même rsultat crypté: ceci s'obtient en forçant le cryptage à utiliser le _SALT_ premier de la liste plutôt qu'un aléatoire.
+- en tirant au hasard ce premier byte, une même source cryptée deux fois aura des cryptages différents 255 fois sur 256: ainsi la comparaison entre deux chaînes cryptées n'indiquent pas si la source est la même ou non.
+- toutefois quand une chaîne cryptée sert d'identifiant externe, il faut à l'inverse que la même source donne toujours le même résultat crypté: ceci s'obtient en forçant le cryptage à utiliser le _SALT_ premier de la liste plutôt qu'un aléatoire.
 
 ## Cryptage asymétrique RSA2048
 Le cryptage nécessite une paire de clés générées ensemble:
@@ -63,8 +59,7 @@ L'objectif est que le _public_ puisse librement crypter un texte à destination 
 
 Quand le texte à crypter peut être plus long que 256 bytes, on génère une clé symétrique aléatoire qui crypte le long texte et on crypte cette clé par la clé RSA.
 
-Chaque avatar a un couple de clés RSA:
-- tout un chacun ayant accès à la la clé publique peut crypter un texte que seul l'avatar cible peut décoder.
+Chaque avatar a un couple de clés RSA, tout un chacun ayant accès à la la clé publique peut crypter un texte que seul l'avatar cible peut décoder.
 
 # Les clés d'un compte
 
@@ -97,7 +92,7 @@ Les clés comme les valeurs sont cryptées par la clé K:
 La clé K crypte toutes les notes des avatars du compte.
 
 ## Clé "CV" d'un avatar
-Quand un avatar est créé, il est générée une clé dite CV qui crypte sa carte de visite. La clé CV est mémorisé dans le document maître de l'avatar cryptée par la clé K du compte.
+Quand un avatar est créé, il est générée une clé dite CV qui crypte sa carte de visite. La clé CV est mémorisée dans le document maître de l'avatar cryptée par la clé K du compte.
 
 Cette clé est aussi incassable que les autres sauf qu'elle va être donnée à tous les autres avatars _en contact_, ceux qui justement on a accordé le droit de lire son nom et sa carte de visite.
 
@@ -124,7 +119,7 @@ Un sponsoring est créé par un avatar pour être lu par ... une personne qui n'
 
 On utilise le PBKFD de la phrase de sponsoring comme clé de cryptage:
 - seul le destinataire la connaît (du moins c'est plus poli),
-- le document de sponsoring ne vis pas longtemps et il est inutilisable une fois qu'il a servi à créer un compte sponsorisé.
+- le document de sponsoring ne vit pas longtemps et il est inutilisable une fois qu'il a servi à créer un compte sponsorisé.
 
 ## Données NON cryptées
 Certaines données ne sont pas cryptées tout le temps. Par exemple un Ticket de crédit:

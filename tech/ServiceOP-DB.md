@@ -1772,22 +1772,17 @@ L'administrateur technique qui remplace une `dlvat` le fait en plusieurs transac
 
 _Remarque_: idéalement une transaction unique aurait été préférable mais elle pourrait être longue et entraînerait des blocages.
 
-
-
-# A RELIRE ---------------------------------------
-
-
 # Décomptes des coûts et crédits
 
 > **Remarque**: en l'absence d'activité de sessions la _consommation_ d'un compte est nulle, alors que le _coût d'abonnement_ augmente à chaque seconde même sans activité.
 
-On compte **en session** les downloads / uploads soumis au _Storage_. /VERIF/
-
-On compte **sur le serveur** le nombre de lectures et d'écritures effectués dans chaque opération:
+On décompte **dans le service OP** le nombre de lectures et d'écritures effectués dans chaque opération:
 - intégration dans le document `comptas` du compte, le cas échéant avec propagation au compte (voire partition) si le changement est significatif.
+- le volume de _download_ est décompté quand une session demande une URL de _GET_ d'un fichier (en considérant que puisqu'elle a demandé l'URL, elle s'en est servi).
+- le volume _d'upload_ est décompté sur l'opération qui valide l'upload. 
 - retour à la session pour information où sont cumulés les 4 compteurs depuis le début de la session.
 
-Le tarif de base repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator].
+Le tarif de base par défaut repris pour les estimations est celui de Firebase [https://firebase.google.com/pricing#blaze-calculator]: ces tarifs sont de facto fixés dans `config.mjs`.
 
 Le volume _technique_ moyen d'un groupe / note / chat est estimé à 8K. Ce chiffre est probablement faible, le volume _utile_ en Firestore étant faible par rapport au volume réel occupé avec les index ... D'un autre côté, le serveur considère les volumes utilisés en base alors que n / v vont être décomptés sur des quotas (des maximum rarement atteints).
 
@@ -1804,7 +1799,7 @@ Un tarif correspond à,
 
 En configuration un tableau ordonné par `aaaamm` donne les tarifs applicables, ceux de plus d'un an n'étant pas utiles. 
 
-L'initialisation de la classe `Tarif.init(...)` est faite depuis la configuration (UI comme serveur).
+L'initialisation de la classe `Tarif.init(...)` est faite depuis la configuration du service OP. Le tarif courant est communiqué à la connexion de la session afin d'éviter une divergence entre application Web et service OP.
 
 On ne modifie pas les tarifs rétroactivement, en particulier celui du mois en cours (les _futurs_ c'est possible).
 
@@ -1827,7 +1822,7 @@ Cette objet est la propriété `qv` de `comptas`.
 - `vm`: volume _montant_ vers le Storage (upload).
 - `vd`: volume _descendant_ du Storage (download).
 
-Cet objet rapporte une évolution de consommation. Paramètre de l'opération `EnregConso`.
+Cet objet rapporte une évolution de consommation.
 
 ## Unités
 - T : temps.
@@ -1901,11 +1896,9 @@ En session:
 - les délégués d'une partition ne peuvent faire afficher les `compteurs` _que_ des comptes "O" de leur partition.
 
 ### Mutation d'un compte _autonome_ en compte _d'organisation_
-Le compte a demandé et accepté, de passer O. Son accord est traduit par le dernier item de son chat avec le délégué ou le Comptable qui effectue l'opération: son texte est `**YO**`.
+Le compte passe en "O".
 
-Le Comptable ou un délégué désigne le compte dans ses contacts et vérifie:
-- que c'est un compte "A",
-- que le dernier item écrit par le compte est bien `**YO**`.
+Le Comptable ou un délégué désigne le compte dans ses contacts et vérifie que c'est un compte "A".
 
 Les quotas `qc / qn / qv` sont ajustés par le sponsor / comptable:
 - de manière à supporter au moins le volume actuels n / v,
@@ -1921,8 +1914,7 @@ L'opération de mutation:
 - inscription d'un item de chat.
 
 ### Rendre _autonome_ un compte "O"
-C'est une opération du Comptable et/ou d'un délégué:
-- selon la configuration de l'espace, l'accord du compte est requis si la configuration de l'espace l'a rendu obligatoire (item de chat avec `**YO**`)
+C'est une opération du Comptable et/ou d'un délégué.
 
 L'opération de mutation:
 - retire le compte de sa partition.
@@ -1943,7 +1935,7 @@ Dans `comptas` on trouve:
 
 # Tâches différées (_triggers_) et périodiques
 
-Une opération effectue dans sa transaction les mises à jour immédiates de manière à ce que la cohérence des données soient garantie. En conséquence de ces transactions il peut rester des activités d'optimisation et / ou de nettoyage à exécuter qui peuvent être _différées_.
+Une opération effectue dans sa transaction les mises à jour immédiates de manière à ce que la cohérence des données soit garantie. En conséquence de ces transactions il peut rester des activités d'optimisation et / ou de nettoyage à exécuter qui peuvent être _différées_.
 
 **Une tâche périodique** a pour objectif de détecter les changements d'états liés au simple passage du temps:
 - compte résilié en raison d'une non-utilisation prolongée,
@@ -1952,10 +1944,10 @@ Une opération effectue dans sa transaction les mises à jour immédiates de man
 
 **_Exemple:_**
 - _transaction principale_: un groupe est supprimé. Dès cet instant toute opération tentant d'agir sur le groupe sortira en exception parce que le groupe n'existe plus.
-- _tâche différée_: supprimer les invitations enregistrées dans le groupe des comptes dont un avatar était invité. Ceci évitera à ces comptes de récupérer une exception en acceptant / refusant une de ces invitations. Certes la cohérence aurait été conservée mais du point de vue de l'autre compte il apparaît une liste d'invitations dont certaines ne sont plus d'actualité, cette incohérence a intér^et à être la plus courte possible.
+- _tâche différée_: purge des membres et des notes.
 
 Un document `taches` enregistre toutes ces tâches différées:
-- une opération _principale_ peut enregistrer des tâches sous contrôle transactionnel.
+- une opération _principale_ peut enregistrer des tâches à  sous contrôle transactionnel.
 - un _démon_ est lancé s'il n'était pas en cours, qui va scruter `taches`, 
   - en extraire la plus ancienne en attente de traitement,
   - la traiter en une transaction, ce qui peut le cas échéant ajouter d'autres tâches,
@@ -1975,12 +1967,11 @@ Un document `taches` enregistre toutes ces tâches différées:
 - a un code opération (celle de son traitement),
 - se réinscrit systématiquement pour plus tard en **début** de tâche afin de ne pas être lancée par deux démons de deux _serveurs / cloud function_ parallèle,
 - est exécutée sous privilège administrateur et n'enregistre pas ses consommations.
-- elle a un rapport d'exécution contient quelques compteurs informatifs.
-- elle a un rapport d'exception décrivant l'exception qui a interrompu sa dernière exécution.
+- peut avoir un rapport d'exception décrivant l'exception qui a interrompu sa dernière exécution.
 
 **Espace clos / figé**
 - **une tâche non périodique n'est pas lancée** si son espace est clos ou figé.
-- une tâche périodique teste dans son exécution l'état des espaces en fonction de chaque document qu'elle a à traiter, et ne traite que ceux dont l'espace n'est ni clos ni figé.
+- une tâche périodique teste dans son exécution l'état des espaces en fonction de chaque document qu'elle doit traiter, et ne traite que ceux dont l'espace n'est ni clos ni figé.
 
 **Multi serveur / cloud function**: empêcher 2 serveurs de lancer la même tâche
 - _début de tâche_: mise à jour de la date-heure au plus tôt. _Comme si_ la relance de la tâche était déjà planifiée.
@@ -1994,7 +1985,7 @@ Un document `taches` enregistre toutes ces tâches différées:
 - voir la liste des tâches,
   - soit les tâches périodiques,
   - soit les tâches non périodiques _d'un espace_.
-- voir le dernier compte-rendu d'exécution / exception d'une tâche.
+- voir le dernier compte-rendu d'exception d'une tâche.
 - ajouter ou supprimer une tâche,
 - réveiller le démon.
 
@@ -2002,55 +1993,17 @@ Un document `taches` enregistre toutes ces tâches différées:
 - pour un _serveur_ ça fait sens,
 - pour une _cloud function_ c'est un overhead de lecture systématique de `taches`.
 
-
-_data_
+La table / document n'a pas de _data_ mais directement des colonnes / attributs exposés dans la base :
+- `op` : code de l'opération.
 - `ns` : 0 pour une tâche périodique, sinon le ns de la tâche.
 - `dh` : date-heure au plus tôt d'exécution.
-- `op` : code de l'opération.
-- `id / ids` : id de l'objet principal concerné, 0 pour un périodique.
-- `report` : sérialisation du dernier rapport d'exécution / exception.
+- `id` : id de l'objet principal concerné, '' pour un périodique.
+- ids: identifiant secondaire ou ''.
+- `exc` : rapport d'exception de la dernière exécution.
 
 Tâche candidate:
-- la plus petite dh avec dh supérieure à l'instant présent.
-- dont le ns est 0 OU dans la liste des ns _ouverts_ (existants, non figé, non clos).
-
-## Opérations inscrivant des tâches
-### Suppression d'un groupe
-- immédiatement:
-  - mise à jour de la comptabilité du compte hébergeur (si besoin).
-  - pour toutes les invitations en cours (et contacts), annule l'invitation dans invits du compte dont un avatar est invité / contact.
-  - pour tous les membres actifs, supprime le groupe du `mpg` du compte.
-  - purge des documents `comptes chatgrs`
-  - `suppr` de `versions` du groupe.
-- tâches différées:
-  - `GRM`
-  - `AGN AGF`
-
-### Résiliation d'un avatar
-- immédiatement:
-  - mise à jour des statuts dans les groupes ou l'avatar est actif / invité / contact.
-  - s'il était hébergeur, récupération des volumes dans la compta de son compte.
-  - purge des `membres` correspondants.
-  - le cas échéant, traitement immédiat de _suppression du groupe_.
-  - purges des `sponsorings`
-  - purge du document `avatars`
-  - `suppr` de `versions` de l'avatar.
-- tâches différées:
-  - `AVC` : gestion et purges des chats de l'avatar.
-  - `AGN AGF`
-
-### Résiliation d'un compte
-- immédiatement:
-  - mise à jour des statuts dans les groupes où un des avatars est actif / invité / contact.
-  - s'il était hébergeur, récupération des volumes dans la `comptas` de son compte.
-  - purge des `membres` correspondants.
-  - le cas échéant, traitement immédiat de _suppression du groupe_.
-  - purges des `sponsorings`
-  - purge des documents `comptes avatars`
-  - `suppr` de `versions` du compte et des avatars.
-- tâches différées:
-  - `AVC` : Une tâche par avatar: gestion et purges des chats de l'avatar.
-  - `AGN AGF` : Une tâche par avatar
+- la plus petite `dh` avec dh supérieure à l'instant présent.
+- dont le `ns` est '' OU dans la liste des ns _ouverts_ (existants, non figé, non clos) OU n'est pas dans la liste fermée des ns _fermés_.
 
 ## Liste des tâches non périodiques
 
@@ -2079,6 +2032,13 @@ Liste les chats de l'avatar et pour chacun:
 - met à jour le statut / cv du `chatE` correspondant.
 - purge le `chatI`
 
+### ESP : mise à jour des dlv des comptes d'un espace dont la date-limite fixée par l'administrateur a changé
+Arguments:
+- `ns` : celui de l'espace concerné
+- `ids` : `dla` pour retrouver les comptes de l'espace à traiter.
+
+Un tour d'exécution par compte.
+
 ## Liste des tâches périodiques
 
 ### DFH : détection d'une fin d'hébergement
@@ -2099,9 +2059,9 @@ Filtre les transferts par `dlv`:
 
 ### STT : statistique "mensuelle" des tickets (avec purges)
 
-# Connexion et Synchronisation au fil de l'eau d'une session UI
+# Connexion et Synchronisation au fil de l'eau d'une session de l'application Web
 
-Principes:
+**Principes:**
 - à la fin de la phase de _connexion_, 
   - tous les documents _synchronisés_ du périmètre du compte sont en mémoire et cohérents entre eux. 
     - 1 `espaces`
@@ -2115,9 +2075,9 @@ Principes:
 
 > Les trois autres documents du périmètre du compte `syntheses partitions comptas` sont chargés à la demande.
 
-## L'objet DataSync
+## L'objet `DataSync`
 Cet objet sert:
-- entre session et _serveur / Cloud Function_ a obtenir les documents resynchronisant la session avec l'état de la base.
+- entre session et _service OP_ a obtenir les documents resynchronisant la session avec l'état de la base.
 - dans une base locale IDB: à indiquer ce qui y est stocké et dans quelle version.
 
 **Les états successifs _de la base_ sont toujours cohérents**: _tous_ les documents de _chaque_ périmètre d'un compte sont cohérents entre eux.
@@ -2148,7 +2108,7 @@ L'état courant d'une session en mémoire et le cas échéant de sa base locale 
 **Remarques:**
 - un `DataSync` reflète l'état d'une session, les `vs` (et `ms ns` des groupes) indiquent quelles versions sont connues d'une session.
 - Un `DataSync` reflète aussi l'état en base centrale, du moins quand il a été écrit, les `vb` (et `m n` pour les groupes) indiquent quelles versions sont détenues dans l'état courant de la base centrale.
-- Quand toutes les `vb` et `vs` correspondantes sont égales (et les couples `ms ns / m n` pour les groupes), l'état en session reflète celui en base centrale: il n'y a plus rien à synchroniser ... jusqu'à ce l'état en base centrale change et que l'existence d'une mise à jour soit signifiée à la session.
+- Quand toutes les `vb` et `vs` correspondantes sont égales (et les couples `ms ns / m n` pour les groupes), l'état en session reflète celui en base centrale: il n'y a plus rien à synchroniser ... jusqu'à ce l'état en base centrale change et que l'existence d'une mise à jour soit notifiée par _web push_ à la session.
 
 Chaque appel de l'opération `Sync` :
 - transmet le `DataSync` donnant l'image connue en session,
@@ -2179,7 +2139,7 @@ A chaque appel de `Sync`, les versions de` comptes comptis invits` sont vérifi�
 - pour les groupes si les accès _membres_ et _notes_ ont changé pour le compte.
 
 ### Synchronisation en session
-Après la phase de _connexion_, l'état en mémoire est cohérent et stable, avec une tâche _d'écoute des changements_ active en permanence: ces avis sont reçus par _notifications poussées au Browser_. Le service PUBSUB voit passer toutes les mises à jour et connaît les périmètres de toutes les sessions.
+Après la phase de _connexion_, l'état en mémoire est cohérent et stable, avec _écoute des web push_ activée en permanence: ces avis sont reçus par _notifications poussées au Browser_. Le service PUBSUB voit passer toutes les mises à jour et connaît les périmètres de toutes les sessions.
 
 **Remarques:**
 - les avis de mise à jour des sous-arbre _compte_, sous-arbre _avatar_, sous-arbre _groupe_ peuvent parvenir dans un ordre différent de celui dans lequel les mises à jour sont intervenues;
@@ -2218,7 +2178,7 @@ Le traitement standard de retour,
 - met à jour la base locale en une transaction,
 - met à jour les _store_ de la session sans interruption (sans `await`).
 
-# Annexe I: déclaration des index /VERIF/
+# Annexe I: déclaration des index
 
 ## SQL
 `sqlite/schema.sql` donne les ordres SQL de création des tables et des index associés.
@@ -2232,120 +2192,13 @@ Rien de particulier : sont indexées les colonnes requérant un filtrage ou un a
 
 _data_ n'est jamais indexé.
 
-Index composite: `id v` et `id vcv` 
-
-Ces attributs apparaissent dans:
-- tous les documents _majeurs_ pour `id v`,
-- `avatars` pour `id vcv`.
-
-En conséquence les attributs `v vcv` ne sont **pas** indexés dans les documents _majeurs_.
-
-`id` est indexée dans `fpurges` qui n'a pas de version `v` et dont l'`id` doit être indexée pour filtrage par l'utilitaire `export/delete`.
-
-Dans les sous-collections versionnées `notes chats membres sponsorings tickets`: `id ids v` sont indexées. 
+Tous les attributs apparaissant dans une _query_ avec un _where_ donne lieu à un index, voire un index composite (id / v ...).
 
 Pour `sponsorings` `ids` sert de clé d'accès direct et a donc un index **collection_group**, pour les autres l'index est simple.
-
-Dans la sous-collection non versionnée `transferts`: `id ids` sont indexées mais pas `v` qui n'y existe pas.
-
-`dlv` est indexée,
-- simple sur `versions`,
-- **collection_group** sur les sous-collections `transferts sponsorings membres`.
 
 Autres index:
 - `hXR` sur `comptas`: accès à la connexion par phrase secrète.
 - `hYR` sur `avatars`: accès direct par la phrase de contact.
 - `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
 
-# Annexe II: IndexedDB dans les session UI #A REVOIR
-
-Un certain nombre de documents sont stockés en session UI dans la base locale IndexedDB et utilisés en modes _avion_ et _synchronisé_.
-- `compte`: singleton d'`id` vaut '1'.
-  - son contenu est la sérialisation de `{ id:..., k:... }` cryptée par la PBKFD de la phrase secrète complète.
-  - `id` : id du compte (son avatar principal et de comptas).
-  - `k` : 32 bytes de la clé K du compte.
-- `tribus`: 'id',
-- `comptas`: 'id'. De facto un singleton mais avec une clé qui n'est pas 1 (c'était une option plausible).
-- `avatars`: 'id',
-- `chats`: '[id+ids]',
-- `sponsorings`: '[id+ids]',
-- `groupes`: 'id',
-- `membres`: '[id+ids]',
-- `notes`: '[id+ids]',
-- `tickets`: '[id+ids]'.
-
-La clé _simple_ `id` en string est cryptée par la clé K du compte et encodée en base 64 URL.
-
-Les deux termes de clés `id` et `ids` sont chacune en string crypté par la clé K du compte et encodée en base 64 URL.
-
-Le format _row_ d'échange est un objet de la forme `{ _nom, id, ..., _data_ }`.
-
-En IDB les _rows_ sont sérialisés et cryptés par la clé K du compte.
-
-Il y a donc une stricte identité entre les documents extraits de SQL / Firestore et leurs états stockés en IDB
-
-_**Remarque**_: en session UI, d'autres documents figurent aussi en IndexedDB pour,
-- la gestion des fichiers locaux: `avnote fetat fdata loctxt locfic locdata`
-- la mémorisation de l'état de synchronisation de la session: `avgrversions sessionsync`.
-
-
-# Purgatoire
-
-## Opérations GC
-Le lancement est quotidien et enchaîne les étapes ci-dessous, en asynchronisme de la requête l'ayant lancé.
-
-En cas d'exception dans une étape, une relance est faite après un certain délai afin de surmonter un éventuel incident sporadique.
-
-> Remarque : le traitement du lendemain est en lui-même une reprise.
-
-> Pour chaque opération, il y a N transactions, une par document à traiter, ce qui constitue un _checkpoint_ naturel fin.
-
-## `GCfvc` - Étape _fin de vie des comptes_
-Suppression des comptes dont la `dlv` est inférieure à la date du jour.
-
-La suppression d'un compte est en partie différée:
-- les versions du `compte / avatars / groupes` sont marquées _suppr_ (ce qui les rend _logiquement supprimés), les documents `comptes comptis invits comptas` sont purgés.
-- ses documents `avatars` ont une version v à 999999 (_suppression en cours_)
-- ses documents `groupes` dont le nombre de membres actifs devient 0, ont leur version à 999999 (_suppression en cours_).
-
-## `GCpav` - Étape _purge des avatars logiquement supprimés_
-Pour chaque avatar dont la version est 999999, gestion des chats et purge des sous-documents `chats sponsoring notes avatars` et finalement du document `avatars` lui-même.
-
-## `GCHeb` - Étape _fin d'hébergement_
-Récupération des groupes dont la `dfh` est inférieure à la date du jour et suppression logique (version à 999999).
-
-## `GCpgr` - Étape _purge des groupes logiquement supprimés_
-Pour chaque groupe dont la version est 999999, gestion des invitations et participations puis purge des sous-documents **notes membres chatgrs** et finalement du document `groupes` lui-même.
-- les membres _invités_ ont leurs avatars mis à jour (suppression de l'invitation).
-- le membre hébergeur se voit restituer ses ressources.
-
-### `GCFpu` : traitement des documents `fpurges`
-L'opération récupère tous les items d'`id` de fichiers depuis `fpurges` et déclenche une purge sur le Storage.
-
-Les documents `fpurges` sont purgés.
-
-### `GCTra` : traitement des transferts abandonnés
-L'opération récupère toutes les documents `transferts` dont les `dlv` sont antérieures ou égales à aujourd'hui.
-
-Le fichier `id / idf` cité dedans est purgé du Storage des fichiers.
-
-Les documents `transferts` sont purgés.
-
-### `GCspo` : purge des sponsorings obsolètes
-L'opération récupère toutes les documents `sponsorings` dont les `dlv` sont antérieures à aujourd'hui. Ces documents sont purgés.
-
-### `GCstc` : création des statistiques mensuelles des `comptas` et des `tickets`
-La boucle s'effectue pour chaque espace:
-- `comptas`: traitement par l'opération `ComptaStat` pour récupérer les compteurs du mois M-1. 
-  - Le traitement n'est déclenché que si le mois à calculer M-1 n'a pas déjà été enregistré comme fait dans `comptas.moisStat` et que le compte existait déjà à M-1.
-- `tickets`: traitement par l'opération `TicketsStat` pour récupérer les tickets de M-3 et les purger.
-  - Le traitement n'est déclenché que le mois à calculer M-3 n'a pas déjà été enregistré comme fait dans `comptas.moisStatT` et que le compte existait déjà à M-3.
-  - une fois le fichier CSV écrit en _storage_, les tickets de M-3 et avant sont purgés.
-
-**Les fichiers CSV sont stockés en _storage_** après avoir été cryptés par la clé E de l'espace.
-
-Les statistiques sont doublement accessibles par le Comptable ET l'administrateur technique du site.
-
-
-
-@@ L'application UI [uiapp](./uiapp.md)
+@@ L'application UI [applicationWeb](./applicationWeb.md)
