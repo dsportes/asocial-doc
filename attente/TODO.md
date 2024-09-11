@@ -3,10 +3,6 @@
 ## Dev
 Tests s3
 
-Suppression d'une partition
-
-Page Admin : liste des tâches, actions associées
-
 Ralentissement des DL ???
 
 Déploiements:
