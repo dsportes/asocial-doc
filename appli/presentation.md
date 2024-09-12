@@ -189,6 +189,57 @@ _L'hébergeur du groupe_ est un membre qui s'est dévoué pour supporter les co�
   - le nombre de notes et le volume de leurs fichiers ne peut plus croître,
   - au bout de 3 mois le groupe s'autodétruit.
 
+# Comptes _spéciaux_, _de l'organisation_, _autonomes_
+
+### L'administrateur technique
+Il est le représentant technique du prestataire. **Il n'a pas de compte** mais _une clé d'accès à l'application_ pour initialiser un espace pour une organisation et effectuer quelques actions techniques: exportation d'espaces, suppressions d'espaces, notifications importantes.
+
+### Le Comptable
+_Le Comptable_ désigne une personne, voire un petit groupe de personnes physiques qui:
+- a négocié avec le prestataire les conditions et le prix de l'hébergement.
+- a été créé par l'administrateur technique du prestataire à la création de l'espace de l'organisation.
+
+C'est un compte _presque_ normal: il peut avoir des notes, des chats, participer à des groupes, etc. mais pour être bien identifiable, n'a pas de _carte de visite_ et ne peut pas créer des avatars secondaires. Il a le privilège,
+- de gérer **les forfaits gratuits** attribués par l'organisation,
+- de découper du forfait global **en tranches**,
+- de déclarer si l'organisation accepte ou non des comptes _A autonomes_,
+- de désigner certains comptes comme _délégués_ sur une tranche du forfait global.
+
+> Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
+
+### Comptes autonomes "A"
+Un compte _autonome_:
+- **paye son abonnemen**t (qu'il fixe lui-même) **et sa consommation** (sans limite a priori),
+- **ne peut être ni _restreint_, ni _bloqué_**.
+
+Un compte "A" _augmente son solde_ en faisant parvenir des _paiements_ que le Comptable va enregistrer sans que personne (sauf le compte lui-même) ne puisse déterminer quel compte a été crédité par quel paiement. 
+
+Un compte "A" peut **faire des dons** à d'autres comptes "A".
+
+### Comptes de l'organisation "O"
+Pour certaines organisations, les comptes "A" peuvent ne pas acceptables:
+- si un compte "A" quitte l'organisation ou qu'il est devenu nuisible à l'organisation, il ne peut pas être restreint / bloqué.
+- l'organisation peut souhaiter contrôler les ressources utilisées par les comptes et les restreindre,
+- l'organisation peut avoir inclus 'abonnement et la consommation de certains comptes dans ses _frais d'adhésion_ ou équivalents.
+
+Pour répondre à ces objectifs, il est défini une seconde catégorie de compte: **les comptes "O", de l'organisation**.
+
+L'organisation paye l'abonnement et la consommation pour le compte mais en contrepartie,
+- elle lui fixe des limites potentiellement bloquantes d'abonnement et de consommation,
+- elle peut restreindre voire bloquer le compte. 
+
+### Basculement d'un compte "A" en "O" et inversement
+Le Comptable ou un de ses _délégués_ peut transformer un compte "O" en compte "A" **ayant donné son accord** (en communiquant une _phrase de contact_ au Comptable / délégué).
+- le compte acquiert une liberté totale (il ne peut plus être bloqué) mais en contrepartie paie son abonnement / consommation.
+
+Le Comptable ou un _délégué_, peut transformer un compte "A" **ayant donné son accord** en compte "O":
+- le compte n'a plus à payer son accès,
+- en contrepartie il est contraint en volume et en activité et peut être restreint bloqué.
+
+### A sa création une organisation **n'accepte pas** de comptes _autonomes_
+- Le Comptable peut lever cette interdiction et en autoriser la création,
+- il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+
 # Modes *synchronisé*, *incognito* et *avion*
 
 Pour se connecter à son compte, le titulaire d'un compte choisit sous quel **mode** sa session va s'exécuter: _synchronisé_, _avion_ ou _incognito_.
@@ -220,12 +271,10 @@ En mode avion les fichiers attachés aux notes ne sont pas accessibles, **sauf**
 
 # Coûts d'hébergement de l'application
 
-> **L'administrateur technique** est le représentant technique du prestataire. Il n'a pas de compte mais _une clé d'accès_ à l'application pour initialiser un espace pour une organisation et effectuer quelques actions techniques: exportation d'espaces, suppressions d'espaces, notifications importantes.
-
 Le coût d'usage de l'application pour une organisation correspond aux coûts d'hébergement des données et de traitement de celles-ci. Selon les techniques et les prestataires choisis, les coûts unitaires varient mais existent dans tous les cas.
 
 ## _Base de données_ et _fichiers_ (Storage)
-Leur stockage sur "disques" ont des coûts unitaires très différents (variant d'un facteur de 1 à 6).
+Leur stockage ont des coûts unitaires très différents (variant d'un facteur de 1 à 6).
 - les _bases de données_ requièrent un stockage proche du serveur et des accès très rapide,
 - les fichiers sont enregistrés dans des _Storage_, des stockages techniques distants ayant une gestion spécifique et économique du fait d'être soumis à peu d'accès (mais de plus fort volume).
 
@@ -233,7 +282,7 @@ Leur stockage sur "disques" ont des coûts unitaires très différents (variant 
 Un abonnement correspond aux coûts récurrents mensuels pour un compte, même quand il ne se connecte pas.
 
 L'abonnement est décomposé en deux lignes de coûts correspondant à l'occupation d'espace en base de données et en _storage_:
-- **Prix unitaire de stockage d'un document** multiplié par le **nombre total de documents dans la base de données**: notes personnelles et notes d'un groupe hébergé par le compte, chats personnels non _indésirables_, nombre de participations actives aux groupes.
+- **Prix unitaire de stockage d'un document** multiplié par le **nombre total de _documents_**: notes personnelles et notes d'un groupe hébergé par le compte, chats personnels non _indésirables_, nombre de participations actives aux groupes.
 - **Prix unitaire du stockage dans un _storage_** multiplié par le **volume total des fichiers attachés aux notes**.
 
 Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, non pas _le volume effectivement utilisé à chaque instant_ mais forfaitairement **les _volumes maximaux_ forfaitaires** auquel le compte est abonné.
@@ -242,7 +291,7 @@ Pour obtenir le coût correspondant à ces deux volumes il est pris en compte, n
 
 ## Consommation : coût de calcul et de transfert des fichiers
 La consommation correspond à l'usage effectif de l'application quand une session d'un compte est ouverte. Elle comporte 4 lignes:
-- **nombre de _lectures_** (en base de données).
+- **nombre _de lectures_** (en base de données).
 - **nombre _d'écritures_** (en base de données).
 - **volume _descendant_** (download) de fichiers téléchargés en session depuis le _storage_.
 - **volume _montant_** (upload) de fichiers envoyés dans le _storage_ pour chaque création / mise à jour d'un fichier.
@@ -250,77 +299,40 @@ La consommation correspond à l'usage effectif de l'application quand une sessio
 ## Coût total mensuel
 Il correspond au total de l'abonnement (2 lignes) et de la consommation (4 lignes).
 
->_L'ordre de grandeur_ d'un coût total par compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible mais n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement d'un millier de comptes ...
+>_L'ordre de grandeur_ du prix de revient total pour un compte varie en gros de **0,5€ à 3€ par an**. Individuellement ça paraît faible mais n'est plus du tout négligeable pour une organisation assurant les frais d'hébergement d'un millier de comptes ...
 
-## Les comptes autonomes "A" et de l'organisation "O"
-Une organisation peut avoir des comptes ayant des modes de comptabilisation différents.
-
-### Comptes autonomes "A"
-Chaque compte fixe lui-même son abonnement et sa consommation n'est pas limitée. Il paye les deux.
-
-Un procédé confidentiel permet à un compte "A" de faire parvenir des _paiements_ pour augmenter son solde sans que personne ne puisse déterminer à qui ces _paiements_ ont été attribués (sauf le compte lui-même).
-
-Le compte peut faire des dons à d'autres comptes "A".
-
-### Comptes de l'organisation "O"
-L'organisation paye l'abonnement et la consommation pour le compte mais en contrepartie,
-- elle lui fixe des limites potentiellement bloquantes d'abonnement et de consommation,
-- elle peut bloquer le compte, par exemple s'il quitte l'organisation, est décédé, etc. 
-
-Le Comptable attribue ces forfaits, aidés par des comptes _comptables délégués_.
-
-## Le Comptable
-_Le Comptable_ désigne une personne, voire un petit groupe de personnes physiques qui:
-- a négocié avec le prestataire les conditions et le prix de l'hébergement.
-- a été créé par l'administrateur technique du prestataire à la création de l'espace de l'organisation.
-
-C'est lui-même un compte "O" (c'est l'organisation qui paye ses coûts) _presque_ normal en ce sens qu'il peut avoir des notes, des chats, participer à des groupes, etc. (mais pas créer des avatars secondaires). Il a le privilège,
-- **de gérer les forfaits gratuits attribués par l'organisation** aux comptes "O", conjointement avec des comptes _comptable délégués par tranche_,
-- de découpe du forfait global **en tranches** (chaque compte "O" dépendant de la tranche dans laquelle il a été créé),
-- de déclarer si l'organisation accepte ou non des comptes _A autonomes_,
-- de pouvoir sponsoriser des comptes _autonomes_ (bien qu'étant compte "O" lui-même)
-
-> Le **Comptable** n'a pas plus que les autres comptes les moyens cryptographiques de s'immiscer dans les notes des avatars des comptes et leurs chats: ce n'est en aucune façon un modérateur et il n'a aucun moyen d'accéder aux contenus, pas plus qu'à l'identité des avatars secondaires des comptes.
-
-### Basculement d'un compte "A" en "O" et inversement
-Le Comptable ou un _délégué d'une tranche_ peut transformer un compte "O" de cette tranche en compte "A":
-- le compte acquiert une liberté totale (il ne peut plus être bloqué) mais en contrepartie paie son abonnement / consommation.
-
-Le Comptable ou un _délégué d'une tranche_, peut transformer un compte "A" **qui en fait la demande** en compte "O" de la tranche:
-- le compte n'a plus à payer son accès,
-- en contrepartie il est contraint en volume et en activité et peut être bloqué.
-
-### A sa création une organisation **n'accepte pas** de comptes _autonomes_
-- Le Comptable peut lever cette interdiction et en autoriser la création,
-- il peut aussi supprimer cette autorisation: cela n'a aucun effet sur les comptes _autonomes_ existants et ne vaut que pour les créations ultérieures.
+## Gestion de l'espace (_abonnement gratuit_) des comptes "O"
+Le Comptable procède d'abord à un _découpage en tranches_ des ressources globales dont il dispose:
+- chaque _tranche_ a un quota de _nombre de documents_, de _volume de fichiers_ et de _consommation de calcul_.
+- tout compte "O" est attaché à une _tranche_.
+- pour chaque _tranche_ le Comptable peut (ou non) confier une _délégation_ à certains comptes de la tranche afin que ceux-ci,
+  - fixent pour chaque compte "O" de leur tranche des quotas d'abonnement et de consommation,
+  - puissent gérer des _notifications_ à ces comptes (avec restriction éventuelle).
 
 ## Notifications et restrictions d'accès des comptes
 
-Une _notification_ est un message important dont la présence est signalée par une icône dans la barre d'entête de l'écran et parfois par un affichage lors de la connexion d'un compte.
+Une _notification_ est un message important dont la présence est signalée par une icône dans la barre d'entête de l'écran.
 
-### Une _notification_ peut être porteuse d'une restriction d'accès
-Quand une session a une ou des restrictions d'accès, ses actions sont plus ou moins limitées.
+Une _notification_ peut être porteuse d'une restriction d'accès: quand une session a une ou des restrictions d'accès, ses actions sont plus ou moins limitées.
 
-### Notifications de l'administrateur technique
-Elle peut se limiter à une simple information sans restriction.
-
-Elle peut aussi porter l'un de ces deux restrictions:
-- **Espace figé**. Strictement aucune écriture ne peut être faite: cette restriction typiquement permet de procéder à une opération technique d'export, verrouiller une archive d'un espace, ou par mesure de rétorsion.
+### Notification de _l'administrateur technique_ à l'espace de l'organisation
+**Elle peut n'être une simple information** sans restriction mais peut aussi fixer l'une de ces deux restrictions:
+- **Espace figé**. Strictement aucune écriture ne peut être faite: typiquement cette restriction permet de procéder à une opération technique d'export, verrouiller une archive d'un espace ...
 - **Espace clos**. L'administrateur technique a effacé les données de l'espace: il ne subsiste plus que cette notification dont le texte donne la raison et le cas échéant indique si l'espace est accessible à une autre adresse.
 
 ### Notification du _Comptable_ ou de ses _délégués_ pour les comptes "O"
 
 #### Volume en réduction
 Cette restriction bloque toutes les actions menant à une augmentation de volume:
-- création d'une note, d'un chat, acceptation d'une invitation à un groupe,
-- remplacement d'un fichier par un fichier plus important.
+- _création_ d'une note, d'un chat, ou acceptation d'une invitation à un groupe,
+- _remplacement_ d'un fichier attaché à une note par un autre plus important.
 
-Causé par le dépassement des limites d'abonnements (nombre de documents, volume des fichiers).
+Cette restriction est causé par le dépassement des limites d'abonnements (nombre de documents, volume des fichiers).
 
 #### Lecture seule
 En lecture seule une session ne peut que consulter les données (comme en mode _avion_) MAIS les échanges sont possibles sur les _chats d'urgence_ avec le Comptable et pour un compte "O" les _délégués de sa tranche_ qu'il connaît.
 
-Décrété explicitement pour tous les comptes de la tranche ou pour certains comptes seulement.
+Une telle restriction est déclarée _explicitement_, soit pour tous les comptes de la tranche, soit pour certains comptes seulement.
 
 #### Accès minimal
 En accès minimal une session ne peut plus ni lire ni mettre à jour ses données, MAIS,
@@ -328,39 +340,35 @@ En accès minimal une session ne peut plus ni lire ni mettre à jour ses donnée
 
 **Les connexions du compte ne le maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, le compte disparaîtra.
 
-Causé par:
-- pour un compte "O", par le Comptable ou ou un de ses délégués: pour tous les comptes de la tranche ou pour certains comptes seulement.
-- pour un compte "O" quand sa consommation mensuelle moyenne dépasse la limite fixée.
+Une telle restriction pour un compte "O" est causée par:
+- déclaration explicite du Comptable ou un de ses délégués.
+- automatiquement quand la consommation mensuelle moyenne dépasse la limite fixée.
 
-### Notifications d'excès de consommation d'un compte "A"
-
-#### Accès minimal
+### Restriction _accès minimal_ pour excès de consommation d'un compte "A"
 En accès minimal une session ne peut plus ni lire ni mettre à jour ses données, MAIS,
 - les échanges sont possibles sur les _chats d'urgence_ avec le Comptable.
 - les opérations de crédit / gestion des volumes maximaux restent autorisées.
 
-Causé par un épuisement de son crédit (solde négatif).
+Elle est automatique lors de la détection d'un solde négatif.
 
-> **En cas de -restriction- les connexions des comptes ne les maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, les comptes disparaîtront.
+> **En cas de _restriction_ les connexions des comptes ne les maintiennent plus en vie**: au plus tard dans un an, si cette restriction n'est pas levée, les comptes disparaîtront.
 
 @@ Maîtrise des coûts d'hébergement de l'application [coutshebergement](./coutshebergements.md).
 
 # Gérer les _espaces_
 
-L'administrateur technique d'un site peut héberger techniquement sur le site jusqu'à 60 **espaces** (identifiés en interne par une lettre majuscule ou minuscule ou un chiffre).
+L'administrateur technique d'un site peut y héberger techniquement jusqu'à 60 **espaces**.
 
-Tout ce qui précède se rapporte à UN espace et les utilisateurs ne peuvent avoir aucune perception des autres espaces hébergés par le même serveur technique.
+Tout ce qui précède se rapporte à UN espace et les utilisateurs n'ont aucune perception des autres espaces hébergés par le même serveur technique.
 - dans la base de données, les informations sont partitionnées.
 - dans l'espace de stockage des fichiers, des sous-espaces sont séparés par nom de l'organisation.
 
-L'administrateur technique a ainsi la possibilité d'ouvrir _instantanément_ un nouvel espace pour une organisation en faisant la demande. 
+L'administrateur technique a la possibilité d'ouvrir _instantanément_ un nouvel espace pour une organisation en faisant la demande. 
 - Le Comptable et l'administrateur technique se sont mis d'accord sur le volume utilisable et la participation aux frais d'hébergement.
-- Cette ouverture crée une phrase de _sponsoring_ à destination du Comptable de l'espace, 
+- Cette ouverture crée une phrase de _sponsoring_ à destination du Comptable de l'organisation, 
 - Le Comptable créé son compte en utilisant cette phrase de _sponsoring_ et en fixant sa phrase secrète.
 
-> Le comptable comme les autres n'a aucune perception de l'existence d'autres espaces. 
-
-Toutefois l'administrateur technique peut,
+_Rappel_; l'administrateur technique peut,
 - émettre une notification d'information visible de tous les comptes,
 - bloquer l'espace de l'organisation en _lecture seule_,
 - détruire les données par clôture de l'espace ne laissant pendant un certain temps qu'une seule information d'explication.
