@@ -131,7 +131,7 @@ Ne pas oublier target="_blank" sinon la page va s'ouvrir sur celle de l'applicat
 
 Toutefois si ce lien correspond à une page de manuel de la documentaion de l'application, on utile la convention suivante:
 
-    <a href="$$/fr/pagex.html" target="_blank">Manuels</a>
+    <a href="$$/pagex.html" target="_blank">Manuels</a>
 
 Si la ligne commence exactement par `<a href="$$/` Le terme `$$` sera remplacé par l'URL de la documentation de l'application afin d'avoir une aide en ligne indépendante d'une localisation _en dur_.
 
@@ -140,7 +140,7 @@ Le fichier /public/etc/urls.json a cette forme:
     {
       "opurl" : "http://localhost:8443",
       "pubsuburl" : "http://localhost:8443",
-      "docsurl" : "http://localhost:4000"
+      "docsurls" : { "fr-FR": "http://localhost:4000/fr", "en-EN": "http://localhost:4000/en"}
     }
 
 Ce fichier est défini au déploiement, après _build_.
