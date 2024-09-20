@@ -1,4 +1,4 @@
-## Bug / vérifications
+## Bug / vérifications...
 Un espace _figé_ peut être une archive laissée en consultation. Mais les comptes n'y signent plus: ils peuvent dépasser leur DLV.
 
 Vérifier qu'ils restent accessibles et ne sont pas restreint en _accès minimal_. Quoi que ?
