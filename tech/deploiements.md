@@ -11,26 +11,29 @@ Les paramètres de configuration sont à ajuster dans le fichier `src/config.mjs
 Après _build_ on obtient un folder _presque_ prêt à distribuer:
 - l'application Web doit disposer des URLs des services OP et PUBSUB.
 - celles-ci, qui localisent les services correspondants sur Internet, et donc la base de données et le storage, sont données dans le fichier `etc/urls.json`.
+- les URLs des sites Web donnant la documentation dans les différentes langues sont données dans l'entrée `docsurls`.
 - avec le même _build_ on peut donc distribuer la même version de l'application sur plus d'une distribution, seulement en ajustant les deux lignes de `etc/urls.json`.
 
-Par convention, si les services OP et PUBSUB sont fournis par le **même** serveur que celui distribuant les services OP+PUBSUB les URLs sont simplifiées:
+Par convention, si les services OP et PUBSUB sont fournis par le **même** serveur que celui distribuant l'application Web les URLs sont simplifiées:
 
     {
       "opurl" : "https://test.sportes.fr:8443",
-      "pubsuburl" : "https://test.sportes.fr:8443"
+      "pubsuburl" : "https://test.sportes.fr:8443",
+      "docsurls": { "fr-FR": "http://localhost:4000/fr", "en-EN": "http://localhost:4000/en" },
     }
 
-    Cas où le _serveur_ délivre aussi OP+PUBSUB:
+    Cas où le _serveur_ délivre aussi l'application Web:
     {
       "opurl": "https",
-      "pubsuburl" : "https"
+      "pubsuburl" : "https",
+      "docsurls": { "fr-FR": "http://localhost:4000/fr", "en-EN": "http://localhost:4000/en" },
     }
     Si ce serveur est seulement un `http` (en test), `http` remplace `https` ci-dessus.
 
 ### Build
 La commande est: 
 
-    quasar build -m pwa
+    yarn quasar build -m pwa
 
 Le résultat est dans `dist/pwa` (environ 40 fichiers pour 5Mo):
 - y ajouter un folder `dist/pwa/etc`
@@ -40,9 +43,9 @@ L'application _buildée et configurée_ peut être distribuée depuis `dist/pwa`
 
 On peut la tester, par exemple, au moyen des commandes suivantes lançant un serveur http/https:
 
-    quasar serve dist/pwa --https --port 8343 --hostname test.sportes.fr --cors --cert ../asocial-srv/keys/fullchain.pem --key ../asocial-srv/keys/privkey.pem 
+    yarn quasar serve dist/pwa --https --port 8343 --hostname test.sportes.fr --cors --cert ../asocial-srv/keys/fullchain.pem --key ../asocial-srv/keys/privkey.pem 
 
-    quasar serve dist/pwa --http --port 8080
+    yarn quasar serve dist/pwa --http --port 8080
 
 #### browser-list pas à jour
 Au cours du _build_ un message apparaît souvent en raison de l'obsolescence de la browser-list.
@@ -79,7 +82,41 @@ Pour fermer le _tunnel_, interrompre la session en cours dans ce terminal.
 
 Cette URL peut être utilisée n'importe où, en particulier depuis un mobile, pour joindre le serveur s'exécutant sur le localhost du poste de développement, grâce à un tunnel établi par Ngrok.
 
-# Typologie des déploiements des services OP et PUBSUB
+# Déploiements des services OP et PUBSUB
+
+## _Obfuscation_ des données sensibles
+### Certificats du serveur
+Si le serveur n'est pas géré par un provider qui le gère, il est démarré comme une simple application node à qui il faut fournir les certificats https `fullchain.pem` et `privkey.pem`.
+- ces données **NE DOIVENT PAS** être exposées dans `git`. Elles sont stockées dans le folder `./keys` qui DOIT figurer en `.gitignore`.
+- le build des services **NE CONTIENT PAS** ce folder car les certificats doivent être renouvelés assez souvent et indépendamment du build d'une nouvelle version des services.
+- c'est sur le host de production directement que le folder `./keys` est installé, avec en général un script de renouvellement automatique des certificats.
+
+### Tokens divers
+Ces tokens sont des autorisations d'usage d'API, des authentifications diverses. Ils sont inscrits comme des entrées majeures dans le fichier `.keys.json`. Les entrées actuelles sont:
+- `app_keys` : les clés de cryptage des _sites_, le mot de passe de l'administrateur technique (en fait son PBKFD) et les clés vapid de notification _web push_.
+- `service_account` : l'authentification d'un compte Google.
+- `s3_config` : l'authentification du fournisseur d'accès au _storage_ S3.
+
+Ce fichier NE DOIT PAS être exposé dans git, il figure dans .gitignore (d'ailleurs dans le cas contraire github par exemple envoie des alertes).
+
+Mais ses données doivent être intégrées dans la _build_ des services:
+- il n'est pas souhaitable que cette _build_ les fasse apparaître en clair. L'hébergeur qui installe les services n'a pas à les voir passer explicitement dans les fichiers de _build_.
+
+Le fichier `./keys.json` est _obfusqué_ par la commande:
+
+    node src/genicon.mjs
+
+qui en génère le fichier `./src/icon.mjs`:
+- le fichier `./keys.json` est parsé, l'objet Javascript résultant est sérialisé et crypté (par un couple clé / salt généré dans le code) et encodé en base64.
+- le résultat est écrit dans `./src/icon.mjs`
+
+A l'initialisation des services, l'import de ce fichier expose l'encodage en base64 généré. Ce texte est converti en binaire, décrypté et l'objet correspondant disponible dans la configuration interne.
+
+> Le fichier `./src/icon.mjs` porte un nom qui n'a rien à voir avec son objet. Il **N'EST PAS** communiqué à `git`. Il est a régénérer à chaque fois que `keys.json` change (et à la première installation).
+
+> Certes la lecture des sources permet de comprendre comment l’obfuscation a été réalisée. Mais le _hacking_ en est compliqué pour l'hébergeur des services qui doit écrire du code pour l'extraire et avoir lu le code de la build pour en saisir le procédé et les clés. 
+
+## Typologie des déploiements possibles
 
 Selon les configurations choisies, on peut effectuer des _build_ et déployer les services OP et PUBSUB selon plusieurs options. Ci-après la liste des options documentées, et celles a priori non pertinentes avec la raison associée.
 
@@ -759,6 +796,7 @@ Les commandes sont:
 - `export-st`: exporter un _espace_ d'un Storage sur un autre _espace_ d'un autre Storage.
 - `purge-db`: purge d'un _espace_ d'une base de données.
 - `vapid`: génération d'un nouveau couple de clés privée / publique VAPID. Pas d'arguments, résultat dans `./vapid.json`.
+- `icon` : génération de `./src/icon.mjs` depuis `./keys.json`. Pas d'options.
 
 ### `export-db -s --in ... --out ...`
 - `-s` : optionnel. Simulation, rien n'est écrit.
