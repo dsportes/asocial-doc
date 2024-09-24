@@ -237,6 +237,40 @@ En cours d'exécution, on peut faire un export depuis un autre terminal:
     http://127.0.0.1:4000/firestore
     http://127.0.0.1:4000/storage
 
+# Storage S3 : par minio
+minio est une application serveur qui offre un service de _Storage_ selon le protocole S3 de AWS. Son usage _local_ permet de tester un accès AWS-S3, sachant qu'il existe plusieurs fournisseurs proposant ce service (pas seulement AWS).
+
+Un objet de configuration, nommé par exemple S3_config a la syntaxe suivante:
+
+    const S3_config = {
+      credentials: {
+        accessKeyId: 'access-asocial',
+        secretAccessKey: 'secret-asocial'
+      },
+      endpoint: 'http://localhost:9000',
+      region: 'us-east-1',
+      forcePathStyle: true,
+      signatureVersion: 'v4'
+    }
+
+Les clés `access` et `secret` sont données par le fournisseur d'accès choisi.
+
+## Installation locale de min.io
+
+    https://min.io/docs/minio/linux/index.html
+
+    https://min.io/docs/minio/windows/index.html
+
+Après download / install, se placer dans le répertoire choisi pour minio (ici D:\minio) et lancer le server :
+
+    ./minio server start
+
+Il s'affiche l'URL de la console et l'URL de l'API (celle du endpoint ci-avant). Ouvrir la console:
+- Ouvrir `Access-Key` et créer les clés. Il est possible de donner un string en clair comme ci-dessus.
+- Ouvrir `Buckets` et créer un bucket `asocial`.
+
+On peut browser le contenu d'un bucket depuis la console.
+
 # Création / gestion d'un `Google account`
 
 (todo)
