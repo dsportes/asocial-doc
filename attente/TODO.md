@@ -133,7 +133,7 @@ Un hyperlien est à exprimer par un tag <a>:
 
 Ne pas oublier target="_blank" sinon la page va s'ouvrir sur celle de l'application.
 
-Toutefois si ce lien correspond à une page de manuel de la documentaion de l'application, on utile la convention suivante:
+Toutefois si ce lien correspond à une page de manuel de la documentation de l'application, on utile la convention suivante:
 
     <a href="$$/pagex.html" target="_blank">Manuels</a>
 
@@ -183,4 +183,50 @@ Lancer SANS debug: npm run start
 
 ____________________________________________
 
-npx update-browserslist-db@latest
+# Contrôle global des ressources d'un espace
+
+### Dans `espaces`
+L'attribut `quotas { qn, qv, qc }` donne les quotas globaux maximum attribués par l'administrateur technique.
+
+La somme des quotas attribués aux partitions et pour les comptes A ne doit pas dépasser ces valeurs.
+
+### Dans `syntheses`
+- `qA` : `{ qc, qn, qv }` - quotas **maximum** disponibles pour les comptes A.
+- `qtA` : `{ qc, qn, qv }` - quotas **effectivement attribués** aux comptes A. En conséquence `qA.qn - qtA.qn` est le quotas qn encore attribuable aux compte A.
+
+- `tsp[p]`
+  - `q` : `{ qc, qn, qv }` - quotas **maximum** de la partition p
+  - `qt` : `{ qc qn qv c2m n v }` - quotas `qc qn qv` **effectivement attribués** aux comptes de la partition et consommations actuelles `c2m n v`(approximatives).
+  - En conséquence q.qn - qt.qn par exemple représente les quotas encore attribuables aux comptes de la partition p.
+
+`tsp['0']` est la totalisation des `tsp[p]` calculé à la compilation.
+- `q` : `{qc, qn, qv}` sont les quotas totaux maximum pour l'ensemble des partitions.
+
+Les quotas globaux réservés par le Comptable est la somme dans `syntheses` de `qA + tsp['0'].q` et elle doit toujours être inférieure à `espaces.quotas`.
+
+### Opérations impactant ces compteurs
+Attribution de quotas par l'administrateur technique (remplace l'attribution de profil).
+- affecte `espaces.quotas`
+
+Attribution / ajustement des quotas des comptes A par le Comptable
+- affecte `syntheses.qA`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Attribution / ajustement des quotas d'une partition p par le Comptable
+- affecte `partition[p].q` ce qui se répercute sur `syntheses.tsp[p].q`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Ajustement de ses quotas par un compte A dont un `qc` (qui peut le ralentir).
+- affecte comptes[A].qv
+- augmente / diminue `syntheses.qtA`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Mutation d'un compte `c` A en compte O de la partition `p`
+- diminue `syntheses.qtA`
+- augmente `partition[p].mcpt[c].q` (si c'est possible) ce qui se répercute sur `syntheses.tsp[p].qt`
+- blocage si les quotas de la partition ne supportent pas les quotas du compte muté.
+
+Mutation d'un compte `c` O de la partition `p` en compte A
+- augmente `syntheses.qtA`.
+- diminue `partition[p].mcpt[c].q` ce qui se répercute sur `syntheses.tsp[p].qt`.
+- bloqué si l'augmentation de `syntheses.qtA` fait dépasser `syntheses.qA`.

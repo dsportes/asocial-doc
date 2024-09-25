@@ -690,7 +690,7 @@ _data_ :
 - `creation` : date de création.
 - `moisStat` : dernier mois de calcul de la statistique des comptas.
 - `moisStatT` : dernier mois de calcul de la statistique des tickets.
-- `nprof` : numéro de profil d'abonnement.
+- `quotas`:  `{ qn, qv, qc }` : quotas maximum globaux attribués par l'administrateur technique.
 - `dlvat` : `dlv` déclarée par l'administrateur technique.
 - `cleES` : clé de l'espace cryptée par la clé du site. Permet au comptable de lire les reports créés sur le serveur et cryptés par cette clé E.
 - `notifE` : notification pour l'espace de l'administrateur technique. Le texte n'est pas crypté.
@@ -768,6 +768,8 @@ Ces documents sont des singletons de leur espace. Ils ne sont pas synchronisés,
 _data_:
 - `id` : string vide.
 - `v` : version, numéro d'ordre de mise à jour.
+- `qA` : `{ qc, qn, qv }` - quotas **maximum** disponibles pour les comptes A.
+- `qtA` : `{ qc, qn, qv }` - quotas **effectivement attribués** aux comptes A. En conséquence `qA.qn - qtA.qn` est le quotas `qn` encore attribuable aux compte A.
 
 - `dh` : date-heure de dernière mise à jour (à titre informatif).
 - `tsp` : map des _synthèses_ des partitions.
@@ -776,11 +778,12 @@ _data_:
     - `id nbc nbd`
     - `ntfp[1,2,3]`
     - `q` : `{ qc, qn, qv }`
-    - `qt` : { qc qn qv c2m n v }`
+    - `qt` : `{ qc qn qv c2m n v }`
     - `ntf[1,2,3]`
     - `pcac pcan pcav pcc pcn pcv`
 
-Une agrégation des `synth[i]` est calculée en session et stockée en `tsp['0']`.
+Une agrégation des `synth[i]` est compilé en `tsp['0']`.
+- `q` : `{qc, qn, qv}` sont les quotas totaux maximum pour l'ensemble des partitions.
 
 Le document `syntheses` est mis à jour à chaque fois qu'un document `partitions` l'est: le `synth` de la partition est reporté dans l'élément correspondant de `tsp`. En cas de suppression d'une partition son entrée est supprimée.
 
@@ -975,6 +978,7 @@ _data_:
 - `v` : 1..N. Sa version lui est spécifique.
 
 - `qv` : `{qc, qn, qv, nn, nc, ng, v}`: quotas et nombre de groupes, chats, notes, volume fichiers. Valeurs courantes.
+- `estA` : `true` si c'est un compte A.
 - `compteurs` sérialisation des quotas, volumes et coûts.
 - _Comptes "A" seulement_
   - `solde`: résultat, 
@@ -2200,5 +2204,3 @@ Autres index:
 - `hXR` sur `comptas`: accès à la connexion par phrase secrète.
 - `hYR` sur `avatars`: accès direct par la phrase de contact.
 - `dfh` sur `groupes`: détection par le GC des groupes sans hébergement.
-
-@@ L'application UI [applicationWeb](./applicationWeb.md)
