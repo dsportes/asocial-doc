@@ -1721,6 +1721,70 @@ Elle est effectuée en deux phases:
 ## Résiliation d'un compte
 En une transaction la résiliation immédiate des avatars du compte est effectuée, ce qui lance une chaîne longue de transactions différées.
 
+# Contrôle global des ressources d'un espace
+Les quotas globaux sont attribués par l'administrateur technique.
+
+Le Comptable attribue une _réserve_ globale pour tous les comptes A: la somme de leurs quotas ne pourra pas dépasser ce quota.
+- le restant entre les quotas globaux et ceux réservés pour les comptes A, sont utilisables pour les partitions (compte O).
+
+Le Comptable crée des partitions et leur alloue à chacune des quotas. La somme de ces quotas ne peut pas être supérieure aux quotas globaux diminués de ceux réservés pour les comptes A.
+
+Le Comptable et les délégués d'une partition allouent des quotas aux comptes de la partition, leur somme ne peut pas dépasser les quotas de la partition.
+
+Lorsqu'à un niveau donné, _global, réserve des A, partition_, les quotas sont révisés à la baisse, il n'y a pas d'impact immédiat. Toutefois les futures allocations / révisions de quotas du niveau inférieur ne peuvent intervenir qu'à la baisse, du moins sur le / les quotas _documents, volume de fichiers, calcul_ excédentaire.
+
+### Dans `espaces`
+L'attribut `quotas { qn, qv, qc }` donne les quotas globaux maximum attribués par l'administrateur technique.
+
+La somme des quotas attribués aux partitions et pour les comptes A ne doit pas dépasser ces valeurs.
+
+### Dans `syntheses`
+- `qA` : `{ qc, qn, qv }` - quotas **maximum** disponibles pour les comptes A.
+- `qtA` : `{ qc, qn, qv }` - quotas **effectivement attribués** aux comptes A. En conséquence `qA.qn - qtA.qn` est le quotas qn encore attribuable aux compte A.
+
+- `tsp[p]`
+  - `q` : `{ qc, qn, qv }` - quotas **maximum** de la partition p
+  - `qt` : `{ qc qn qv c2m n v }` - quotas `qc qn qv` **effectivement attribués** aux comptes de la partition et consommations actuelles `c2m n v`(approximatives).
+  - En conséquence q.qn - qt.qn par exemple représente les quotas encore attribuables aux comptes de la partition p.
+
+`tsp['0']` est la totalisation des `tsp[p]` calculé à la compilation.
+- `q` : `{qc, qn, qv}` sont les quotas totaux maximum pour l'ensemble des partitions.
+
+Les quotas globaux réservés par le Comptable est la somme dans `syntheses` de `qA + tsp['0'].q` et elle doit toujours être inférieure à `espaces.quotas`.
+
+### Opérations impactant ces compteurs
+Attribution de quotas par l'administrateur technique (remplace l'attribution de profil).
+- affecte `espaces.quotas`
+
+Attribution / ajustement des quotas des comptes A par le Comptable
+- affecte `syntheses.qA`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Attribution / ajustement des quotas d'une partition p par le Comptable
+- affecte `partition[p].q` ce qui se répercute sur `syntheses.tsp[p].q`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Ajustement de ses quotas par un compte A dont un `qc` (qui peut le ralentir).
+- affecte comptes[A].qv
+- augmente / diminue `syntheses.qtA`
+- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+
+Mutation d'un compte `c` A en compte O de la partition `p`
+- diminue `syntheses.qtA`
+- augmente `partition[p].mcpt[c].q` (si c'est possible) ce qui se répercute sur `syntheses.tsp[p].qt`
+- blocage si les quotas de la partition ne supportent pas les quotas du compte muté.
+
+Mutation d'un compte `c` O de la partition `p` en compte A
+- augmente `syntheses.qtA`.
+- diminue `partition[p].mcpt[c].q` ce qui se répercute sur `syntheses.tsp[p].qt`.
+- bloqué si l'augmentation de `syntheses.qtA` fait dépasser `syntheses.qA`.
+
+Nouveau sponsoring
+- vérifie que les quotas alloués seraient acceptables si la création du compte avait lieu à cet instant.
+
+Création du compte par sponsoring
+- bloque si les quotas enregistrés dans le sponsoring ne peuvent pas être honorés, les conditions ayant changé entre l'enregistrement du sponsoring et l'instant de la création.
+
 # Gestion des disparitions des comptes: `dlv` 
 
 Chaque compte a une **date limite de validité**:

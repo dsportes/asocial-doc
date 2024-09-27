@@ -183,50 +183,154 @@ Lancer SANS debug: npm run start
 
 ____________________________________________
 
-# Contrôle global des ressources d'un espace
+## Deux structures possibles des Vue
+### Structure _historique_
 
-### Dans `espaces`
-L'attribut `quotas { qn, qv, qc }` donne les quotas globaux maximum attribués par l'administrateur technique.
+    <template>
+      ...
+    </template>
 
-La somme des quotas attribués aux partitions et pour les comptes A ne doit pas dépasser ces valeurs.
+    <script>
+      import { ref, computed } from 'vue'
+      import BoutonHelp from '../components/BoutonHelp.vue'
 
-### Dans `syntheses`
-- `qA` : `{ qc, qn, qv }` - quotas **maximum** disponibles pour les comptes A.
-- `qtA` : `{ qc, qn, qv }` - quotas **effectivement attribués** aux comptes A. En conséquence `qA.qn - qtA.qn` est le quotas qn encore attribuable aux compte A.
+    export default {
+      name: 'ApercuChat',
+      props: { },
+      components: {  BoutonHelp ... },
+      computed: {
+        chat () { return this.aSt.getChat(this.ui.chatc.id, this.ui.chatc.ids) }
+      },
+      watch: {
+        mod (ap) {
+          console.log(this.idc2, mod)
+        }
+      },
+      data () { return {
+        txt: ''
+      }},
+      methods: {
+        m1 (p) { ... }
+      },
+        
+      setup (props) {
+        const ui = stores.ui
+        return { ui ... }
+      }
+    }
+    </script>
 
-- `tsp[p]`
-  - `q` : `{ qc, qn, qv }` - quotas **maximum** de la partition p
-  - `qt` : `{ qc qn qv c2m n v }` - quotas `qc qn qv` **effectivement attribués** aux comptes de la partition et consommations actuelles `c2m n v`(approximatives).
-  - En conséquence q.qn - qt.qn par exemple représente les quotas encore attribuables aux comptes de la partition p.
+    <style>
+      /* This is where your CSS goes */
+    </style>
 
-`tsp['0']` est la totalisation des `tsp[p]` calculé à la compilation.
-- `q` : `{qc, qn, qv}` sont les quotas totaux maximum pour l'ensemble des partitions.
+C'est la structure employée presque partout, parce que historiquement celle préconisée.
 
-Les quotas globaux réservés par le Comptable est la somme dans `syntheses` de `qA + tsp['0'].q` et elle doit toujours être inférieure à `espaces.quotas`.
+### Nouvelle structure _simplifiée_ (API Composition Setup)
+Voir `ApercuChat.vue`, `App.vue`
 
-### Opérations impactant ces compteurs
-Attribution de quotas par l'administrateur technique (remplace l'attribution de profil).
-- affecte `espaces.quotas`
+La nouvelle structure suivante est désormais préconisée. Elle est équivalente à la structure _historique_ mais offre des possibilités nouvelles intéressantes (comme la possibilité d'avoir des `await` dans le setup) et quelques simplifications, dont celle de ne plus se poser la question de ce qui se met en setup ou non. 
 
-Attribution / ajustement des quotas des comptes A par le Comptable
-- affecte `syntheses.qA`
-- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+Toutefois l'inconvénient est que dans les fonctions du setup, les variables locales `myvar` doivent être référencées par `myvar.value` (au lieu de `this.myvar`), d'ailleurs il n'y a plus de `this`.
 
-Attribution / ajustement des quotas d'une partition p par le Comptable
-- affecte `partition[p].q` ce qui se répercute sur `syntheses.tsp[p].q`
-- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+    <template>
+      <my-component .../>
+      <component :is="Foo" />
+      <component :is="someCondition ? Foo : Bar" />
+    </template>
 
-Ajustement de ses quotas par un compte A dont un `qc` (qui peut le ralentir).
-- affecte comptes[A].qv
-- augmente / diminue `syntheses.qtA`
-- bloqué si c'est en augmentation ET fait dépasser le quotas général de espaces.
+    <script setup>
+      import { capitalize } from './helpers'
+      import { ref } from 'vue'
+      import MyComponent from './MyComponent.vue'
+      import Foo from './Foo.vue'
+      import Bar from './Bar.vue'
 
-Mutation d'un compte `c` A en compte O de la partition `p`
-- diminue `syntheses.qtA`
-- augmente `partition[p].mcpt[c].q` (si c'est possible) ce qui se répercute sur `syntheses.tsp[p].qt`
-- blocage si les quotas de la partition ne supportent pas les quotas du compte muté.
+      const props = defineProps({ foo: String }) // accessible par props.foo
+      const emit = defineEmits(['change', 'delete'])
+    </script>
 
-Mutation d'un compte `c` O de la partition `p` en compte A
-- augmente `syntheses.qtA`.
-- diminue `partition[p].mcpt[c].q` ce qui se répercute sur `syntheses.tsp[p].qt`.
-- bloqué si l'augmentation de `syntheses.qtA` fait dépasser `syntheses.qA`.
+    <style>
+    /* This is where your CSS goes */
+    </style>
+
+Voir le détail ici : https://vuejs.org/api/sfc-script-setup.html
+
+## `ref` et `computed` dans une vue
+
+Dans une vue on peut afficher / traiter:
+- **des variables de _store_** déclarées et gérées dans un store en tant que a) getters (éventuellement avec des paramètres ce qui est à peu près une _action_), ou b) actions. Ceci correspond à un état _global_ de la session, indépendant de toute vue.
+- **des variables _locales_ à la vue** qui peuvent être déclarées, soit au _setup_, soit en _data_.
+
+### Variable de _store_
+Elle peut être déclarée à deux endroits:
+
+    // Soit dans computed()
+    computed: {
+      chatX () { return this.aSt.getChat(this.ui.chatc.id, this.ui.chatc.ids) }
+    }
+
+    // Soit dans setup ()
+    setup () {
+      const ui = stores.ui
+      const aSt = stores.avatar
+      const chatX = computed(() => aSt.getChat(ui.chatc.id, ui.chatc.ids))
+      return { ui, aSt, chatX }
+
+Les deux formulations sont équivalentes jusqu'à présent et fonctionnent: si des items sont ajoutés au _store_ depuis une action externe à la vue, ils sont bien répercutés à l'écran.
+
+#### ref() NE RÉPERCUTE PAS la réactivité
+Dans l'exemple précédent si on écrit:
+
+    setup () {
+      const ui = stores.ui
+      const aSt = stores.avatar
+      const chatX = ref(aSt.getChat(ui.chatc.id, ui.chatc.ids))
+      return { ui, aSt, chatX }
+
+`chatX` n'est PAS réactif: quand le _store_ évolue, chatX reste inchangé.
+
+**`ref()` rend réactive une variable locale mais ne transmet pas la réactivité de l'expression qui l'a initialisée.**
+
+### Variables locales réactives
+Elles peuvent être déclarées:
+
+    // Soit dans data ()
+    data () { return {
+      vloc: 'toto'
+    }}
+
+    // Soit dans setup ()
+    setup () {
+      const vloc = ref('toto')
+      return { vloc }
+    }
+
+Dans le premier cas, l'expression d'évaluation de `vloc` est limitée et ne peut utiliser que des constantes ou des variables déclarées dans setup.
+
+Dans le second cas,
+- l'expression peut utiliser tout ce qui est visible / déclaré dans `setup()`,
+- la valeur peut être changée dans le code qui suit,
+- dans le bloc `setup` la valeur est accédée par `vloc.value`.
+
+### Variables locales initialisées depuis des variables de _store_
+On peut vouloir créer une variable comme `vloc` qui aura sa propre vie MAIS dont la valeur initiale dépend d'une variable de _store_ **au moment de l'initialisation**. Typiquement on en a besoin pour pré-positionner une variable sur un élément initial du _store_ mais dont ensuite c'est le comportement de la vue qui la fait changer.
+
+    setup () {
+      const ui = stores.ui
+      const aSt = stores.avatar
+      const chatX = computed(() => aSt.getChat(ui.chatc.id, ui.chatc.ids))
+      const nbci = ref(chatX.value.items.length)
+      return { ui, aSt, chatX, nbci }
+
+Ici `nbci` est le nombre d'items du chat à l'ouverture de la vue:
+- quand le chat a des items en plus dans le store, `nbci` ne change pas,
+- si dans la vue on change la valeur de `nbci`, ça se répercute à l'écran puisque c'est une variable reactive.
+
+Dans ce cas, il FAUT que `chatX` soit déclarée par `computed` **dans le setup**, PAS dans la section computed: de la vue.
+
+Si on avait voulu que `nbci` représente le nombre courant d'items on l'aurait déclaré:
+
+    const nbci = computed(() => chatX.value.items.length)
+
+mais sa valeur ne serait plus _affectable_ (c'est le résultat d'un calcul).
