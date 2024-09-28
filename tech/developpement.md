@@ -3,7 +3,7 @@
 Le développement a été réalisé avec le studio `VScode`.
 
 Installations préliminaires requises:
-- `node`, installé par `nvm`.
+- `node (npm)`, installé par `nvm`.
 - `yarn`.
 - `webpack` est utilisé pour le packaging mais est installé directement dans les applications.
 
@@ -29,18 +29,20 @@ Installation complexe et difficile à comprendre de quasar-cli. Ci-dessous fonct
 
     // ultérieurement on peut utiliser: yarn install
 
-Le _mélange_ honni npm/yarn apparaît bien nécessaire, au moins temporairement, ici. La commande directe `quasar dev ...` ne fonctionne pas (il faut yarn devant).
+Le _mélange_ honni npm/yarn apparaît bien nécessaire, au moins temporairement, ici. La commande directe `quasar dev ...` ne fonctionne pas (il faut `yarn` devant).
 
 Lancement du serveur de test:
 
-    yarn quasar dev     // oui yarn ...
+    yarn quasar dev -m pwa     // oui yarn ...
 
 Build et test de la build:
 
     yarn quasar build -m pwa
 
-    quasar serve dist/pwa --http --port 8080
+    # https://github.com/http-party/http-server
+    npx http-server dist/pwa -p 8080 --cors -S --cert ../asocial-srv/keys/fullchain.pem --key ../asocial-srv/keys/privkey.pem
 
+    npx http-server dist/pwa -p 8080 --cors
 
 L'application est une **PWA** (Progressive Web App) avec gestion d'un service_worker.
 
@@ -121,8 +123,9 @@ Depuis l'environnement de développement on peut lancer:
 - `node src/server.js` : service OP ou OP+PUBSUB selon la configuration de src/config.mjs
 - `node src/pubsub.js` : service PUBSUB (seul).
 - `node src/tools.mjs ...` : outils de _tools_.
+- `node src/genicon.mjs` : cryptage du fichier confidentiel `keys.json` en `src/icon.mjs`
 
-Selon la configuration src/config.js il faut mettre en place des folders / fichers pour supporter la base de données et l'espace de stockage.
+Selon la configuration `src/config.js` il faut mettre en place des folders / fichers pour supporter la base de données et l'espace de stockage.
 
 **En cas de test en HTTPS**, les deux fichiers `fullchain.pem privkey.pem` doivent être présents dans le folder `keys`.
 
