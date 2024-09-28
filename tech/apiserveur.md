@@ -1,3 +1,205 @@
+# Design général du _serveur_
+
+Le design général permet selon l'option de configuration choisie,
+- d'avoir un serveur HTTP unique assurant les services OP+PUBSUB,
+- soit seulement le service OP,
+- soit seulement le service PUBSUB.
+
+Les sources sont hébergés dans github sous le nom de projet `asocial-srv`
+
+### Installations prérequises
+- `git`
+- `node.js` (donc `npm`) par `nvm`, 
+- `yarn`
+- `SQLite` : `sqlite(.exe)` est utilisé pour effectuer des backup / restore
+- `DBBrowser for SQLite`  pour charger le schémas, exécuter des scripts, parcourir les tables ...
+- `VSCode`
+
+- `firebase CLI` : pour les tests en Firestore / Storage de GCP
+- `minio` : pour les tests S3
+
+## Structure du folder de développement
+`src/*`
+- contient les modules de l'application détaillés ci-après.
+
+`keys.json`
+- données confidentielles de configuration hors git.
+
+`index.js`
+- amorce du service OP quand il est géré en _Cloud function_.
+
+`index2.js`
+- amorce du service PUBSUB quand il est géré en _Cloud function_.
+
+**Folders / fichiers liés à VSCode**
+- `.vscode .yarn .editorconfig .eslintignore .eslintrc.cjs`
+
+**Folders / fichiers de données de test**
+- `keys`: **hors git**, contient le certificat HTTPS du serveur en test `fullchain.pem privkey.pem` renouvelés assez fréquemment.
+- `emulators/*`: sauvegarde des états internes des exécution d'émulation Firebase / Storage (GCP)
+- `fsstorage/* fsstorageb/*`: storage de test en File-System
+- `sqlite`: base de données de test SqLite:
+  - `schema.sql` : script de création d'initialisation de la base.
+  - `delete.sql` : script de reset des tables.
+  - `test.db3` et 2 fichiers `wal` associés
+  - `test1.bk test2.bk ...` : backups de la base dans des états privilégiés
+  - `bk.sh bk.cmd` : shell scripts de backups de la base courante en `testX.bk`
+  - `rst.sh rst.cmd` : shell scripts de restauration d'un textX.bk sur la base courante.
+
+**Fichiers liés au test / déploiement de Firestore**
+- `firebase.json` : configuration de test local
+- `firebase-debug.log ui-debug.log`
+- `firestore.indexes.json` : index Firestore
+- `firestore.rules` : droits d'accès
+
+
+**Fichier de configuration de minio pour tests S3 locaux**
+- `minio.json`
+
+**Autres folders / fichiers**
+- `node_modules/*`
+- `.gitignore` : fichiers à ne pas gérer dans git
+- `package.json`
+- `yarn.lock`
+- `webpack.config.mjs` : pour génération d'un distribuable
+- `README.md`
+- `etc/*` : quelques fichiers temporaires pour mémoire
+- `depl.sh ...` : shell scripts d'aide au déploiements.
+
+## Modules du serveur
+### Configuration: `src/config.mjs src/icon.mjs keys.json src/genicon.mjs`
+La configuration _de base_ (options par défaut, mais incomplète) est inscrite dans `src/config.mjs`.
+
+Elle est surchargée à l'exécution par la configuration spécifique donnée par l'administrateur technique exprimée dans `keys.json` qui contient:
+- les clés d'authentification d'accès aux services externes (Google Firestore / Storage), S3, de connexion aux bases ...
+- le hash de la clé d'authentification de l'administrateur technique,
+- la clé de cryptage des données dans la base,
+- les clés publique / privée VAPID de notification web-push.
+
+En conséquence en raison de la confidentialité requise pour ces données sensibles, `keys.json` n'est pas disponible dans le dépôt git du serveur.
+- en développement / déploiement, ce fichier est _crypté_ et devient le fichier `src/icon.mjs`
+- au lancement de l'application serveur, `config.mjs` importe ce fichier, en décrypte le contenu et installe toutes ses entrées dans l'objet `config` du module `config.mjs`
+- l'objet `config` est importé ensuite dans les autres modules en ayant besoin.
+
+Le cryptage de keys.json en `src/icon.mjs` est assuré par la commande :
+
+    node src/genicon.mjs
+
+### Utilitaires
+`src/api.mjs`
+- module comprenant des constantes et des classes / fonctions utilitaires devant être strictement identiques entre le serveut et l'application Web.
+
+`src/base64.mjs`
+- module lui aussi identique en application Web et serveur, principalement pour uniformité d'API utilisé dans d'autres modules(l'application Web n'a pas accès à node).
+
+`src/logger.mjs`
+- gestion du log par Winston.
+
+`src/util.mjs`
+- fonctions utilitaires diverses (dont encryption).
+
+### Module d'accès à la base de données
+Les modules présentent exactement le même API externe: les autres modules ignorent quelle implémentation est utilisée, le choix étant fixé à la configuration.
+- `src/dbSqlite.mjs`
+- `src/dbFirestore.mjs`
+
+### Modules d'accès au _Storage_
+Les modules présentent exactement le même API externe: les autres modules ignorent quelle implémentation est utilisée, le choix étant fixé à la configuration.
+- `src/storageFS.mjs` : storage sur File-System local
+- `src/storageGC.mjs` : storage Google Cloud Storage
+- `src/storageS3.mjs` : storage AWS/S3
+
+### Outil en CLI
+`src/tools.mjs`
+- propose les commandes: export-db export-fs purge-db purge-fs
+- la commande vapid génère un couple de clé publique / privée VAPID pour le push-web. La clé publique est à communiquer à la configuration de l'application Web.
+
+### Module du service PUBSUB
+`src/pubsub.mjs`
+- enregistre les connexions des sessions, leurs _heartbeat_, leurs déconnexions.
+- reçoit les avis de mise à jour des documents après chaque opération,
+- publie aux sessions les avis de mise à jour des documents de leur périmètre.
+
+### Amorce des _serveurs_ et _cloud functions_
+`src/server.js`
+- amorce d'un _serveur_ assurant les services OP+PUBSUB
+
+`index.mjs`
+- amorce _Cloud function_ d'un service OP seul.
+
+Ces deux amorces importent src/cfgexpress.mjs qui configure express pour les URLs d'entrée.
+
+`src/pubsub.js`
+- amorce d'un _serveur_ n'assurant que le service PUBSUB.
+
+`index2.mjs`
+- amorce _Cloud function_ d'un service PUBSUB seul.
+
+Ces deux amorces importent src/cfgexpress2.mjs qui configure express pour les seules URLs d'entrée du service PUBSUB.
+
+`src/cfgexpress.mjs`
+- configure les URLs d'entrée
+- l'URL /op/... invoque une fonction operation qui,
+  - instancie un objet de classe Operation correspondant à l'opération souhaitée,
+  - l'initialise
+  - invoque sa méthode run(args, dbp, storage),
+    - arguments de la requête, providers d'accès à la base et provider du storage 
+  - retourne son résultat comme retour du POST de la requête qui l'a déclenché,
+  - récupère ses exceptions et gère le retour correspondant de la requête.
+
+`src/cfgexpress2.mjs`
+- configure les URLs d'entrée
+- l'URL /pubsub/... invoque la fonction pubsub de notif.mjs.
+
+### Service PUBSUB: module `src/notif.mjs`
+Ce module expose trois entrées:
+- `genLogin` : invoqué au login d'une session.
+- `genNotif` : invoqué à une fin d'opération.
+- `genHeartbeat` : invoqué par un appel heartBeat d'une application Web.
+
+Ce module a la caractéristique d'avoir deux modes d'appel:
+- **en simple appel de fonction**: dans un serveur OP+PUBSUB, le service OP appelle les méthodes genLogin genNotif.
+- **en réception de requête HTTP**: dans un serveur PUBSUB ou une _Cloud function PUBSUB_ les appels sont reçus par requête HTTP.
+
+Quand `notif.mjs` est invoqué sur l'une des fonctions `genLogin` ou `genNotif`,
+- s'il détecte qu'il est mode _serveur OP+PUBSUB_ il invoque directement la méthode correspondante,
+- sinon il génère une requête POST à destination du _serveur / Cloud function_ PUBSUB.
+
+Ainsi vu du service OP, le fait que PUBSUB soit ou non hébergé dans le même serveur est opaque.
+
+Les commentaires et le code de `notif.mjs` sont suffisants pour le comprendre (400 lignes de code).
+
+### Les 5 modules du service OP
+`src/modele.mjs` : documentation détaillée ci-après
+- gestion d'une mémoire cache des documents espaces,
+- gestion d'une mémoire cache des documents majeurs,
+- classe Operation
+  - gestion d'une mémoire cache des documents créés / accédés au cours d'UNE opération
+  - gestion des phases d'exécution de l'opération: authentification, phase 1, phase 2 transactionnelle, phase 3, fin d'opération.
+
+`src/gendoc.mjs`
+- une classe Document (générique) à des méthodes applicables à tous les documents.
+- chaque sous-classe correspond à un Document et comporte les méthodes de traitement spécifiques associés.
+- les commentaires dans le code sont suffisants pour la compréhension.
+
+`src/taches.mjs`
+- les _tâches_ sont opérations qui ont été déclenchées par une opération mais s'exécutent en différé après la fin de l'opération l'ayant initiée. C'est la fonction de la classe `Tache` (commentée dans le code).
+- le module contient aussi la méthode correspondante aux seules opérations différées. Elles sont commentées dans le code.
+
+`src/operations3.mjs src/operations4.mjs`
+- ces 2 modules ne sont distincts que pour des raisons de taille. 
+- `operations3.mjs` est réservé aux opérations spéciales, création / gestion d'espace, de compte, synchronisation, etc.
+- `operations4.mjs` correspond à toutes les autres opérations _normales_.
+- chaque opération a une classe héritant de `Operation`:
+  - son API (ses arguments) est documentée,
+  - des commentaires explicitent le traitement.
+
+La logique applicative est répartie entre:
+- les classes Operation (`taches.mjs operations3.mjs operations4.mjs`),
+- les classes Document (`gendoc.mjs`)
+
+-----------------------------------------------------------
+
 # API : opérations supportées par le serveur
 
 Les opérations sont invoquées sur l'URL du serveur : `https://.../op/MonOp1`
@@ -205,23 +407,9 @@ Sur le serveur, le _data_ de certains documents cités dans `GenDoc.rowCryptes` 
 Ces opérations permettent à la session cliente de récupérer toutes les données du compte afin d'initialiser son état interne.
 
 # Design interne du serveur
-## Providers DB
-Deux classes _provider_ implémentent les accès `sqlite` (`src/sqlite.mjs`) pour l'une, `firestore` (`src/direstore.mjs`) pour l'autre.
-- leurs interfaces son identiques, leurs méthodes publiques ont mêmes signatures.
-- il devrait être aisé d'en ajouter d'autres dans le futur.
 
-### Synchronisations
-**sqlite**
-- une session de l'application est connectée par WebSocket qui lui notifie les mises à jour des documents `espaces comptas tribus versions` (avatar et groupe) qui la concerne et auxquelles elle s'est _abonnée_.
-- remarque: les backups en continu de la base peuvent être stockés dans un Storage.
 
-**firestore + GAE (Google App Engine)**
-Le stockage persistant est Google Firestore.
-- en mode serveur, un GAE de type **node.js** sert de serveur.
-- le stockage est assurée par Firestore : l'instance FireStore est découplée du GAE, elle a sa propre vie et sa propre URL d'accès. En conséquence elle _peut_ être accédée depuis n'importe où, et typiquement par un utilitaire d'administration sur un PC pour gérer un upload/download avec une base locale _SQLite_ sur le PC.
-- une session de l'application reçoit de Firestore les mises à jour sur les `espaces comptas tribus versions` qui la concerne, par des requêtes spécifiques `onSnapshot` adressées directement à Firestore (sans passer par le serveur).
-
-## Providers Storage
+# Annexe I: Providers Storage
 Selon le même principe trois classes _provider_ gèrent le storage et ont un même interface. Par simplification elles figurent dans `src/storage.mjs`:
 - `FsProvider` : un file-system local du serveur,
 - `S3Provider` : un Storage S3 de AWS (éventuellement _minio_).
@@ -283,69 +471,16 @@ Le provider `GcProvider` (_Google Cloud Storage_) propose bien `getUrl / putURL`
 - C'est pour celà que l'implémentation de `getUrl / putUrl` utilise l'URL générique et le transfert intermédiaire par le serveur, ce qui n'a aucune importance en test. 
 - A noter qu'in fine les fichiers se retrouvent bien dans le storage émulé, ils ont juste fait un transit supplémentaire en mémoire dans le cas d'usage de _emulator_.
 
-## Modules dans `src/`
+# Annexe II : plus d'information sur certains modules dans `src/`
 
-### `server.mjs`
-Point d'entrée du serveur:
-- initialisation du logger Winston, un peu différent en mode GAE.
-- si un argument figure en première position, c'est un fonctionnement en mode _utilitaire_ (CLI), sinon le serveur Web est initialisé.
-
-**Actions:**
-- détection de la configuration et initialisation des providers DB et Storage choisis dans la configuration. Ces données d'initialisation figure dans l'objet exporté `ctx`.
-- lancement de l'écoute Express:
-  - traitement local des URLs simples: `/fs /favicon /robots.txt`.
-  - traitement des requêtes `OPTIONS`.
-  - route les requêtes `/storage/...` vers le module `storage.mjs`.
-  - met en forme les requêtes `/op/...` les vérifie et les route vers le module `operations.mjs` qui a les classes de traitement.
-- initialise les écoutes et réceptions de messages WebSocket dans le cas de l'implémentation SQL.
-
-### `ws.mjs`
-### `ws.mjs`
-Gestion des WebSocket ouverts avec les sessions UI (sauf en _firestore_):
-- gère l'ouverture / enregistrement d'une session,
-- stocke pour chaque session la liste de ses abonnements,
-- à chaque fin de transaction dispatche sur les WebSocket des sessions les _row_ mis à jour qui les intéresse et envoie le message aux sessions UI,
-- gère un heartbeat sur les sockets pour détecter les sessions perdues.
-
-Ce module reçoit, en mode SQL, les mises à jour effectuées sur la base et pour chaque document mis à jour transmet à chaque session abonnée à ce document, la notification de sa mise à jour:
-
-**Remarque:**
-- pour les documents `comptas tribus espaces`, c'est le row du document qui sert de notification.
-- pour un document `versions` c'est aussi son row mais ceci est une notification de changement valable pour tout _l'arbre_ des sous-document d'un avatar ou d'un groupe. Les mises à jour de ces sous-documents ne sont pas transmises en tant que telles, mais seulement par l'avis d'évolution de la version du sous-arbre de leur avatar ou groupe.
-
-### `config.mjs`
-Donne directement les options de configuration qui sont accessibles par simple import.
-
-Détail de la configuration dans le document relatif au déploiement.
-
-### `api.mjs`
-Ce module **est strictement le même** que `api.mjs` dans l'application UI afin d'être certain que certaines interprétations sont bien identiques de part et d'autres:
+## `api.mjs`
+Ce module **est strictement le même** que `api.mjs` dans l'application Web afin d'être certain que certaines interprétations sont bien identiques de part et d'autres:
 - quelques constantes exportées.
 - les classes,
   - `AppExc` : format général d'une exception permettant son affichage en session, en particulier en supportant la traduction des messages.
   - `ID` : les quelques fonctions statiques permettant de déterminer depuis une id si c'est celle d'un avatar, groupe, tribu, ou celle du Comptable.
   - `Compteurs` : calcul et traitement des compteurs statistiques des compteurs statistiques des documents `comptas`.
   - `AMJ` : une date en jour sous la forme d'un entier `aaaammjj`. Cette classe gère les opérations sur ce format.
-
-### `base64.mjs`
-Module présent aussi dans l'application UI, donnant une implémentation locale de la conversion bytes / base64 afin d'éviter de dépendre de celle de Node et d'avoir deux procédés un en Web et l'autre en Node.
-
-### `util.mjs`
-Quelques fonctions générales qu'il fallait bien mettre quelque part et les quelques fonctions de cryptographie requises sur le serveur avec leur implémentation par Node.
-
-### `export.mjs`
-Utilitaires:
-- `export-db` : exportation d'un espace sur un autre espace, de SQL vers SQL, de FS vers SQL.
-- `export-st` : exporte le storage d'un espace dans un autre.
-- `purge-db`
-- `purge-st`
-- `test-db`
-- `test-st`
-
-Voir Annexe.
-
-### `storage.mjs`
-Trois classes gérant le storage selon son type `fs s3 gc` avec le même interface vu des opérations.
 
 ### `gendoc.mjs`
 La classe `GenDoc` représente un document _générique_.
@@ -447,23 +582,6 @@ Enfin cette classe expose aussi une dizaine de méthodes fonctionnelles ayant à
 _Remarque_: la logique aurait voulu que la classe `Operation` soit incrite dans le module `operations.mjs` : il a été préféré d'isoler le code générique dans un module à part, choix discutable certes mais qui se défend aussi.
 
 Plus de détail en annexe.
-
-### `operations.mjs`
-Toutes les opérations de l'API figurent dans ce module elles héritent de Operation décrite dans `modele.mjs`.
-
-Environ 80 classes: documentation de la signature dans le code.
-
-### `sqlite.mjs` `firestore.mjs`
-Ce sont les deux classes provider d'accès à la base.
-
-Elles implémente les mêmes méthodes, mêmes signatures mais code différent.
-
-Leurs signatures commentées sont à lire directement dans le code.
-
-Les méthodes `async` de lecture retournent UN row (ou null) ou un array de rows (possiblement vide). Dans quelques cas le row retourné est retourné compilé.
-
-La classe Operation interface certaines de ces méthodes en proposant un dernier paramètre supplémentaire `assert`: quand il est, au lieu de retourner null la méthode lève une exception A_SRV (assertion).
-
 
 # Annexe: détails à propos de la classe `Operation`
 Le déclenchement d'une opération `MonOp` sur réception d'une requête `.../op/MonOp`,
