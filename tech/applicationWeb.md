@@ -97,24 +97,36 @@ Ils sont affichés par **ApercuMotscles** qui permet d'éditer le choix par **Ch
 ### Gestion des dialogues
 Les objectifs de cette gestion sont:
 - de gérer une pile des dialogiues ouverts et en conséquence de pouvoir les fermer sans avoir à se rappeler de leur empilement éventuel,
-- pouvoir fermer tous les dialogiues ouverts à l'occasion d'une déconnexion.
+- pouvoir fermer tous les dialogues ouverts à l'occasion d'un changement de page ou d'une déconnexion.
 
-On distingue les dialogues,
-- **singletons**: une seule instance à un instant donné.
-  - leur variable modèle de contrôle est un **booléen** `stores.ui.d.DLxxx`
-  - ils s'ouvrent par `stores.ui.oD('DLxxx')`
-- **dialogues internes de components** pouvant avoir plusieurs instances à un instant donné:
-  - leur variable modèle de contrôle est un `{}` `stores.ui.d.DLxxx`
-  - ils s'ouvrent par `stores.ui.oD('DLxxx', this.idc)`
+Du fait qu'général un composant _peut_ être instancié plus d'une fois, les modèles gérant ses dialogues doivent être différenciés pour chaque instance.
 
-Dans les deux cas ils se ferment par `stores.ui.fD()`
+Au `setup` chaque instance de composant reçoit un identifiant unique attribué par le store `ui`:
 
-#### Dialogues internes des components
-Les _components_ peuvent avoir et en général ont, plusieurs instances affichées à l'écran à un instant donné. 
+    const ui = stores.ui
+    const idc = ui.getIdc(); onUnmounted(() => ui.closeVue(idc))
 
-Quand un component a un dialogue interne:
-- une variable `idc` (id du component) est déclarée au `setup()` (numérotation croissante de `stores.ui.idc`). Chaque _instance_ du component reçoit une identification absolue unique: `const idc = ref(ui.getIdc())`.
-- un dialogue interne `DXxx` est piloté par la variable modèle de `stores.ui.d.DXxx[idc]` où `idc` est le **numéro d'instance** du component. Cette variable dans `stores.ui.d` est déclarée comme un objet: ainsi chaque instance de dialogue interne a _une_ variable modèle de contrôle pour _chaque_ instance.
+Toutefois quelques dialogues gérés par `App.vue` ont pour `idc` la valeur `'a'`.
+
+L'ouverture d'un dialogue interne `d1` à un composant s'effectue par:
+
+    ui.oD('d1', idc) // idc ou 'a' pour les dialogues de App.vue
+
+Le fermeture du dernier dialogue ouvert s'effectue par `ui.fD()`
+
+Le dialogue `d1` est déclaré par:
+
+    <q-dialog v-model="ui.d[idc].d1" persistent>
+
+    // ou pour un dialogue de niveau App
+    <q-dialog v-model="ui.d.a.d1" persistent>
+
+**Remarques:**
+- `onUnmounted(() => ui.closeVue(idc))` permet de nettoyer les variables inutiles en sortie d'une vue.
+- au changement d'une page, tous les dialogues ouverts sont fermés.
+- c'est aussi le cas lors de la déconnexion.
+
+
 
 ## Components
 

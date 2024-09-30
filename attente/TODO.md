@@ -196,10 +196,10 @@ ____________________________________________
 
     export default {
       name: 'ApercuChat',
-      props: { },
+      props: { chatc: Object },
       components: {  BoutonHelp ... },
       computed: {
-        chat () { return this.aSt.getChat(this.ui.chatc.id, this.ui.chatc.ids) }
+        chat () { return this.aSt.getChat(this.chatc.id, this.chatc.ids) }
       },
       watch: {
         mod (ap) {
@@ -262,19 +262,20 @@ Dans une vue on peut afficher / traiter:
 - **des variables de _store_** déclarées et gérées dans un store en tant que a) getters (éventuellement avec des paramètres ce qui est à peu près une _action_), ou b) actions. Ceci correspond à un état _global_ de la session, indépendant de toute vue.
 - **des variables _locales_ à la vue** qui peuvent être déclarées, soit au _setup_, soit en _data_.
 
-### Variable de _store_
+### Structure historique - Variable de _store_
 Elle peut être déclarée à deux endroits:
 
     // Soit dans computed()
     computed: {
-      chatX () { return this.aSt.getChat(this.ui.chatc.id, this.ui.chatc.ids) }
+      chatX () { return this.aSt.getChat(this.chatc.id, this.chatc.ids) }
     }
 
     // Soit dans setup ()
-    setup () {
+    setup (props) {
+      const chatc = toRef(props, 'chatc')
       const ui = stores.ui
       const aSt = stores.avatar
-      const chatX = computed(() => aSt.getChat(ui.chatc.id, ui.chatc.ids))
+      const chatX = computed(() => aSt.getChat(chatc.value.id, chatc.value.ids))
       return { ui, aSt, chatX }
 
 Les deux formulations sont équivalentes jusqu'à présent et fonctionnent: si des items sont ajoutés au _store_ depuis une action externe à la vue, ils sont bien répercutés à l'écran.
@@ -282,17 +283,18 @@ Les deux formulations sont équivalentes jusqu'à présent et fonctionnent: si d
 #### ref() NE RÉPERCUTE PAS la réactivité
 Dans l'exemple précédent si on écrit:
 
-    setup () {
+    setup (props) {
+      const chatc = toRef(props, 'chatc')
       const ui = stores.ui
       const aSt = stores.avatar
-      const chatX = ref(aSt.getChat(ui.chatc.id, ui.chatc.ids))
+      const chatX = ref(aSt.getChat(chatc.value.id, chatc.value.ids))
       return { ui, aSt, chatX }
 
 `chatX` n'est PAS réactif: quand le _store_ évolue, chatX reste inchangé.
 
 **`ref()` rend réactive une variable locale mais ne transmet pas la réactivité de l'expression qui l'a initialisée.**
 
-### Variables locales réactives
+### Structure historique - Variables locales réactives
 Elles peuvent être déclarées:
 
     // Soit dans data ()
@@ -334,3 +336,12 @@ Si on avait voulu que `nbci` représente le nombre courant d'items on l'aurait d
     const nbci = computed(() => chatX.value.items.length)
 
 mais sa valeur ne serait plus _affectable_ (c'est le résultat d'un calcul).
+
+### Nouvelle structure
+Les variables de store se déclarent par `computed()`
+
+    const avatar = computed(() => aSt.getAvatar(props.id)) 
+
+Les variables locales se déclarent par `ref()`
+
+    const myVar = ref(3)
