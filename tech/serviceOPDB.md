@@ -1284,7 +1284,8 @@ _data_:
 
 ## Map des fichiers attachés
 - _clé_ `idf`: identifiant aléatoire généré à la création. L'identifiant _externe_ est `id` du groupe / avatar, `idf`. En pratique `idf` est un identifiant absolu.
-- _valeur_ : `{ nom, info, dh, type, gz, lg, sha }` 
+- _valeur_ : `{ idf, lg, ficN }`
+  - `ficN` : `{ nom, info, dh, type, gz, lg, sha }` crypté par la clé de la note
 
 **Identifiant de stockage :** `org/id/idf`
 - `org` : code de l'organisation.
