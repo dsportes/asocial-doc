@@ -1,30 +1,21 @@
 ## Bug / vérifications...
+- Path de DL des notes / fichiers ???
 
 ## Dev
-Contrôle de volume global d'un espace
+- Ralentissement des DL ???
+- les pages help
 
-Ralentissement des DL ???
+## Doc
+- API serveur à finir de documenter.
+- Révision de la fin du design serveur.
+- Compteurs de consommation ???
+- Comptable : stats des comptes / tickets ???
+- application Web (dont aide en ligne)
 
 Déploiements:
 - GAE
 - CF OP
 - CF PUBSUB
-
-## Doc
-- Compteurs de consommation
-- Comptable : stats des comptes / tickets
-
-## Conversion de MD en HTML
-
-  yarn add showdown
-
-- le fichier md.css contient le CSS
-- le résultat est un HTML de base mais bien formé.
-
-    node md2html.js README
-    
-    (SANS extension .md)
-
 
 ## Remarques diverses
 
